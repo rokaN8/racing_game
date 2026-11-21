@@ -20,6 +20,8 @@
 
 **Boost** — Player-triggered burst of speed.
 
+**Attitude indicator** — HUD gauge showing the Bike's pitch and roll while Airborne.
+
 **Air control** — Player rotation of the Bike while Airborne, to line up a landing.
 
 **Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is one Lap.
