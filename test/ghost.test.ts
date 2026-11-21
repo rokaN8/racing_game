@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from 'three';
 import { createGhost } from '../src/ghost';
 
 // Stand-in for the Bike's state: only what the Ghost reads.
-const bikeAt = () => ({ laps: 0, lastLap: null as number | null, pos: new Vector3(), quat: new Quaternion() });
+const bikeAt = () => ({ laps: 0, lastLap: null as number | null, lastCP: 0, lapTime: 0, pos: new Vector3(), quat: new Quaternion() });
 type Bike = ReturnType<typeof bikeAt>;
 
 // One physics step's pose for sample k of a Lap; `wobble` makes different Laps trace different paths.

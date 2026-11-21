@@ -14,7 +14,8 @@ A browser-based neon/synthwave time trial. Ride one Bike round one closed Track:
 | Brake | S / ↓ | LT |
 | Steer | A/D / ←/→ | Left stick |
 | Boost | Space / Shift | A |
-| Respawn | R | Y |
+| Respawn (retry on the finish screen) | R | Y |
+| Mute | M | — |
 
 While Airborne, W/S pitch the nose and A/D yaw, to line up the landing.
 

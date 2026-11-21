@@ -12,6 +12,13 @@
       #hud { position: fixed; top: 12px; left: 16px; color: #0ff; font-variant-numeric: tabular-nums; pointer-events: none;
              text-shadow: 0 0 6px #0ff; }
       #hud b { font-size: 22px; }
+      #hud .ahead { color: #3f6; text-shadow: 0 0 6px #3f6; } #hud .behind { color: #f44; text-shadow: 0 0 6px #f44; }
+      #center { position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #0ff;
+                text-shadow: 0 0 14px #0ff; font-variant-numeric: tabular-nums; pointer-events: none; }
+      #center .count { font-size: 96px; font-weight: 700; }
+      #center .time { font-size: 56px; font-weight: 700; }
+      #center .delta { font-size: 28px; } #center .hint { font-size: 16px; color: #fff; text-shadow: none; margin-top: 12px; }
+      #center .ahead { color: #3f6; text-shadow: 0 0 10px #3f6; } #center .behind { color: #f44; text-shadow: 0 0 10px #f44; }
       #attitude { position: fixed; right: 16px; bottom: 16px; pointer-events: none; }
       #attitude[hidden] { display: none; }
     </style>
@@ -19,6 +26,7 @@
   <body>
     <div id="msg"></div>
     <div id="hud"></div>
+    <div id="center"></div>
     <canvas id="attitude" width="140" height="140" hidden></canvas>
     <script type="module" src="/src/main.ts"></script>
   </body>
