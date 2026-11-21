@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MathUtils, type Vector3 } from 'three';
 import { bakeTrack, sampleAt } from '../src/track/bake';
 import { CHECKPOINT_CPS, CPS, GAP_SEGMENTS, HALF_WIDTH } from '../src/track/layout';
-import { newState, respawn, step, type BikeState, type Input } from '../src/bike/physics';
+import { cornerPull, newState, respawn, step, type BikeState, type Input } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
 
 const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
@@ -27,7 +27,13 @@ const ON_GROUND = 0.1; // m: everything but the Loop and the two jumps sits at y
 const loopStart = sWhere(p => p.y > ON_GROUND);                          // the Lap's first climb is the Loop
 const loopExit = sWhere((p, s) => s > loopStart + 60 && p.y < ON_GROUND); // back on the ground after it
 
-// Headless driver standing in for the player: full throttle; Boost in the last 40 m before Gap B (if asked); in the air it pitches
+// Steering autopilot: cancel the Cornering pull and steer back to the centre line.
+const steerToCentre = (st: BikeState) => {
+  const target = -st.d - cornerPull(T, st.s, st.speed, TUNING) / TUNING.steerResponse; // wanted latVel, minus the pull's share
+  return MathUtils.clamp(target / (TUNING.steerRate * Math.max(0.1, Math.min(1, Math.abs(st.speed) / 10))), -1, 1);
+};
+
+// Headless driver standing in for the player: full throttle, steering to the centre line; Boost in the last 40 m before Gap B (if asked); in the air it pitches
 // the nose onto the flight path (if asked), like a player lining up a landing, or holds a fixed pitch.
 interface Pilot { boost?: boolean; airControl?: boolean; pitch?: number }
 function pilot(st: BikeState, o: Pilot): Input {
@@ -37,7 +43,7 @@ function pilot(st: BikeState, o: Pilot): Input {
     const v = st.vel.clone().applyQuaternion(st.quat.clone().invert()).normalize(); // flight path, Bike-local
     return { ...NONE, pitch: MathUtils.clamp(-v.y * 10, -1, 1) };
   }
-  return { ...NONE, throttle: 1, boost: !!o.boost && st.s > gapB[0] - 40 && st.s < gapB[0] };
+  return { ...NONE, throttle: 1, steer: steerToCentre(st), boost: !!o.boost && st.s > gapB[0] - 40 && st.s < gapB[0] };
 }
 
 // Ride until `done` (or 90 s), logging every launch, landing and respawn.
@@ -178,6 +184,26 @@ describe('Test Track', () => {
     expect(crash.lapTimeJump).toBeCloseTo(3 + DT, 9);
     ride(st, BOOSTED, lapDone);
     expect(st.lastLap!).toBeGreaterThan(clean.lastLap! + 3);
+  });
+});
+
+describe('Cornering pull', () => {
+  it('a full-throttle Lap with no steering goes off the edge in the first turn', () => {
+    const st = newState(T);
+    for (let i = 0; i < 120 * 60 && st.mode === 'track'; i++) step(st, { ...NONE, throttle: 1 }, TUNING, T, DT);
+    expect(st.msg).toMatch(/^Off the edge/);
+    expect(st.s).toBeLessThan(gapA[0]);
+  });
+
+  it('full steer can hold every turn at top speed', () => {
+    let worst = 0;
+    for (let s = 0; s < T.L; s++) worst = Math.max(worst, Math.abs(cornerPull(T, s, TUNING.topSpeed, TUNING)));
+    expect(worst).toBeLessThan(TUNING.steerRate * TUNING.steerResponse);
+  });
+
+  it("doesn't pull on the Loop's walls and ceiling", () => {
+    for (let s = loopStart; s < loopExit; s++)
+      if (sampleAt(T, s).u.y <= 0) expect(cornerPull(T, s, TUNING.topSpeed, TUNING)).toBe(0);
   });
 });
 

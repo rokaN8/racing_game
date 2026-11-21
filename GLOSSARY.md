@@ -12,6 +12,8 @@
 
 **Track-relative gravity** — While on the Track, gravity pulls the Bike into the Track surface beneath it, not world-down. This is what lets the Bike ride walls and Loops.
 
+**Cornering pull** — The sideways push towards a turn's outside edge while on the Track. The player steers against it; it grows with speed and is softened by banking.
+
 **Airborne** — The Bike is off the Track (e.g. crossing a Gap). Gravity is world-down but weak, giving floaty hang time.
 
 **Light trail** — Glowing ribbon left behind the Bike. Purely visual; no collision.
