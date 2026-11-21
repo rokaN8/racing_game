@@ -125,11 +125,13 @@ Each milestone ends in something you can play.
 - Bake the prototype Track (`CPS` in the prototype) into the Track table.
 - On-Track riding with keyboard throttle, brake and steer, with the Hybrid chase camera.
 - Plain coloured ribbon and lines. No Airborne, Gaps or Boost yet.
+- GitHub Pages deploy: set `base: '/racing_game/'` in `vite.config.ts`, plus a GitHub Actions workflow that builds and publishes on every push to `main`.
 
 Accept when:
 - `npm run dev` opens and you can ride laps;
 - the Loop works: full throttle clears it, and coasting in at 38 m/s drops off the ceiling;
-- `npm test` passes a frame check: every sample's up is perpendicular to its tangent, and the Track wraps with no twist at the seam.
+- `npm test` passes a frame check: every sample's up is perpendicular to its tangent, and the Track wraps with no twist at the seam;
+- the build is live at `https://rokan8.github.io/racing_game/` after a push to `main`.
 
 ### M2: Airborne, Gaps, Checkpoints
 
@@ -194,4 +196,4 @@ Accept when:
 - A cornering challenge: turns are free under spline-follow.
 - A Boost meter or Boost pickups.
 - Split times.
-- Deployment: the POC runs locally only.
+- Any hosting other than GitHub Pages.
