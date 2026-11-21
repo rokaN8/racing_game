@@ -12,7 +12,7 @@ A browser-based neon/TRON, 80s synthwave Time trial:
 - it has Boost and Air control;
 - you race the clock or a Ghost of your best Lap.
 
-The look is neon wireframe on black with bloom. There are no art assets.
+The look is neon on black with bloom: solid dark shapes with glowing edges. There are no art assets.
 
 ## Locked decisions
 
@@ -24,6 +24,7 @@ The look is neon wireframe on black with bloom. There are no art assets.
 | Handling | Tuning values, control mapping, and detachment and crash rules all locked. | [Bike handling feel](https://github.com/rokaN8/racing_game/issues/5) |
 | Camera | "Hybrid" perspective chase camera: 9 m behind, 3 m up, 8 m look-ahead, FOV 102°, follow stiffness 8. It rolls with the Bike on the Track, levels to world up and follows the flight path when Airborne, and snaps on respawn. | [Chase camera](https://github.com/rokaN8/racing_game/issues/6) |
 | Track | Lap order: Loop → right turn → Gap A (top speed) → left turn → Wall-ride → Gap B (needs Boost) → right turn. 4 Checkpoints, each at least 60 m before a hazard. Geometry is fitted to the physics. | [Test Track layout](https://github.com/rokaN8/racing_game/issues/7) |
+| Bike look | Light-cycle model with ring wheels and orientation cues (fin, deck chevron, white front, orange tail, orange underglow). Attitude indicator on the HUD while Airborne. See M7. | [Wayfinder: Bike look](https://github.com/rokaN8/racing_game/issues/22) |
 | Scope | Boost is cooldown-based. Minimal HUD. Ghost of the best Lap, recorded as poses. | [First build slice and POC spec](https://github.com/rokaN8/racing_game/issues/8) |
 
 ### Handling values
@@ -82,6 +83,8 @@ While Airborne, the left stick does Air control: forward is nose down.
 
 Shows lap time (penalties included), speed, Boost ready/cooldown, and last and best Lap.
 
+While Airborne it also shows the Attitude indicator (see M7).
+
 It's plain HTML over the canvas.
 
 ### Ghost
@@ -92,7 +95,7 @@ It's plain HTML over the canvas.
 - Keep the best Lap's recording in memory and in `localStorage`.
 - Wrap every storage read and write in try/catch. The game must work without storage.
 
-**Playback.** Replay it as a translucent wireframe Bike, sample by sample in step with the run's own steps.
+**Playback.** Replay it as a translucent white Bike, sample by sample in step with the run's own steps.
 
 ## Module layout
 
@@ -107,8 +110,9 @@ src/
   bike/tuning.ts   # locked handling values
   input.ts         # keyboard + gamepad → { throttle, brake, steer, pitch, boost }
   camera.ts        # Hybrid chase camera
-  render/scene.ts  # Track ribbon and edges, Bike mesh, grid, bloom, Light trail
-  hud.ts
+  render/scene.ts  # Track ribbon and edges, grid, bloom, Light trail
+  render/bike.ts   # Bike and Ghost Bike models, wheel spin, Boost glow
+  hud.ts           # HUD text + Attitude indicator
   ghost.ts         # record / store / replay
 test/track.test.ts # headless acceptance check (Vitest)
 ```
@@ -184,6 +188,44 @@ Accept when:
 - the Ghost survives a page reload;
 - the game still runs with storage blocked.
 
+### M7: Bike look
+
+Replaces the wireframe box with a light-cycle model whose orientation reads at a glance, plus an Attitude indicator while Airborne. Source: [`prototype/bike-look`](https://github.com/rokaN8/racing_game/tree/prototype/bike-look), variant C in `src/render/bike-variants.prototype.ts` and the HUD block in `src/render/air-aids.prototype.ts`. Rewrite properly; don't copy the prototype as-is.
+
+**Model** (Bike local: +z forward, +y up, +x left; Track surface at y = 0; fits the old ~0.7 × 2.2 m footprint):
+- Two glowing cyan ring wheels, radius 0.36 m, centred at z = ±0.72. Each has a dark hub disc with cyan edges.
+- A low wedge body between them, about 2.05 m long and 0.4 m wide.
+- Every body part is solid near-black (`0x040a14`, below the bloom threshold) with thick cyan `Line2` edges, so hidden lines stay hidden.
+
+**Orientation cues:**
+- **Up / roll:** a tall white dorsal fin over the rear half.
+- **Heading:** a flat white chevron on the deck, tip forward.
+- **Front / back:** a white headlight at the nose; an orange-red tail light (`0xff4a10`).
+- **Underside:** an orange underglow (`0xff7a00`, additive), seen only from below.
+- No cue uses the Track's magenta or the Checkpoints' yellow.
+
+**Wheel spin:** each hub carries 3 short white dashes. The spin is scaled down from the true rolling rate, so that it shows about 4 turns a second at top speed (55 m/s) and rises linearly with speed. While Airborne, the wheels keep the spin they had at take-off.
+
+**Boost glow:** while Boost is active, the Bike's cyan edges and rings brighten towards white (bigger bloom) and the tail light flares. Both fade back over the last 0.3 s of Boost. The Light trail is unchanged.
+
+**Ghost Bike:** the same model with every part translucent white (fin, chevron and underglow included). It has no wheel spin and no Boost glow. The recording format is unchanged.
+
+**Light trail:** starts at the new tail, (0, 0.4, −1.05) in Bike-local coordinates. Its style is unchanged from M5.
+
+**Attitude indicator** (in `hud.ts`):
+- An artificial horizon about 140 px across, bottom-right, shown only while Airborne.
+- The horizon line (cyan) rotates with the Bike's roll and shifts with its pitch, against world up.
+- The sky half is near-black; the ground half is dark orange-brown, matching the underglow.
+- A fixed white Bike symbol sits in the centre.
+
+Accept when:
+- it holds 60 fps on the dev machine at 1080p;
+- the gameplay values are unchanged, so M4's test still passes;
+- Ghost playback still traces the best Lap exactly;
+- the Attitude indicator shows only while Airborne and tracks pitch and roll;
+- wheel spin rises with speed with no visible strobing;
+- Boost visibly brightens the Bike and its tail light, and the effect fades as Boost ends.
+
 ## Out of scope
 
 - Audio.
@@ -192,6 +234,7 @@ Accept when:
 - A Track editor or procedural Tracks.
 - More than one Track.
 - Polished art.
+- Bike lean into steer and suspension squash on landing (revisit after M7).
 - Drift.
 - A cornering challenge: turns are free under spline-follow.
 - A Boost meter or Boost pickups.
