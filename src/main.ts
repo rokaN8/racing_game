@@ -11,7 +11,7 @@ import { CHECKPOINT_CPS, CPS, GAP_SEGMENTS, HALF_WIDTH } from './track/layout';
 
 const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
 const st = newState(T);
-const { scene, bike, ghostBike, trail, resizeLines } = createScene(T);
+const { scene, bike, ghostBike, updateBike, trail, resizeLines } = createScene(T);
 const { camera, update: updateCamera } = createChaseCamera();
 const msgEl = document.getElementById('msg')!;
 onRespawn(() => respawn(st, T, TUNING, 'Respawn'));
@@ -49,9 +49,9 @@ renderer.setAnimationLoop(now => {
   }
   if (st.respawns !== seenRespawns) { seenRespawns = st.respawns; snap = true; }
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
-  drawHud(st);
   if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
-  bike.position.copy(st.pos); bike.quaternion.copy(shownQuat);
+  bike.position.copy(st.pos); bike.quaternion.copy(shownQuat); updateBike(st, frame);
+  drawHud(st, shownQuat);
   ghostBike.visible = ghost.pose(ghostBike.position, ghostBike.quaternion);
   updateCamera(st, shownQuat, frame, snap);
   snap = false;

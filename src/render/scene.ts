@@ -1,7 +1,7 @@
-// Track ribbon and thick neon edges, wireframe Bike and Ghost Bike, grid floor, Light trail, bloom.
+// Track ribbon and thick neon edges, Bike and Ghost Bike (from bike.ts), grid floor, Light trail, bloom.
 import {
-  AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, ConeGeometry, DoubleSide, EdgesGeometry, Float32BufferAttribute,
-  GridHelper, Group, HalfFloatType, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector2, Vector3,
+  AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, Float32BufferAttribute,
+  GridHelper, HalfFloatType, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector2, Vector3,
   WebGLRenderTarget,
   type Camera, type WebGLRenderer,
 } from 'three';
@@ -13,8 +13,9 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import type { Track } from '../track/bake';
+import { createBikeModels, TRAIL_ANCHOR } from './bike';
 
-const NEON = 0xff2bd6, CYAN = 0x00ffff, YELLOW = 0xffe600;
+const NEON = 0xff2bd6, YELLOW = 0xffe600;
 
 export function createScene(T: Track) {
   const scene = new Scene();
@@ -47,23 +48,14 @@ export function createScene(T: Track) {
   const grid = new GridHelper(3000, 150, 0x331144, 0x1a0828);
   grid.position.y = T.minY - 2; scene.add(grid);
 
-  const bike = new Group();
-  const body = new LineSegments(new EdgesGeometry(new BoxGeometry(0.7, 0.5, 2.2)), new LineBasicMaterial({ color: CYAN }));
-  body.position.y = 0.4;
-  const nose = new Mesh(new ConeGeometry(0.3, 0.8, 4), new MeshBasicMaterial({ color: CYAN }));
-  nose.rotation.x = Math.PI / 2; nose.position.set(0, 0.4, 1.5);
-  bike.add(body, nose); scene.add(bike);
-
-  // Ghost Bike: a copy of the Bike in translucent white, hidden until there is a best Lap to replay
-  const ghostLook = { color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false };
-  const ghostBike = bike.clone();
-  (ghostBike.children[0] as LineSegments).material = new LineBasicMaterial(ghostLook);
-  (ghostBike.children[1] as Mesh).material = new MeshBasicMaterial({ ...ghostLook, opacity: 0.2 });
-  ghostBike.visible = false; scene.add(ghostBike);
+  const bikeModels = createBikeModels(m => lineMats.push(m));
+  const { bike, ghostBike } = bikeModels;
+  ghostBike.visible = false; // hidden until there is a best Lap to replay
+  scene.add(bike, ghostBike);
 
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
-  return { scene, bike, ghostBike, trail: createTrail(scene), resizeLines };
+  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines };
 }
 
 // Light trail: visual-only ribbon from the Bike's tail, newest point first, fading to black (additive, so black = gone).
@@ -86,7 +78,7 @@ function createTrail(scene: Scene) {
 
   const tail = new Vector3(), side = new Vector3();
   const tailEdge = (p: Vector3, q: Quaternion) => { // left and right corners of the ribbon at the Bike's tail
-    tail.set(0, 0.4, -1.1).applyQuaternion(q).add(p);
+    tail.set(0, TRAIL_ANCHOR.y, TRAIL_ANCHOR.z).applyQuaternion(q).add(p);
     side.set(TRAIL_HALF_WIDTH, 0, 0).applyQuaternion(q);
     return [tail.x - side.x, tail.y - side.y, tail.z - side.z, tail.x + side.x, tail.y + side.y, tail.z + side.z];
   };
