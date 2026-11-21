@@ -1,6 +1,6 @@
 // The test Track (docs/poc-spec.md → Test Track layout, ticket #7). Fitted to the locked physics.
 // Control points [x, y, z, bankDeg]. Closed centripetal Catmull-Rom. y is up; + bank tilts up toward the right.
-// Lap: Loop → right turn → Gap A → left turn → Wall-ride → Gap B → right turn onto the home straight.
+// Lap: Loop → right turn → Rollercoaster (two steep hills) → left turn → Wall-ride → Gap B → right turn onto the home straight.
 export type ControlPoint = [x: number, y: number, z: number, bankDeg: number];
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -12,7 +12,7 @@ const loop = (z0: number): ControlPoint[] => Array.from({ length: 7 }, (_, k) =>
 });
 
 // Gaps have no geometry, but their control points still set the lip angle: the spline leaves a lip
-// along the chord from the point before it to the point after it, so 23 and 41 sit on that 18°/8° line.
+// along the chord from the point before it to the point after it, so 41 sits on that 8° line.
 
 // Interior points of a flat turn: centre (cx, cz), radius r, angle a0 → a1 (deg; 0 = +x, 90 = +z).
 const arc = (cx: number, cz: number, r: number, a0: number, a1: number, n: number, bank: number): ControlPoint[] =>
@@ -27,9 +27,10 @@ export const CPS: ControlPoint[] = [
   [12, 0, 170, 0],                                      // 12
   ...arc(-28, 170, 40, 0, 180, 4, 30),                  // 13-16 banked right turn
   [-68, 0, 170, 0], [-68, 0, 140, 0],                   // 17-18; 17 = CP 3
-  [-68, 1.2, 110, 0], [-68, 4.7, 80, 0], [-68, 10.5, 51, 0], [-68, 18.8, 21, 0], // 19-22 ramp up to 18°, 22 = Gap A lip
-  [-68, 33.3, -19, 0], [-68, 30.8, -59, 0], [-68, 26.2, -99, 0], // 23-25 Gap A: roughly the 55 m/s flight; 25 = landing start
-  [-68, 15.5, -134, 0], [-68, 9.1, -151, 0], [-68, 2.8, -169, 0], [-68, 0, -195, 0], // 26-29 -20° landing, flattening
+  [-68, 0, 100, 0], [-68, 12, 84, 0], [-68, 24, 66, 0], [-68, 24, 50, 0], [-68, 1, 22, 0], // 19-23 Rollercoaster hill 1: ~35° up and down, rounded crest
+  [-68, 1, 0, 0],                                       // 24 valley
+  [-68, 16, -25, 0], [-68, 24, -45, 0], [-68, 14, -65, 0], [-68, 0.5, -165, 0], // 25-28 hill 2, run-out into the turn
+  [-68, 0, -195, 0],                                    // 29
   ...arc(-108, -195, 40, 0, -90, 3, -30),               // 30-32 banked left turn
   [-108, 0, -235, 0], [-130, 0, -235, 0],               // 33-34
   [-170, 0, -235, 90], [-250, 0, -235, 90],             // 35-36 Wall-ride: 0→90° over 40 m, hold 80 m
@@ -43,6 +44,6 @@ export const CPS: ControlPoint[] = [
   [0, 0, -275, 0], [0, 0, -180, 0], [0, 0, -90, 0],     // 56-58
 ];
 
-export const GAP_SEGMENTS = [22, 23, 24, 40, 41]; // segments (cp i → i+1) with no geometry: Gap A, Gap B
+export const GAP_SEGMENTS = [40, 41]; // segments (cp i → i+1) with no geometry: Gap B
 export const CHECKPOINT_CPS = [0, 1, 17, 37];
 export const HALF_WIDTH = 4;

@@ -23,7 +23,7 @@ The look is neon on black with bloom: solid dark shapes with glowing edges. Ther
 | Track mesh | Centripetal Catmull-Rom spline with a bank angle per point. Baked to an arc-length table of rotation-minimizing frames (double reflection), with the closure twist spread along the Lap. Gaps are distance ranges with no geometry. | [Track meshes](https://github.com/rokaN8/racing_game/issues/4) |
 | Handling | Tuning values, control mapping, and detachment and crash rules all locked. | [Bike handling feel](https://github.com/rokaN8/racing_game/issues/5) |
 | Camera | "Hybrid" perspective chase camera: 9 m behind, 3 m up, 8 m look-ahead, FOV 102°, follow stiffness 8. It rolls with the Bike on the Track, levels to world up and follows the flight path when Airborne, and snaps on respawn. | [Chase camera](https://github.com/rokaN8/racing_game/issues/6) |
-| Track | Lap order: Loop → right turn → Gap A (top speed) → left turn → Wall-ride → Gap B (top speed) → right turn. 4 Checkpoints, each at least 60 m before a hazard. Geometry is fitted to the physics. | [Test Track layout](https://github.com/rokaN8/racing_game/issues/7) |
+| Track | Lap order: Loop → right turn → Rollercoaster (two steep hills) → left turn → Wall-ride → Gap B (top speed) → right turn. 4 Checkpoints, each at least 60 m before a hazard. Geometry is fitted to the physics. | [Test Track layout](https://github.com/rokaN8/racing_game/issues/7) |
 | Bike look | Light-cycle model with ring wheels and orientation cues (fin, deck chevron, white front, orange tail, orange underglow). Attitude indicator on the HUD while Airborne. See M7. | [Wayfinder: Bike look](https://github.com/rokaN8/racing_game/issues/22) |
 | Cornering | Turns push the Bike towards the outside edge (Cornering pull); the player must steer to stay on. See M8. | — |
 | Scope | Boost is cooldown-based. Minimal HUD. Ghost of the best Lap, recorded as poses. | [First build slice and POC spec](https://github.com/rokaN8/racing_game/issues/8) |
@@ -167,7 +167,7 @@ Accept when:
 - It replaces the prototype Track.
 
 Accept when the headless check passes:
-- a full-throttle Lap with no Boost lands both Gaps (Gaps shortened for difficulty; Gap B no longer needs Boost);
+- a full-throttle Lap with no Boost rides the Rollercoaster and lands Gap B (Gap A replaced by the Rollercoaster; Gap B shortened, no longer needs Boost);
 - a full-throttle Lap with Boost at Gap B is also clean and takes about 40 s (±5 s);
 - a respawn at each Checkpoint at 20 m/s clears the hazard that follows it.
 

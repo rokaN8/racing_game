@@ -9,13 +9,13 @@ const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
 const DT = 1 / 120;
 const NONE: Input = { throttle: 0, brake: 0, steer: 0, pitch: 0, boost: false };
 
-// Gaps in Lap order as [start, end] distances: Gap A, Gap B.
+// The Gap as [start, end] distances (only Gap B is left).
 const gaps: [number, number][] = [];
 for (let i = 0; i < T.N; i++) if (T.gap[i] && !T.gap[i - 1]) {
   let j = i; while (T.gap[j]) j++;
   gaps.push([i * T.ds, j * T.ds]);
 }
-const [gapA, gapB] = gaps;
+const [gapB] = gaps;
 const cpBefore = (s: number) => T.cpS.findLastIndex(c => c <= s);
 // Distance of the first Track sample matching `where`; throws rather than letting a test pass on a miss.
 const sWhere = (where: (p: Vector3, s: number) => boolean) => {
@@ -23,9 +23,11 @@ const sWhere = (where: (p: Vector3, s: number) => boolean) => {
   if (i < 0) throw new Error('no Track sample matches');
   return i * T.ds;
 };
-const ON_GROUND = 0.1; // m: everything but the Loop and the two jumps sits at y = 0
+const ON_GROUND = 0.1; // m: everything but the Loop, the Rollercoaster and Gap B sits at y = 0
 const loopStart = sWhere(p => p.y > ON_GROUND);                          // the Lap's first climb is the Loop
 const loopExit = sWhere((p, s) => s > loopStart + 60 && p.y < ON_GROUND); // back on the ground after it
+const rcStart = sWhere((p, s) => s > loopExit && p.y > ON_GROUND);         // next climb: the Rollercoaster
+const rcEnd = sWhere((p, s) => s > rcStart + 200 && p.y < ON_GROUND);     // back on the ground after both hills
 
 // Steering autopilot: cancel the Cornering pull and steer back to the centre line.
 const steerToCentre = (st: BikeState) => {
@@ -119,27 +121,19 @@ describe('Loop', () => {
 });
 
 describe('Test Track', () => {
-  it('a full-throttle Lap with no Boost lands both Gaps', () => {
+  it('a full-throttle Lap with no Boost rides the Rollercoaster and lands Gap B', () => {
     const ev = ride(newState(T), { airControl: true }, st => st.respawns > 0 || lapDone(st));
-    expect(ev.map(e => e.kind)).toEqual(['launch', 'land', 'launch', 'land']);
-    expect(ev[0].s).toBeCloseTo(gapA[0], 0);
-    expect(ev[1].s).toBeGreaterThan(gapA[1]);
-    expect(ev[2].s).toBeCloseTo(gapB[0], 0);
-    expect(ev[3].s).toBeGreaterThan(gapB[1]);
+    expect(ev.map(e => e.kind)).toEqual(['launch', 'land']);
+    expect(ev[0].s).toBeCloseTo(gapB[0], 0);
+    expect(ev[1].s).toBeGreaterThan(gapB[1]);
   });
 
   it('a full-throttle Lap with Boost at Gap B is clean and takes about 40 s', () => {
     const st = newState(T);
     const ev = ride(st, BOOSTED, lapDone);
-    expect(ev.map(e => e.kind)).toEqual(['launch', 'land', 'launch', 'land']);
+    expect(ev.map(e => e.kind)).toEqual(['launch', 'land']);
     expect(st.lastLap!).toBeGreaterThan(35);
     expect(st.lastLap!).toBeLessThan(45);
-  });
-
-  it('Gap A needs Air control: without it the downslope landing crashes', () => {
-    const ev = ride(newState(T), {}, st => st.respawns > 0);
-    expect(ev.at(-1)!.msg).toMatch(/^Crashed/);
-    expect(ev.at(-1)!.s).toBeCloseTo(T.cpS[cpBefore(gapA[0])], 6);
   });
 
   it('Gap B fails at 35 m/s and clears at 55 and 65 m/s', () => {
@@ -153,9 +147,9 @@ describe('Test Track', () => {
     expect(jumpGapB(65).at(-1)!.kind).toBe('land');
   });
 
-  // CP 1 and 2 lead into the Loop, CP 3 into Gap A, CP 4 into Gap B.
+  // CP 1 and 2 lead into the Loop, CP 3 into the Rollercoaster, CP 4 into Gap B.
   it.each([1, 2, 3, 4])('a respawn at Checkpoint %i at 20 m/s clears the hazard that follows it', k => {
-    const hazardEnd = [loopExit, loopExit, gapA[1], gapB[1]][k - 1] + 30;
+    const hazardEnd = [loopExit, loopExit, rcEnd, gapB[1]][k - 1] + 30;
     const st = newState(T);
     st.lastCP = k - 1;
     respawn(st, T, TUNING, 'test');
@@ -164,13 +158,13 @@ describe('Test Track', () => {
     const ev = ride(st, BOOSTED, st => st.respawns > respawns || (st.mode === 'track' && st.s > hazardEnd));
     expect(st.respawns).toBe(respawns);
     expect(st.s).toBeGreaterThan(hazardEnd);
-    expect(ev.map(e => e.kind)).toEqual(k > 2 ? ['launch', 'land'] : []);
+    expect(ev.map(e => e.kind)).toEqual(k === 4 ? ['launch', 'land'] : []);
   });
 
   it('each Checkpoint sits at least 60 m before the hazard that follows it', () => {
     expect(loopStart - T.cpS[0]).toBeGreaterThanOrEqual(60);
     expect(loopStart - T.cpS[1]).toBeGreaterThanOrEqual(60);
-    expect(gapA[0] - T.cpS[2]).toBeGreaterThanOrEqual(60);
+    expect(rcStart - T.cpS[2]).toBeGreaterThanOrEqual(60);
     expect(gapB[0] - T.cpS[3]).toBeGreaterThanOrEqual(60);
   });
 
@@ -178,9 +172,9 @@ describe('Test Track', () => {
     const clean = newState(T);
     ride(clean, BOOSTED, lapDone);
     const st = newState(T);
-    const crash = ride(st, { pitch: 1 }, st => st.respawns > 0).at(-1)!; // nose held down through Gap A
+    const crash = ride(st, { pitch: 1 }, st => st.respawns > 0).at(-1)!; // nose held down through Gap B
     expect(crash.msg).toMatch(/^Crashed/);
-    expect(crash.s).toBeCloseTo(T.cpS[cpBefore(gapA[0])], 6);
+    expect(crash.s).toBeCloseTo(T.cpS[cpBefore(gapB[0])], 6);
     expect(st.speed).toBe(20);
     expect(crash.lapTimeJump).toBeCloseTo(3 + DT, 9);
     ride(st, BOOSTED, lapDone);
@@ -193,7 +187,7 @@ describe('Cornering pull', () => {
     const st = newState(T);
     for (let i = 0; i < 120 * 60 && st.mode === 'track'; i++) step(st, { ...NONE, throttle: 1 }, TUNING, T, DT);
     expect(st.msg).toMatch(/^Off the edge/);
-    expect(st.s).toBeLessThan(gapA[0]);
+    expect(st.s).toBeLessThan(rcStart);
   });
 
   it('full steer can hold every turn at top speed', () => {

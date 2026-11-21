@@ -1,6 +1,6 @@
 # racing_game
 
-A browser-based neon/synthwave time trial. Ride one Bike round one closed Track: a Loop, a Wall-ride, two Gaps, and turns you have to steer through. Race the clock or a Ghost of your best Lap.
+A browser-based neon/synthwave time trial. Ride one Bike round one closed Track: a Loop, a Rollercoaster, a Wall-ride, a Gap, and turns you have to steer through. Race the clock or a Ghost of your best Lap.
 
 ![Start line, looking towards the Loop](docs/img/screenshot.png)
 
