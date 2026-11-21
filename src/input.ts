@@ -1,4 +1,4 @@
-// Keyboard → physics Input. Gamepad, Boost and Air control arrive in M2/M3.
+// Keyboard → physics Input. Gamepad and Boost arrive in M3.
 import type { Input } from './bike/physics';
 
 const keys = new Set<string>();
@@ -11,8 +11,12 @@ addEventListener('blur', () => keys.clear());
 
 const k = (...codes: string[]) => (codes.some(c => keys.has(c)) ? 1 : 0);
 
+export const onRespawnKey = (fn: () => void) =>
+  addEventListener('keydown', e => { if (e.code === 'KeyR' && !e.repeat) fn(); });
+
 export const readInput = (): Input => ({
   throttle: k('KeyW', 'ArrowUp'),
   brake: k('KeyS', 'ArrowDown'),
   steer: k('KeyD', 'ArrowRight') - k('KeyA', 'ArrowLeft'),
+  pitch: k('KeyW', 'ArrowUp') - k('KeyS', 'ArrowDown'), // Airborne: W nose down, S nose up
 });

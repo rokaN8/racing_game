@@ -1,15 +1,16 @@
-// Ported from prototypes/bike-handling.html. Gaps and Checkpoints come back in M2.
+// Ported from prototypes/bike-handling.html.
 import { CatmullRomCurve3, MathUtils, Vector3 } from 'three';
 import type { ControlPoint } from './layout';
 
 export interface Track {
   L: number; N: number; ds: number;
   pos: Vector3[]; tan: Vector3[]; up: Vector3[]; rgt: Vector3[];
-  halfWidth: number;
+  gap: boolean[]; cpS: number[]; // per-sample "no geometry here"; Checkpoint distances
+  halfWidth: number; minY: number;
 }
-export interface Frame { p: Vector3; t: Vector3; u: Vector3; r: Vector3 }
+export interface Frame { p: Vector3; t: Vector3; u: Vector3; r: Vector3; gap: boolean }
 
-export function bakeTrack(cps: ControlPoint[], halfWidth: number): Track {
+export function bakeTrack(cps: ControlPoint[], gapSegs: number[], cpIdx: number[], halfWidth: number): Track {
   const n = cps.length;
   const curve = new CatmullRomCurve3(cps.map(c => new Vector3(c[0], c[1], c[2])), true, 'centripetal');
   curve.arcLengthDivisions = 6000; curve.updateArcLengths();
@@ -33,14 +34,17 @@ export function bakeTrack(cps: ControlPoint[], halfWidth: number): Track {
   // closed Track: spread the frame's twist mismatch at the seam evenly along its length
   const end = rmf(N - 1, 0, up[N - 1]);
   const err = Math.atan2(new Vector3().crossVectors(end, up[0]).dot(tan[0]), end.dot(up[0]));
-  const rgt: Vector3[] = [];
+  const rgt: Vector3[] = [], gap: boolean[] = [];
   for (let i = 0; i < N; i++) {
     const a = seg[i], b = (a + 1) % n;
     const bank = MathUtils.degToRad(cps[a][3] + (cps[b][3] - cps[a][3]) * frac[i]); // + bank tilts up toward the right
     up[i].applyAxisAngle(tan[i], err * i / N + bank).normalize();
     rgt.push(new Vector3().crossVectors(tan[i], up[i]));
+    gap.push(gapSegs.includes(a));
   }
-  return { L, N, ds, pos, tan, up, rgt, halfWidth };
+  const cpS = cpIdx.map(k => seg.indexOf(k) * ds);
+  const minY = Math.min(...pos.map(p => p.y));
+  return { L, N, ds, pos, tan, up, rgt, gap, cpS, halfWidth, minY };
 }
 
 export function sampleAt(T: Track, s: number): Frame {
@@ -49,5 +53,5 @@ export function sampleAt(T: Track, s: number): Frame {
   const p = T.pos[i].clone().lerp(T.pos[j], f);
   const t = T.tan[i].clone().lerp(T.tan[j], f).normalize();
   const u = T.up[i].clone().lerp(T.up[j], f); u.addScaledVector(t, -u.dot(t)).normalize();
-  return { p, t, u, r: new Vector3().crossVectors(t, u) };
+  return { p, t, u, r: new Vector3().crossVectors(t, u), gap: T.gap[i] };
 }
