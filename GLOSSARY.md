@@ -29,3 +29,13 @@
 **Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is one Lap.
 
 **Lap** — One full trip round the closed Track, start line to start line.
+
+**Menu** — The screens outside a run: Track select, High scores and Controls. Has its own Song.
+
+**Track select** — Menu screen where the player picks which Track to race.
+
+**High scores** — The fastest Lap times kept per Track, top five, on this device only. The player can reset them. The fastest one's Lap is that Track's Ghost.
+
+**Pause** — Stopping a run mid-Lap, with the choice to resume, restart or quit to the Menu.
+
+**Song** — A looping piece of background music. Each Track has its own, and so does the Menu.
