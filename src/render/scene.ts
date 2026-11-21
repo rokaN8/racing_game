@@ -1,4 +1,4 @@
-// Track ribbon and thick neon edges, wireframe Bike, grid floor, Light trail, bloom.
+// Track ribbon and thick neon edges, wireframe Bike and Ghost Bike, grid floor, Light trail, bloom.
 import {
   AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, ConeGeometry, DoubleSide, EdgesGeometry, Float32BufferAttribute,
   GridHelper, Group, HalfFloatType, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector2, Vector3,
@@ -54,9 +54,16 @@ export function createScene(T: Track) {
   nose.rotation.x = Math.PI / 2; nose.position.set(0, 0.4, 1.5);
   bike.add(body, nose); scene.add(bike);
 
+  // Ghost Bike: a copy of the Bike in translucent white, hidden until there is a best Lap to replay
+  const ghostLook = { color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false };
+  const ghostBike = bike.clone();
+  (ghostBike.children[0] as LineSegments).material = new LineBasicMaterial(ghostLook);
+  (ghostBike.children[1] as Mesh).material = new MeshBasicMaterial({ ...ghostLook, opacity: 0.2 });
+  ghostBike.visible = false; scene.add(ghostBike);
+
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
-  return { scene, bike, trail: createTrail(scene), resizeLines };
+  return { scene, bike, ghostBike, trail: createTrail(scene), resizeLines };
 }
 
 // Light trail: visual-only ribbon from the Bike's tail, newest point first, fading to black (additive, so black = gone).

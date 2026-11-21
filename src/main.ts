@@ -2,6 +2,7 @@ import { WebGLRenderer } from 'three';
 import { newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
 import { createChaseCamera } from './camera';
+import { createGhost } from './ghost';
 import { drawHud } from './hud';
 import { onRespawn, readInput } from './input';
 import { createBloom, createScene } from './render/scene';
@@ -10,10 +11,14 @@ import { CHECKPOINT_CPS, CPS, GAP_SEGMENTS, HALF_WIDTH } from './track/layout';
 
 const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
 const st = newState(T);
-const { scene, bike, trail, resizeLines } = createScene(T);
+const { scene, bike, ghostBike, trail, resizeLines } = createScene(T);
 const { camera, update: updateCamera } = createChaseCamera();
 const msgEl = document.getElementById('msg')!;
 onRespawn(() => respawn(st, T, TUNING, 'Respawn'));
+let storage: Storage | null = null;
+try { storage = localStorage; } catch { /* blocked: the Ghost lives in memory only */ }
+const ghost = createGhost(storage);
+st.best = ghost.bestTime; // the HUD's best survives a reload with the Ghost
 
 const renderer = new WebGLRenderer({ antialias: true });
 // ponytail: pixel ratio capped at 2 since bloom runs at full resolution; drop to 1 or render bloom at half size if a dense screen misses 60 fps.
@@ -38,6 +43,7 @@ renderer.setAnimationLoop(now => {
   const inp = readInput();
   while (acc >= DT) {
     step(st, inp, TUNING, T, DT); acc -= DT;
+    ghost.record(st);
     trail.update(st.pos, st.quat, st.respawns !== trailRespawns); // also catches an R-key respawn between steps
     trailRespawns = st.respawns;
   }
@@ -46,6 +52,7 @@ renderer.setAnimationLoop(now => {
   drawHud(st);
   if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
   bike.position.copy(st.pos); bike.quaternion.copy(shownQuat);
+  ghostBike.visible = ghost.pose(ghostBike.position, ghostBike.quaternion);
   updateCamera(st, shownQuat, frame, snap);
   snap = false;
   bloom.render();
