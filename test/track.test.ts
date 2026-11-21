@@ -1,10 +1,60 @@
 import { describe, expect, it } from 'vitest';
+import { MathUtils, type Vector3 } from 'three';
 import { bakeTrack, sampleAt } from '../src/track/bake';
 import { CHECKPOINT_CPS, CPS, GAP_SEGMENTS, HALF_WIDTH } from '../src/track/layout';
-import { newState, step } from '../src/bike/physics';
+import { newState, respawn, step, type BikeState, type Input } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
 
 const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
+const DT = 1 / 120;
+const NONE: Input = { throttle: 0, brake: 0, steer: 0, pitch: 0, boost: false };
+
+// Gaps in Lap order as [start, end] distances: Gap A, Gap B.
+const gaps: [number, number][] = [];
+for (let i = 0; i < T.N; i++) if (T.gap[i] && !T.gap[i - 1]) {
+  let j = i; while (T.gap[j]) j++;
+  gaps.push([i * T.ds, j * T.ds]);
+}
+const [gapA, gapB] = gaps;
+const cpBefore = (s: number) => T.cpS.findLastIndex(c => c <= s);
+// Distance of the first Track sample matching `where`; throws rather than letting a test pass on a miss.
+const sWhere = (where: (p: Vector3, s: number) => boolean) => {
+  const i = T.pos.findIndex((p, i) => where(p, i * T.ds));
+  if (i < 0) throw new Error('no Track sample matches');
+  return i * T.ds;
+};
+const ON_GROUND = 0.1; // m: everything but the Loop and the two jumps sits at y = 0
+const loopStart = sWhere(p => p.y > ON_GROUND);                          // the Lap's first climb is the Loop
+const loopExit = sWhere((p, s) => s > loopStart + 60 && p.y < ON_GROUND); // back on the ground after it
+
+// Headless driver standing in for the player: full throttle; Boost in the last 40 m before Gap B (if asked); in the air it pitches
+// the nose onto the flight path (if asked), like a player lining up a landing, or holds a fixed pitch.
+interface Pilot { boost?: boolean; airControl?: boolean; pitch?: number }
+function pilot(st: BikeState, o: Pilot): Input {
+  if (st.mode === 'air') {
+    if (o.pitch !== undefined) return { ...NONE, pitch: o.pitch };
+    if (!o.airControl) return NONE;
+    const v = st.vel.clone().applyQuaternion(st.quat.clone().invert()).normalize(); // flight path, Bike-local
+    return { ...NONE, pitch: MathUtils.clamp(-v.y * 10, -1, 1) };
+  }
+  return { ...NONE, throttle: 1, boost: !!o.boost && st.s > gapB[0] - 40 && st.s < gapB[0] };
+}
+
+// Ride until `done` (or 90 s), logging every launch, landing and respawn.
+interface RideEvent { kind: 'launch' | 'land' | 'respawn'; s: number; msg: string; lapTimeJump: number }
+function ride(st: BikeState, o: Pilot, done: (st: BikeState) => boolean) {
+  const events: RideEvent[] = [];
+  for (let i = 0; i < 120 * 90 && !done(st); i++) {
+    const mode = st.mode, respawns = st.respawns, lapTime = st.lapTime;
+    step(st, pilot(st, o), TUNING, T, DT);
+    const e = { s: st.s, msg: st.msg, lapTimeJump: st.lapTime - lapTime };
+    if (st.respawns > respawns) events.push({ kind: 'respawn', ...e });
+    else if (st.mode !== mode) events.push({ kind: st.mode === 'air' ? 'launch' : 'land', ...e });
+  }
+  return events;
+}
+const lapDone = (st: BikeState) => st.laps > 0;
+const BOOSTED: Pilot = { airControl: true, boost: true };
 
 describe('Track frames', () => {
   it("every sample's up is perpendicular to its tangent", () => {
@@ -25,87 +75,120 @@ describe('Track frames', () => {
     for (let i = 0; i < T.N - 1; i++) worst = Math.max(worst, T.up[i].angleTo(T.up[i + 1]));
     const seam = T.up[T.N - 1].angleTo(T.up[0]);
     expect(seam).toBeLessThanOrEqual(worst * 1.5);
-    expect(seam).toBeLessThan(0.05); // ~3�, no visible kink
+    expect(seam).toBeLessThan(0.05); // ~3°, no visible kink
+  });
+
+  it('never passes over or under itself', () => {
+    // solid samples more than 40 m apart along the Track, closer than a Track width sideways,
+    // need 8 m of headroom between them (the Loop's 12 m drift and height pass this)
+    for (let i = 0; i < T.N; i++) for (let j = i + 1; j < T.N; j++) {
+      if (T.gap[i] || T.gap[j] || Math.min(j - i, T.N - j + i) * T.ds < 40) continue;
+      const a = T.pos[i], b = T.pos[j];
+      if (Math.hypot(a.x - b.x, a.z - b.z) < 2 * T.halfWidth) expect(Math.abs(a.y - b.y)).toBeGreaterThan(8);
+    }
   });
 });
 
 describe('Loop', () => {
-  const loopEntry = T.pos.findIndex(p => p.z >= 100) * T.ds; // flat run-in, 20 m before the Loop
-  const loopExit = T.pos.findIndex(p => p.x > 11 && p.z >= 140) * T.ds; // back on the ground, past the Loop
-  const ride = (s: number, speed: number, throttle: number) => {
+  const loopEntry = loopStart - 20; // flat run-in, 20 m before it
+  const rideLoop = (s: number, speed: number, throttle: number) => {
     const st = newState(T);
     Object.assign(st, { s, speed });
     for (let i = 0; i < 120 * 10 && st.mode === 'track' && st.s < loopExit; i++)
-      step(st, { throttle, brake: 0, steer: 0, pitch: 0, boost: false }, TUNING, T, 1 / 120);
+      step(st, { ...NONE, throttle }, TUNING, T, DT);
     return st;
   };
 
   it('full throttle from the start line clears it', () => {
-    const st = ride(0, 0, 1);
+    const st = rideLoop(0, 0, 1);
     expect(st.mode).toBe('track');
     expect(st.s).toBeGreaterThanOrEqual(loopExit);
   });
 
   it('coasting in at 38 m/s drops off the ceiling', () => {
-    const st = ride(loopEntry, 38, 0);
+    const st = rideLoop(loopEntry, 38, 0);
     expect(st.mode).toBe('air');
     expect(sampleAt(T, st.s).u.y).toBeLessThan(-0.3);
   });
 });
 
-describe('Gap', () => {
-  const NONE = { throttle: 0, brake: 0, steer: 0, pitch: 0, boost: false };
-  const lapFullThrottle = (air: typeof NONE) => {
-    const st = newState(T);
-    let flew = false;
-    for (let i = 0; i < 120 * 60 && st.laps === 0; i++) {
-      step(st, st.mode === 'air' ? air : { ...NONE, throttle: 1 }, TUNING, T, 1 / 120);
-      flew ||= st.mode === 'air';
-    }
-    return { st, flew };
-  };
-
-  it('a full-throttle Lap jumps it and lands', () => {
-    const { st, flew } = lapFullThrottle(NONE);
-    expect(flew).toBe(true);
-    expect(st.laps).toBe(1);
-    expect(st.respawns).toBe(0);
-    expect(st.lastLap).toBeGreaterThan(5);
+describe('Test Track', () => {
+  it('a full-throttle Lap with no Boost lands Gap A and fails Gap B', () => {
+    const ev = ride(newState(T), { airControl: true }, st => st.respawns > 0 || lapDone(st));
+    expect(ev.map(e => e.kind)).toEqual(['launch', 'land', 'launch', 'respawn']);
+    expect(ev[0].s).toBeCloseTo(gapA[0], 0);
+    expect(ev[1].s).toBeGreaterThan(gapA[1]);
+    expect(ev[2].s).toBeCloseTo(gapB[0], 0);
+    expect(ev[3].msg).toMatch(/^Fell off/);
   });
 
-  it('over-rotating in the air crashes, respawns at the last Checkpoint with +3 s, and the Lap time counts it', () => {
-    const clean = lapFullThrottle(NONE).st.lastLap!;
-    const gapCP = T.cpS.findLastIndex(c => c <= T.gap.indexOf(true) * T.ds);
-    // hold nose-down through the whole flight: well past the 35° landing tolerance
+  it('a full-throttle Lap with Boost at Gap B is clean and takes about 40 s', () => {
     const st = newState(T);
-    let crash: { s: number; mode: string; jump: number } | null = null;
-    for (let i = 0; i < 120 * 60 && !crash; i++) {
-      const before = st.lapTime, respawns = st.respawns;
-      step(st, st.mode === 'air' ? { ...NONE, pitch: 1 } : { ...NONE, throttle: 1 }, TUNING, T, 1 / 120);
-      if (st.respawns > respawns) crash = { s: st.s, mode: st.mode, jump: st.lapTime - before };
-    }
-    expect(st.msg).toMatch(/^Crashed/);
-    expect(crash!.mode).toBe('track');
-    expect(crash!.s).toBeCloseTo(T.cpS[gapCP], 6);
-    expect(st.speed).toBe(20);
-    expect(crash!.jump).toBeCloseTo(3 + 1 / 120, 9);
+    const ev = ride(st, BOOSTED, lapDone);
+    expect(ev.map(e => e.kind)).toEqual(['launch', 'land', 'launch', 'land']);
+    expect(st.lastLap!).toBeGreaterThan(35);
+    expect(st.lastLap!).toBeLessThan(45);
+  });
 
-    // finish the Lap without touching the controls in the air again: the penalty shows in the Lap time
-    for (let i = 0; i < 120 * 60 && st.laps === 0; i++)
-      step(st, st.mode === 'air' ? NONE : { ...NONE, throttle: 1 }, TUNING, T, 1 / 120);
-    expect(st.laps).toBe(1);
-    expect(st.lastLap!).toBeGreaterThan(clean + 3);
+  it('Gap A needs Air control: without it the downslope landing crashes', () => {
+    const ev = ride(newState(T), {}, st => st.respawns > 0);
+    expect(ev.at(-1)!.msg).toMatch(/^Crashed/);
+    expect(ev.at(-1)!.s).toBeCloseTo(T.cpS[cpBefore(gapA[0])], 6);
+  });
+
+  it('Gap B fails at 55 m/s and clears at 65 m/s', () => {
+    const jumpGapB = (speed: number) => {
+      const st = newState(T);
+      Object.assign(st, { s: gapB[0] - 1, speed, boostT: TUNING.boostDuration }); // as if just Boosted: 65 m/s holds
+      return ride(st, { airControl: true }, st => st.respawns > 0 || (st.mode === 'track' && st.s > gapB[1]));
+    };
+    expect(jumpGapB(55).at(-1)!.kind).toBe('respawn');
+    expect(jumpGapB(65).at(-1)!.kind).toBe('land');
+  });
+
+  // CP 1 and 2 lead into the Loop, CP 3 into Gap A, CP 4 into Gap B.
+  it.each([1, 2, 3, 4])('a respawn at Checkpoint %i at 20 m/s clears the hazard that follows it', k => {
+    const hazardEnd = [loopExit, loopExit, gapA[1], gapB[1]][k - 1] + 30;
+    const st = newState(T);
+    st.lastCP = k - 1;
+    respawn(st, T, TUNING, 'test');
+    expect(st.speed).toBe(20);
+    const respawns = st.respawns;
+    const ev = ride(st, BOOSTED, st => st.respawns > respawns || (st.mode === 'track' && st.s > hazardEnd));
+    expect(st.respawns).toBe(respawns);
+    expect(st.s).toBeGreaterThan(hazardEnd);
+    expect(ev.map(e => e.kind)).toEqual(k > 2 ? ['launch', 'land'] : []);
+  });
+
+  it('each Checkpoint sits at least 60 m before the hazard that follows it', () => {
+    expect(loopStart - T.cpS[0]).toBeGreaterThanOrEqual(60);
+    expect(loopStart - T.cpS[1]).toBeGreaterThanOrEqual(60);
+    expect(gapA[0] - T.cpS[2]).toBeGreaterThanOrEqual(60);
+    expect(gapB[0] - T.cpS[3]).toBeGreaterThanOrEqual(60);
+  });
+
+  it('crashing respawns at the last Checkpoint with +3 s, and the Lap time counts it', () => {
+    const clean = newState(T);
+    ride(clean, BOOSTED, lapDone);
+    const st = newState(T);
+    const crash = ride(st, { pitch: 1 }, st => st.respawns > 0).at(-1)!; // nose held down through Gap A
+    expect(crash.msg).toMatch(/^Crashed/);
+    expect(crash.s).toBeCloseTo(T.cpS[cpBefore(gapA[0])], 6);
+    expect(st.speed).toBe(20);
+    expect(crash.lapTimeJump).toBeCloseTo(3 + DT, 9);
+    ride(st, BOOSTED, lapDone);
+    expect(st.lastLap!).toBeGreaterThan(clean.lastLap! + 3);
   });
 });
 
 describe('Boost', () => {
-  const DT = 1 / 120, go = { throttle: 1, brake: 0, steer: 0, pitch: 0, boost: false };
-  const run = (st: ReturnType<typeof newState>, secs: number, boost = false) => {
+  const go: Input = { ...NONE, throttle: 1 };
+  const run = (st: BikeState, secs: number, boost = false) => {
     for (let i = 0; i < secs * 120; i++) step(st, { ...go, boost }, TUNING, T, DT);
   };
-  const atTopSpeed = () => { // back straight: flat, long, no hazards
+  const atTopSpeed = () => { // flat, long, no hazards
     const st = newState(T);
-    Object.assign(st, { s: T.cpS[4], speed: 55 });
+    Object.assign(st, { s: sWhere(p => p.z < -314 && p.x < -500), speed: 55 }); // return straight, z = -315
     return st;
   };
 
