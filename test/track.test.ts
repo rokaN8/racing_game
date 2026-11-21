@@ -119,13 +119,13 @@ describe('Loop', () => {
 });
 
 describe('Test Track', () => {
-  it('a full-throttle Lap with no Boost lands Gap A and fails Gap B', () => {
+  it('a full-throttle Lap with no Boost lands both Gaps', () => {
     const ev = ride(newState(T), { airControl: true }, st => st.respawns > 0 || lapDone(st));
-    expect(ev.map(e => e.kind)).toEqual(['launch', 'land', 'launch', 'respawn']);
+    expect(ev.map(e => e.kind)).toEqual(['launch', 'land', 'launch', 'land']);
     expect(ev[0].s).toBeCloseTo(gapA[0], 0);
     expect(ev[1].s).toBeGreaterThan(gapA[1]);
     expect(ev[2].s).toBeCloseTo(gapB[0], 0);
-    expect(ev[3].msg).toMatch(/^Fell off/);
+    expect(ev[3].s).toBeGreaterThan(gapB[1]);
   });
 
   it('a full-throttle Lap with Boost at Gap B is clean and takes about 40 s', () => {
@@ -142,13 +142,14 @@ describe('Test Track', () => {
     expect(ev.at(-1)!.s).toBeCloseTo(T.cpS[cpBefore(gapA[0])], 6);
   });
 
-  it('Gap B fails at 55 m/s and clears at 65 m/s', () => {
+  it('Gap B fails at 35 m/s and clears at 55 and 65 m/s', () => {
     const jumpGapB = (speed: number) => {
       const st = newState(T);
       Object.assign(st, { s: gapB[0] - 1, speed, boostT: TUNING.boostDuration }); // as if just Boosted: 65 m/s holds
       return ride(st, { airControl: true }, st => st.respawns > 0 || (st.mode === 'track' && st.s > gapB[1]));
     };
-    expect(jumpGapB(55).at(-1)!.kind).toBe('respawn');
+    expect(jumpGapB(35).at(-1)!.kind).toBe('respawn');
+    expect(jumpGapB(55).at(-1)!.kind).toBe('land');
     expect(jumpGapB(65).at(-1)!.kind).toBe('land');
   });
 
