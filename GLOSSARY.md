@@ -6,6 +6,8 @@
 
 **Loop** — A section of Track that curves fully vertical, carrying the Bike upside down and back.
 
+**Wall-ride** — A stretch of Track banked to roughly vertical, ridden sideways by Track-relative gravity.
+
 **Gap** — A break in the Track the Bike must jump across while Airborne.
 
 **Track-relative gravity** — While on the Track, gravity pulls the Bike into the Track surface beneath it, not world-down. This is what lets the Bike ride walls and Loops.
@@ -20,4 +22,6 @@
 
 **Air control** — Player rotation of the Bike while Airborne, to line up a landing.
 
-**Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run.
+**Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is one Lap.
+
+**Lap** — One full trip round the closed Track, start line to start line.
