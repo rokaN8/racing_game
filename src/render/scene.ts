@@ -1,7 +1,8 @@
 // Track ribbon and thick neon edges, Bike and Ghost Bike (from bike.ts), grid floor, Light trail, bloom.
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, Float32BufferAttribute,
-  GridHelper, HalfFloatType, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector2, Vector3,
+  AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute,
+  GridHelper, HalfFloatType, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion,
+  Scene, Vector2, Vector3,
   WebGLRenderTarget,
   type Camera, type WebGLRenderer,
 } from 'three';
@@ -44,6 +45,7 @@ export function createScene(T: Track) {
     scene.add(new LineSegments2(new LineSegmentsGeometry().setPositions(pts.flatMap(p => p.toArray())), mat));
   };
   thick(edge, NEON, 2); thick(cps, YELLOW, 4);
+  finishBanner(T, scene, thick);
 
   const grid = new GridHelper(3000, 150, 0x331144, 0x1a0828);
   grid.position.y = T.minY - 2; scene.add(grid);
@@ -56,6 +58,27 @@ export function createScene(T: Track) {
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
   return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines };
+}
+
+// FINISH arch over the start line (s = 0): two posts, a crossbar, and a text panel facing the oncoming Bike.
+const ARCH_H = 6, BANNER_H = 1.6;
+function finishBanner(T: Track, scene: Scene, thick: (pts: Vector3[], color: number, px: number) => void) {
+  const p = T.pos[0], u = T.up[0], r = T.rgt[0], w = T.halfWidth + 0.5;
+  const at = (side: number, h: number) => p.clone().addScaledVector(r, side * w).addScaledVector(u, h);
+  thick([at(-1, 0), at(-1, ARCH_H), at(1, 0), at(1, ARCH_H), at(-1, ARCH_H), at(1, ARCH_H),
+    at(-1, ARCH_H - BANNER_H), at(1, ARCH_H - BANNER_H)], YELLOW, 4);
+
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 200;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#0a0830'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#ffe600'; g.font = 'bold 150px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('FINISH', c.width / 2, c.height / 2 + 8);
+  const panel = new Mesh(new PlaneGeometry(2 * w, BANNER_H),
+    new MeshBasicMaterial({ map: new CanvasTexture(c), side: DoubleSide }));
+  // face back down the Track (-t) so the text reads right to the oncoming Bike (local +x = Track right)
+  panel.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(r, u, T.tan[0].clone().negate()));
+  panel.position.copy(at(0, ARCH_H - BANNER_H / 2));
+  scene.add(panel);
 }
 
 // Light trail: visual-only ribbon from the Bike's tail, newest point first, fading to black (additive, so black = gone).
