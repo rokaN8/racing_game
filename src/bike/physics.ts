@@ -32,6 +32,15 @@ function placeOnTrack(st: BikeState, T: Track) {
   return f;
 }
 
+// Cornering pull: sideways acceleration (+ = right) pushing the Bike to the outside of a turn.
+// speed² × the Track's curvature within its own surface (geodesic), scaled by how far the Track faces
+// up: so a Loop (curving up, walls and ceiling) and the straight Wall-ride don't pull, and a bank softens a turn.
+// Measured over ±3 m to smooth out the spline's small wiggles.
+export function cornerPull(T: Track, s: number, speed: number, P: Tuning) {
+  const a = sampleAt(T, s - 3), b = sampleAt(T, s + 3), f = sampleAt(T, s);
+  return -P.cornerPull * speed * speed * b.t.sub(a.t).dot(f.r) / 6 * Math.max(0, f.u.y);
+}
+
 const say = (st: BikeState, m: string) => { st.msg = m; st.msgT = 1.5; };
 
 function launch(st: BikeState, f: Frame, why?: string) {
@@ -65,7 +74,7 @@ export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number)
     if (st.speed > cap) st.speed = Math.max(cap, st.speed - P.overspeedDecay * dt);
 
     const target = inp.steer * P.steerRate * Math.min(1, Math.abs(st.speed) / 10);
-    st.latVel += (target - st.latVel) * Math.min(1, P.steerResponse * dt);
+    st.latVel += (target - st.latVel) * Math.min(1, P.steerResponse * dt) + cornerPull(T, st.s, st.speed, P) * dt;
     st.d += st.latVel * dt;
 
     st.s += st.speed * dt;

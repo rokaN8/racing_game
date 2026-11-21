@@ -25,13 +25,14 @@ The look is neon on black with bloom: solid dark shapes with glowing edges. Ther
 | Camera | "Hybrid" perspective chase camera: 9 m behind, 3 m up, 8 m look-ahead, FOV 102°, follow stiffness 8. It rolls with the Bike on the Track, levels to world up and follows the flight path when Airborne, and snaps on respawn. | [Chase camera](https://github.com/rokaN8/racing_game/issues/6) |
 | Track | Lap order: Loop → right turn → Gap A (top speed) → left turn → Wall-ride → Gap B (needs Boost) → right turn. 4 Checkpoints, each at least 60 m before a hazard. Geometry is fitted to the physics. | [Test Track layout](https://github.com/rokaN8/racing_game/issues/7) |
 | Bike look | Light-cycle model with ring wheels and orientation cues (fin, deck chevron, white front, orange tail, orange underglow). Attitude indicator on the HUD while Airborne. See M7. | [Wayfinder: Bike look](https://github.com/rokaN8/racing_game/issues/22) |
+| Cornering | Turns push the Bike towards the outside edge (Cornering pull); the player must steer to stay on. See M8. | — |
 | Scope | Boost is cooldown-based. Minimal HUD. Ghost of the best Lap, recorded as poses. | [First build slice and POC spec](https://github.com/rokaN8/racing_game/issues/8) |
 
 ### Handling values
 
 | Area | Values |
 |---|---|
-| On Track | topSpeed 55 m/s, accel 25, brake 45, drag 0.04, overspeedDecay 12, slopeGravity 20, steerRate 12 m/s, steerResponse 10 |
+| On Track | topSpeed 55 m/s, accel 25, brake 45, drag 0.04, overspeedDecay 12, slopeGravity 20, steerRate 12 m/s, steerResponse 10, cornerPull 1 (see M8) |
 | Track grip | stickSpeed 18: below this speed the Bike drops off when upside down (Track up.y below -0.3) |
 | Airborne | airGravity 12 m/s², airControlRate 2.5 rad/s, landingTolerance 35°, maxAirTime 6 s |
 | Boost | +20 m/s top speed, +10 m/s kick, 2× accel, 1.2 s duration, 3 s cooldown |
@@ -69,6 +70,8 @@ While Airborne, the left stick does Air control: forward is nose down.
 - it enters a Gap;
 - its side offset goes past the Track edge;
 - it is upside down below stickSpeed.
+
+**Cornering pull.** On the Track, turns push the Bike sideways towards the outside edge, and the player steers against it. Going past the edge is the existing "Off the edge" detachment. See M8.
 
 **Air control.** It rotates the Bike only. It doesn't change the Bike's velocity.
 
@@ -226,6 +229,26 @@ Accept when:
 - wheel spin rises with speed with no visible strobing;
 - Boost visibly brightens the Bike and its tail light, and the effect fades as Boost ends.
 
+### M8: Cornering
+
+Turns are no longer free: each turn pushes the Bike towards its outside edge, so the player has to steer through it.
+
+**Cornering pull** (in `bike/physics.ts`, `cornerPull`):
+- Sideways acceleration on `latVel` = −cornerPull × speed² × the Track's curvature within its own surface (tangent change along the Track's right, measured over ±3 m) × max(0, Track up.y).
+- It is added on top of the existing steer response. Steering against it is the only counter; nothing else changes on the Track.
+- Because it uses curvature *within* the surface and scales by up.y, the Loop's walls and ceiling and the straight Wall-ride don't pull, and a bank softens a turn.
+- cornerPull is a tuning value (1 = physical), set by play-testing.
+
+**Difficulty:** at top speed (55 m/s), full steer can hold every turn (peak pull below steerRate × steerResponse = 120 m/s²). Not steering, or steering late, goes off the edge and respawns with +3 s. Boost speed through a tight turn can't be held.
+
+**Headless pilot:** steers to the centre line, cancelling the pull (feed-forward) plus a pull towards d = 0.
+
+Accept when:
+- a full-throttle Lap with no steering goes off the edge in the first turn;
+- full steer holds every turn at top speed;
+- the Loop's walls and ceiling don't pull;
+- with the steering pilot, M4's Lap checks still pass (about 40 s with Boost).
+
 ## Out of scope
 
 - Audio.
@@ -236,7 +259,6 @@ Accept when:
 - Polished art.
 - Bike lean into steer and suspension squash on landing (revisit after M7).
 - Drift.
-- A cornering challenge: turns are free under spline-follow.
 - A Boost meter or Boost pickups.
 - Split times.
 - Any hosting other than GitHub Pages.
