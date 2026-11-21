@@ -42,7 +42,7 @@ export function createScene(T: Track) {
     lineMats.push(mat);
     scene.add(new LineSegments2(new LineSegmentsGeometry().setPositions(pts.flatMap(p => p.toArray())), mat));
   };
-  thick(edge, NEON, 3); thick(cps, YELLOW, 4);
+  thick(edge, NEON, 2); thick(cps, YELLOW, 4);
 
   const grid = new GridHelper(3000, 150, 0x331144, 0x1a0828);
   grid.position.y = T.minY - 2; scene.add(grid);
@@ -65,7 +65,7 @@ const TRAIL_N = 180, TRAIL_HALF_WIDTH = 0.25; // 1.5 s
 function createTrail(scene: Scene) {
   const pos = new Float32Array(TRAIL_N * 6), col = new Float32Array(TRAIL_N * 6), idx: number[] = [];
   for (let i = 0; i < TRAIL_N; i++) {
-    const f = (1 - i / (TRAIL_N - 1)) ** 2;
+    const f = 0.6 * (1 - i / (TRAIL_N - 1)) ** 2; // 0.6: peak brightness, keeps its bloom soft
     col.set([0, f, f, 0, f, f], i * 6); // cyan
     if (i < TRAIL_N - 1) idx.push(2 * i, 2 * i + 2, 2 * i + 1, 2 * i + 1, 2 * i + 2, 2 * i + 3);
   }
@@ -99,7 +99,7 @@ function createTrail(scene: Scene) {
 export function createBloom(renderer: WebGLRenderer, scene: Scene, camera: Camera) {
   // own MSAA target: the composer's default has none, which would undo the renderer's antialias
   const composer = new EffectComposer(renderer, new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType }));
-  const bloom = new UnrealBloomPass(new Vector2(1, 1), 1.1, 0.4, 0.15);
+  const bloom = new UnrealBloomPass(new Vector2(1, 1), 0.8, 0.4, 0.15); // strength, radius, threshold
   composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloom); composer.addPass(new OutputPass());
   return {
     render: () => composer.render(),
