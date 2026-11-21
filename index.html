@@ -9,12 +9,14 @@
       canvas { display: block; }
       #msg { position: fixed; top: 30%; left: 50%; transform: translateX(-50%); font-size: 22px; color: #ff2bd6;
              text-shadow: 0 0 10px #ff2bd6; pointer-events: none; }
-      #lap { position: fixed; top: 12px; left: 16px; color: #0ff; font-variant-numeric: tabular-nums; pointer-events: none; }
+      #hud { position: fixed; top: 12px; left: 16px; color: #0ff; font-variant-numeric: tabular-nums; pointer-events: none;
+             text-shadow: 0 0 6px #0ff; }
+      #hud b { font-size: 22px; }
     </style>
   </head>
   <body>
     <div id="msg"></div>
-    <div id="lap"></div>
+    <div id="hud"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

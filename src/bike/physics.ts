@@ -1,16 +1,16 @@
 // Pure Bike kinematics, ported from prototypes/bike-handling.html. No DOM, no rendering.
-// Boost arrives in M3.
 import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 import { sampleAt, type Frame, type Track } from '../track/bake';
 import { CEILING_UP_Y, type Tuning } from './tuning';
 
 // throttle/brake 0..1, steer -1..1, pitch -1..1 (+ = nose down; Air control only)
-export interface Input { throttle: number; brake: number; steer: number; pitch: number }
+export interface Input { throttle: number; brake: number; steer: number; pitch: number; boost: boolean }
 export interface BikeState {
   mode: 'track' | 'air';
   s: number; d: number; latVel: number; speed: number;
   pos: Vector3; vel: Vector3; quat: Quaternion;
   airT: number; lastCP: number; respawns: number;
+  boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
   lapTime: number; lastLap: number | null; best: number | null; laps: number;
   msg: string; msgT: number;
 }
@@ -21,7 +21,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, lapTime: 0, lastLap: null, best: null, laps: 0, msg: '', msgT: 0 };
+    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, lapTime: 0, lastLap: null, best: null, laps: 0, msg: '', msgT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -41,20 +41,25 @@ function launch(st: BikeState, f: Frame, why?: string) {
 }
 
 export function respawn(st: BikeState, T: Track, P: Tuning, why: string) {
-  Object.assign(st, { mode: 'track', s: T.cpS[st.lastCP], d: 0, latVel: 0, speed: P.respawnSpeed, airT: 0 });
+  Object.assign(st, { mode: 'track', s: T.cpS[st.lastCP], d: 0, latVel: 0, speed: P.respawnSpeed, boostT: 0, airT: 0 });
   st.lapTime += P.penalty; st.respawns++;
   say(st, `${why} · +${P.penalty}s`);
   placeOnTrack(st, T);
 }
 
 export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number) {
-  st.lapTime += dt; st.msgT -= dt;
+  st.lapTime += dt; st.msgT -= dt; st.boostT -= dt; st.boostCD -= dt;
+  if (inp.boost && st.boostCD <= 0) {
+    st.boostT = P.boostDuration; st.boostCD = P.boostDuration + P.boostCooldown;
+    if (st.mode === 'track') st.speed += P.boostKick;
+  }
+  const boosting = st.boostT > 0;
 
   if (st.mode === 'track') {
     let f = sampleAt(T, st.s);
-    const cap = P.topSpeed;
+    const cap = P.topSpeed + (boosting ? P.boostSpeed : 0);
     let a = -P.slopeGravity * f.t.y - P.drag * st.speed;
-    if (st.speed < cap) a += inp.throttle * P.accel;
+    if (st.speed < cap) a += inp.throttle * P.accel * (boosting ? P.boostAccelMul : 1);
     if (st.speed > 0) a -= inp.brake * P.brake;
     st.speed = Math.max(-10, st.speed + a * dt);
     if (st.speed > cap) st.speed = Math.max(cap, st.speed - P.overspeedDecay * dt);
