@@ -34,7 +34,7 @@ The look is neon wireframe on black with bloom. There are no art assets.
 | Track grip | stickSpeed 18: below this speed the Bike drops off when upside down (Track up.y below -0.3) |
 | Airborne | airGravity 12 m/s², airControlRate 2.5 rad/s, landingTolerance 35°, maxAirTime 6 s |
 | Boost | +20 m/s top speed, +10 m/s kick, 2× accel, 1.2 s duration, 3 s cooldown |
-| Respawn | at the last Checkpoint, 20 m/s, +3 s penalty |
+| Respawn | at the last Checkpoint, 20 m/s, +3 s penalty (also when the player respawns by hand) |
 
 ### Controls
 

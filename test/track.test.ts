@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { bakeTrack, sampleAt } from '../src/track/bake';
-import { CPS, HALF_WIDTH } from '../src/track/layout';
+import { CHECKPOINT_CPS, CPS, GAP_SEGMENTS, HALF_WIDTH } from '../src/track/layout';
 import { newState, step } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
 
-const T = bakeTrack(CPS, HALF_WIDTH);
+const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
 
 describe('Track frames', () => {
   it("every sample's up is perpendicular to its tangent", () => {
@@ -36,7 +36,7 @@ describe('Loop', () => {
     const st = newState(T);
     Object.assign(st, { s, speed });
     for (let i = 0; i < 120 * 10 && st.mode === 'track' && st.s < loopExit; i++)
-      step(st, { throttle, brake: 0, steer: 0 }, TUNING, T, 1 / 120);
+      step(st, { throttle, brake: 0, steer: 0, pitch: 0 }, TUNING, T, 1 / 120);
     return st;
   };
 
@@ -50,5 +50,50 @@ describe('Loop', () => {
     const st = ride(loopEntry, 38, 0);
     expect(st.mode).toBe('air');
     expect(sampleAt(T, st.s).u.y).toBeLessThan(-0.3);
+  });
+});
+
+describe('Gap', () => {
+  const NONE = { throttle: 0, brake: 0, steer: 0, pitch: 0 };
+  const lapFullThrottle = (air: typeof NONE) => {
+    const st = newState(T);
+    let flew = false;
+    for (let i = 0; i < 120 * 60 && st.laps === 0; i++) {
+      step(st, st.mode === 'air' ? air : { ...NONE, throttle: 1 }, TUNING, T, 1 / 120);
+      flew ||= st.mode === 'air';
+    }
+    return { st, flew };
+  };
+
+  it('a full-throttle Lap jumps it and lands', () => {
+    const { st, flew } = lapFullThrottle(NONE);
+    expect(flew).toBe(true);
+    expect(st.laps).toBe(1);
+    expect(st.respawns).toBe(0);
+    expect(st.lastLap).toBeGreaterThan(5);
+  });
+
+  it('over-rotating in the air crashes, respawns at the last Checkpoint with +3 s, and the Lap time counts it', () => {
+    const clean = lapFullThrottle(NONE).st.lastLap!;
+    const gapCP = T.cpS.findLastIndex(c => c <= T.gap.indexOf(true) * T.ds);
+    // hold nose-down through the whole flight: well past the 35° landing tolerance
+    const st = newState(T);
+    let crash: { s: number; mode: string; jump: number } | null = null;
+    for (let i = 0; i < 120 * 60 && !crash; i++) {
+      const before = st.lapTime, respawns = st.respawns;
+      step(st, st.mode === 'air' ? { ...NONE, pitch: 1 } : { ...NONE, throttle: 1 }, TUNING, T, 1 / 120);
+      if (st.respawns > respawns) crash = { s: st.s, mode: st.mode, jump: st.lapTime - before };
+    }
+    expect(st.msg).toMatch(/^Crashed/);
+    expect(crash!.mode).toBe('track');
+    expect(crash!.s).toBeCloseTo(T.cpS[gapCP], 6);
+    expect(st.speed).toBe(20);
+    expect(crash!.jump).toBeCloseTo(3 + 1 / 120, 9);
+
+    // finish the Lap without touching the controls in the air again: the penalty shows in the Lap time
+    for (let i = 0; i < 120 * 60 && st.laps === 0; i++)
+      step(st, st.mode === 'air' ? NONE : { ...NONE, throttle: 1 }, TUNING, T, 1 / 120);
+    expect(st.laps).toBe(1);
+    expect(st.lastLap!).toBeGreaterThan(clean + 3);
   });
 });

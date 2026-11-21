@@ -10,14 +10,16 @@ const LOOP: ControlPoint[] = Array.from({ length: 7 }, (_, k) => {
 });
 
 export const CPS: ControlPoint[] = [
-  [0, 0, -10, 0], [0, 0, 40, 0], [0, 0, 80, 0],      // 0-2 start straight
+  [0, 0, -10, 0], [0, 0, 40, 0], [0, 0, 80, 0],      // 0-2 start straight (2 = Checkpoint)
   [0, 0, 120, 0], ...LOOP, [12, 0, 120, 0],          // 3-11 Loop, drifts 12 m sideways so entry/exit don't overlap
   [12, 0, 170, 0], [12, 2, 200, 0], [12, 7, 222, 0], // 12-14 ramp, 14 = lip
-  [12, 8, 242, 0],                                   // 15 in the Gap (solid until M2)
+  [12, 8, 242, 0],                                   // 15 in the Gap
   [12, 4, 262, 0], [12, 1, 285, 0], [12, 0, 310, 0], // 16-18 landing
   [5, 0, 338, 30], [-20, 0, 355, 30], [-50, 0, 355, 30], [-75, 0, 335, 30], [-85, 0, 305, 15], // 19-23 banked right turn
   [-85, 0, 200, 0], [-85, 0, 100, 0], [-85, 0, 20, 15],                                        // 24-26 back straight
   [-75, 0, -30, 30], [-50, 0, -50, 30], [-20, 0, -45, 20],                                     // 27-29 banked right turn
 ];
 
+export const GAP_SEGMENTS = [14, 15]; // segments (cp i → i+1) with no geometry
+export const CHECKPOINT_CPS = [0, 2, 12, 18, 24];
 export const HALF_WIDTH = 4;

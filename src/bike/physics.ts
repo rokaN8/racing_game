@@ -1,15 +1,18 @@
 // Pure Bike kinematics, ported from prototypes/bike-handling.html. No DOM, no rendering.
-// M1: on-Track riding only. Detaching sets mode 'air'; Airborne motion, Gaps and Boost arrive in M2/M3.
-import { Matrix4, Quaternion, Vector3 } from 'three';
+// Boost arrives in M3.
+import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 import { sampleAt, type Frame, type Track } from '../track/bake';
 import { CEILING_UP_Y, type Tuning } from './tuning';
 
-export interface Input { throttle: number; brake: number; steer: number } // throttle/brake 0..1, steer -1..1
+// throttle/brake 0..1, steer -1..1, pitch -1..1 (+ = nose down; Air control only)
+export interface Input { throttle: number; brake: number; steer: number; pitch: number }
 export interface BikeState {
   mode: 'track' | 'air';
   s: number; d: number; latVel: number; speed: number;
   pos: Vector3; vel: Vector3; quat: Quaternion;
-  laps: number; msg: string;
+  airT: number; lastCP: number; respawns: number;
+  lapTime: number; lastLap: number | null; best: number | null; laps: number;
+  msg: string; msgT: number;
 }
 
 export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
@@ -17,7 +20,8 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
-    pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(), laps: 0, msg: '' };
+    pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
+    airT: 0, lastCP: 0, respawns: 0, lapTime: 0, lastLap: null, best: null, laps: 0, msg: '', msgT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -28,36 +32,82 @@ function placeOnTrack(st: BikeState, T: Track) {
   return f;
 }
 
-function launch(st: BikeState, f: Frame, why: string) {
-  st.mode = 'air'; st.msg = why;
+const say = (st: BikeState, m: string) => { st.msg = m; st.msgT = 1.5; };
+
+function launch(st: BikeState, f: Frame, why?: string) {
+  st.mode = 'air'; st.airT = 0;
   st.vel.copy(f.t).multiplyScalar(st.speed).addScaledVector(f.r, st.latVel);
+  if (why) say(st, why);
 }
 
-// ponytail: M1 respawns at the start line; M2 moves this to the last Checkpoint with a penalty.
-export function respawn(st: BikeState, T: Track) {
-  Object.assign(st, { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0 });
+export function respawn(st: BikeState, T: Track, P: Tuning, why: string) {
+  Object.assign(st, { mode: 'track', s: T.cpS[st.lastCP], d: 0, latVel: 0, speed: P.respawnSpeed, airT: 0 });
+  st.lapTime += P.penalty; st.respawns++;
+  say(st, `${why} · +${P.penalty}s`);
   placeOnTrack(st, T);
 }
 
 export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number) {
-  if (st.mode !== 'track') return;
-  let f = sampleAt(T, st.s);
-  const cap = P.topSpeed;
-  let a = -P.slopeGravity * f.t.y - P.drag * st.speed;
-  if (st.speed < cap) a += inp.throttle * P.accel;
-  if (st.speed > 0) a -= inp.brake * P.brake;
-  st.speed = Math.max(-10, st.speed + a * dt);
-  if (st.speed > cap) st.speed = Math.max(cap, st.speed - P.overspeedDecay * dt);
+  st.lapTime += dt; st.msgT -= dt;
 
-  const target = inp.steer * P.steerRate * Math.min(1, Math.abs(st.speed) / 10);
-  st.latVel += (target - st.latVel) * Math.min(1, P.steerResponse * dt);
-  st.d += st.latVel * dt;
+  if (st.mode === 'track') {
+    let f = sampleAt(T, st.s);
+    const cap = P.topSpeed;
+    let a = -P.slopeGravity * f.t.y - P.drag * st.speed;
+    if (st.speed < cap) a += inp.throttle * P.accel;
+    if (st.speed > 0) a -= inp.brake * P.brake;
+    st.speed = Math.max(-10, st.speed + a * dt);
+    if (st.speed > cap) st.speed = Math.max(cap, st.speed - P.overspeedDecay * dt);
 
-  st.s += st.speed * dt;
-  if (st.s >= T.L) { st.s -= T.L; st.laps++; }
-  if (st.s < 0) st.s += T.L;
+    const target = inp.steer * P.steerRate * Math.min(1, Math.abs(st.speed) / 10);
+    st.latVel += (target - st.latVel) * Math.min(1, P.steerResponse * dt);
+    st.d += st.latVel * dt;
 
-  f = placeOnTrack(st, T);
-  if (Math.abs(st.d) > T.halfWidth) launch(st, f, 'Off the edge');
-  else if (f.u.y < CEILING_UP_Y && st.speed < P.stickSpeed) launch(st, f, 'Too slow — dropped off the ceiling');
+    st.s += st.speed * dt;
+    if (st.s >= T.L) {
+      st.s -= T.L; st.laps++; st.lastLap = st.lapTime;
+      st.best = st.best === null ? st.lapTime : Math.min(st.best, st.lapTime); st.lapTime = 0;
+    }
+    if (st.s < 0) st.s += T.L;
+    st.lastCP = T.cpS.findLastIndex(c => c <= st.s);
+
+    f = placeOnTrack(st, T);
+    if (f.gap) launch(st, f);
+    else if (Math.abs(st.d) > T.halfWidth) launch(st, f, 'Off the edge');
+    else if (f.u.y < CEILING_UP_Y && st.speed < P.stickSpeed) launch(st, f, 'Too slow — dropped off the ceiling');
+    return;
+  }
+
+  // Airborne: weak world-down gravity, Air control rotates the Bike only (not its velocity)
+  st.airT += dt;
+  const prev = st.pos.clone();
+  st.vel.y -= P.airGravity * dt; st.pos.addScaledVector(st.vel, dt);
+  const r = P.airControlRate * dt;
+  st.quat.multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), -inp.steer * r))
+         .multiply(new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), inp.pitch * r)).normalize();
+  if (st.airT > P.maxAirTime || st.pos.y < T.minY - 30) return respawn(st, T, P, 'Fell off the Track');
+  if (st.airT < 0.15) return; // grace so a launch can't re-land on its own lip
+
+  // Landing: swept test (above surface last step, at/below now) against every solid sample.
+  // ponytail: O(N) scan per step (~1000 samples), fine for one Bike; window it if it ever shows in a profile.
+  const tmp = new Vector3();
+  for (let i = 0; i < T.N; i++) {
+    if (T.gap[i]) continue;
+    tmp.subVectors(st.pos, T.pos[i]);
+    const along = tmp.dot(T.tan[i]); if (Math.abs(along) > T.ds * 0.6) continue;
+    const h = tmp.dot(T.up[i]); if (h > 0 || h < -4) continue;
+    const d = tmp.dot(T.rgt[i]); if (Math.abs(d) > T.halfWidth) continue;
+    if (tmp.subVectors(prev, T.pos[i]).dot(T.up[i]) < 0) continue;
+
+    const aF = new Vector3(0, 0, 1).applyQuaternion(st.quat).dot(T.tan[i]);
+    const aU = new Vector3(0, 1, 0).applyQuaternion(st.quat).dot(T.up[i]);
+    const off = Math.round(MathUtils.radToDeg(Math.acos(MathUtils.clamp(Math.min(aF, aU), -1, 1))));
+    if (Math.min(aF, aU) < Math.cos(MathUtils.degToRad(P.landingTolerance))) return respawn(st, T, P, `Crashed — landed ${off}° off`);
+    // wrap s: a landing just behind the start line must not go negative (lastCP would be -1)
+    Object.assign(st, { mode: 'track', s: (i * T.ds + along + T.L) % T.L, d, latVel: 0, speed: st.vel.dot(T.tan[i]) });
+    st.lastCP = T.cpS.findLastIndex(c => c <= st.s);
+    say(st, `Landed · ${off}° off`);
+    placeOnTrack(st, T);
+    return;
+  }
 }
