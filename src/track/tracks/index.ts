@@ -1,4 +1,6 @@
 // Every Track in the game, in the order the Menu lists them (docs/game-spec.md → Tracks).
+import type { Song } from '../../audio/songs';
+import type { Palette } from '../../render/palette';
 import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
 
@@ -10,6 +12,8 @@ export interface TrackDef {
   gapSegments: number[];   // segments (cp i → i+1) with no geometry
   checkpointCps: number[]; // control points that are Checkpoints; the first is the start line
   halfWidth: number;
+  palette: Palette;
+  song: Song;
 }
 
 export const TRACKS: TrackDef[] = [overdrive];

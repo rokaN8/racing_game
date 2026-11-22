@@ -1,11 +1,13 @@
 import { WebGLRenderer } from 'three';
 import { newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { sfx, updateEngine } from './audio';
+import { setMusic, sfx, updateEngine } from './audio';
+import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost } from './ghost';
 import { drawCenter, drawHud } from './hud';
 import { onRespawn, readInput } from './input';
+import { css } from './render/palette';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
@@ -18,7 +20,7 @@ migrateOldGhost(storage, TRACKS[0].id); // the best Lap from before Tracks belon
 // Every Track's world is built at boot; picking a Track swaps which one is drawn and ridden.
 const worlds = TRACKS.map(track => {
   const T = bakeTrack(track);
-  return { track, T, ...createScene(T), ghost: createGhost(storage, track.id) };
+  return { track, T, ...createScene(T, track.palette), ghost: createGhost(storage, track.id) };
 });
 let w = worlds[0];
 const st = newState(w.T);
@@ -65,7 +67,7 @@ function finish() {
 
 const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   name: x.track.name, kind: x.track.kind,
-  colors: ['#00ffff', '#ff2bd6'], // ponytail: the Menu's own colours until each Track has a palette (M11)
+  colors: [css(x.track.palette.primary), css(x.track.palette.secondary)],
   outline: x.T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: x.T.gap[i] })),
   scores: () => x.ghost.scores,
 })), effect => {
@@ -113,6 +115,9 @@ renderer.setAnimationLoop(now => {
   if (st.lastCP > was.lastCP) sfx.checkpoint();
   if (st.laps > was.laps) sfx.lap();
   was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT };
+  // The Menu Song covers the Menu screens; the Track's Song its countdown, race, Pause and Finish. Pause muffles it.
+  const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
+  setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');
   updateEngine(phase === 'racing' && !frozen ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
 
   msgEl.textContent = st.msgT > 0 ? st.msg : '';

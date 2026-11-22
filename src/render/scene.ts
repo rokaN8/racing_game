@@ -15,11 +15,13 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import type { Track } from '../track/bake';
 import { createBikeModels, TRAIL_ANCHOR } from './bike';
+import { color, css, derive, type Palette } from './palette';
 
-const NEON = 0xff2bd6, YELLOW = 0xffe600;
-
-export function createScene(T: Track) {
+// Every colour comes from the Track's palette (render/palette.ts); the Bike, Ghost and Light trail stay fixed.
+export function createScene(T: Track, palette: Palette) {
+  const c = derive(palette);
   const scene = new Scene();
+  scene.background = color(c.sky);
   const lineMats: LineMaterial[] = [];
 
   const verts: number[] = [], idx: number[] = [], edge: Vector3[] = [], rungs: Vector3[] = [], cps: Vector3[] = [];
@@ -37,17 +39,17 @@ export function createScene(T: Track) {
   for (const s of T.cpS) { const i = Math.round(s / T.ds) % T.N; cps.push(lift(L(i), i), lift(R(i), i)); }
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(verts, 3)); g.setIndex(idx);
-  scene.add(new Mesh(g, new MeshBasicMaterial({ color: 0x0a0830, side: DoubleSide })));
-  scene.add(new LineSegments(new BufferGeometry().setFromPoints(rungs), new LineBasicMaterial({ color: 0x0b5d6b })));
+  scene.add(new Mesh(g, new MeshBasicMaterial({ color: c.fill, side: DoubleSide })));
+  scene.add(new LineSegments(new BufferGeometry().setFromPoints(rungs), new LineBasicMaterial({ color: c.rungs })));
   const thick = (pts: Vector3[], color: number, px: number) => {
     const mat = new LineMaterial({ color, linewidth: px }); // linewidth in pixels
     lineMats.push(mat);
     scene.add(new LineSegments2(new LineSegmentsGeometry().setPositions(pts.flatMap(p => p.toArray())), mat));
   };
-  thick(edge, NEON, 2); thick(cps, YELLOW, 4);
-  finishBanner(T, scene, thick);
+  thick(edge, c.edge, 2); thick(cps, c.accent, 4);
+  finishBanner(T, scene, thick, c.accent, c.fill);
 
-  const grid = new GridHelper(3000, 150, 0x331144, 0x1a0828);
+  const grid = new GridHelper(3000, 150, c.gridMajor, c.gridMinor);
   grid.position.y = T.minY - 2; scene.add(grid);
 
   const bikeModels = createBikeModels(m => lineMats.push(m));
@@ -62,16 +64,16 @@ export function createScene(T: Track) {
 
 // FINISH arch over the start line (s = 0): two posts, a crossbar, and a text panel facing the oncoming Bike.
 const ARCH_H = 6, BANNER_H = 1.6;
-function finishBanner(T: Track, scene: Scene, thick: (pts: Vector3[], color: number, px: number) => void) {
+function finishBanner(T: Track, scene: Scene, thick: (pts: Vector3[], color: number, px: number) => void, text: number, bg: number) {
   const p = T.pos[0], u = T.up[0], r = T.rgt[0], w = T.halfWidth + 0.5;
   const at = (side: number, h: number) => p.clone().addScaledVector(r, side * w).addScaledVector(u, h);
   thick([at(-1, 0), at(-1, ARCH_H), at(1, 0), at(1, ARCH_H), at(-1, ARCH_H), at(1, ARCH_H),
-    at(-1, ARCH_H - BANNER_H), at(1, ARCH_H - BANNER_H)], YELLOW, 4);
+    at(-1, ARCH_H - BANNER_H), at(1, ARCH_H - BANNER_H)], text, 4);
 
   const c = document.createElement('canvas'); c.width = 1024; c.height = 200;
   const g = c.getContext('2d')!;
-  g.fillStyle = '#0a0830'; g.fillRect(0, 0, c.width, c.height);
-  g.fillStyle = '#ffe600'; g.font = 'bold 150px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = css(bg); g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = css(text); g.font = 'bold 150px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('FINISH', c.width / 2, c.height / 2 + 8);
   const panel = new Mesh(new PlaneGeometry(2 * w, BANNER_H),
     new MeshBasicMaterial({ map: new CanvasTexture(c), side: DoubleSide }));
