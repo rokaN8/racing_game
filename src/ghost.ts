@@ -75,11 +75,13 @@ export function createGhost(storage: Storage | null, trackId: string, now = () =
   let ghostB64 = ghost && encodePoses(ghost.poses); // kept so a finish outside #1 doesn't re-encode the Ghost
   // ponytail: the recording grows until the line is crossed (~24 MB/hour of never finishing a Lap); cap it if that ever matters.
   let recording: number[] = [], splits = [0], seenLaps = 0;
+  let lastRank: number | null = null; // the last finished Lap's place in the top 5 (1-5), or null outside it
 
   // A finished Lap: slot it into the top 5 (an equal time ranks below), a new #1 becomes the Ghost. One write.
   function finishLap(time: number) {
     let rank = scores.findIndex(s => time < s.time);
     if (rank < 0) rank = scores.length;
+    lastRank = rank < MAX_SCORES ? rank + 1 : null;
     if (rank >= MAX_SCORES) return;
     scores = [...scores.slice(0, rank), { time, date: now() }, ...scores.slice(rank)].slice(0, MAX_SCORES);
     if (rank === 0) { ghost = { poses: Float32Array.from(recording), splits }; ghostB64 = encodePoses(ghost.poses); }
@@ -91,6 +93,7 @@ export function createGhost(storage: Storage | null, trackId: string, now = () =
     // The Track's top 5, fastest first. The HUD's best is scores[0].
     get scores(): readonly Score[] { return scores; },
     get bestTime(): number | null { return scores[0]?.time ?? null; },
+    get lastRank() { return lastRank; },
 
     // Call once per physics step, after step(). Crossing the line closes the recording and ranks the Lap.
     // Returns the time against the Ghost when this step first passes a Checkpoint (- = ahead), else null.

@@ -122,9 +122,11 @@ export function createBloom(renderer: WebGLRenderer, scene: Scene, camera: Camer
   // own MSAA target: the composer's default has none, which would undo the renderer's antialias
   const composer = new EffectComposer(renderer, new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType }));
   const bloom = new UnrealBloomPass(new Vector2(1, 1), 0.8, 0.4, 0.15); // strength, radius, threshold
-  composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloom); composer.addPass(new OutputPass());
+  const scenePass = new RenderPass(scene, camera);
+  composer.addPass(scenePass); composer.addPass(bloom); composer.addPass(new OutputPass());
   return {
     render: () => composer.render(),
+    setScene(s: Scene) { scenePass.scene = s; }, // each Track has its own scene, built at boot
     resize(w: number, h: number) {
       composer.setPixelRatio(renderer.getPixelRatio());
       composer.setSize(w, h);
