@@ -55,7 +55,7 @@ One module per Track in `src/track/tracks/<id>.ts`. Physics already takes the ba
 | Length | 2,251 m | 3,022 m | 3,240 m |
 | Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s |
 | Checkpoints | 4 | 7 | 7 |
-| Source | today's `track/layout.ts`, unchanged | [`prototype/technical-track`](https://github.com/rokaN8/racing_game/tree/prototype/technical-track) | [`prototype/bigair-track`](https://github.com/rokaN8/racing_game/tree/prototype/bigair-track) |
+| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` |
 
 **Overdrive.** Today's Track as it is: Loop → right turn → Rollercoaster → left turn → Wall-ride → Gap B → right turn.
 
@@ -77,7 +77,7 @@ Checkpoints: start line, before the hairpin, before the chicane, before the swit
 
 Checkpoints: start line, before the drop Gap, before the over-the-top Gap, before the step-up, before Loop 2, on the home straight before the double, on the first double deck.
 
-The exact pieces are in each prototype branch's draft (`src/track/technical.draft.ts`, `src/track/bigair.draft.ts`). Port the pieces, rewrite the code.
+The exact pieces are in `src/track/tracks/technical.ts` and `src/track/tracks/bigair.ts`.
 
 ### Building Tracks 2 and 3: the turtle builder
 
@@ -104,7 +104,7 @@ Overdrive keeps its hand-written control points.
 
 ## Screens
 
-An HTML overlay over the frozen game. While it's open the HUD is hidden and the run is frozen (countdown, physics and engine sound). Source: [`prototype/menu-screens`](https://github.com/rokaN8/racing_game/tree/prototype/menu-screens), variant B. Port the decision, rewrite the code.
+An HTML overlay over the frozen game. While it's open the HUD is hidden and the run is frozen (countdown, physics and engine sound). Built in M10: `src/ui/menu.ts` draws the pure state machine in `src/ui/menuState.ts`.
 
 - **Layout.** A left rail of items over a dark gradient on the left third. The focused item is solid magenta with dark text. A detail panel on the right shows whatever the focused item is about. The game stays visible behind.
 - **Menu.** Logo, then Play · High scores · Controls. Coming back to it restores the last focus.
@@ -135,7 +135,7 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
 
 ## Palettes
 
-Source: [`prototype/palettes`](https://github.com/rokaN8/racing_game/tree/prototype/palettes).
+Built in M11: `src/render/palette.ts`.
 
 - **Shape.** A `Palette` is `{ primary, secondary, sky }`, as sRGB hex.
   - **primary:** Track edges, and the Menu swatch, band and outline start.
@@ -158,7 +158,7 @@ Source: [`prototype/palettes`](https://github.com/rokaN8/racing_game/tree/protot
 
 ## Songs
 
-Source: [`prototype/songs`](https://github.com/rokaN8/racing_game/tree/prototype/songs) (`prototypes/songs.prototype.html`), which holds the exact data for all four.
+Built in M11: `src/audio/songs.ts` (shape, step generator, Menu Song); each Track's Song is on its `TrackDef`.
 
 **Shape.**
 

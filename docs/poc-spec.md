@@ -120,7 +120,7 @@ src/
 test/track.test.ts # headless acceptance check (Vitest)
 ```
 
-**Port, don't rewrite.** `bakeTrack`, `sampleAt` and `step` come from the play-tested prototype ([`prototype/bike-handling`](https://github.com/rokaN8/racing_game/blob/prototype/bike-handling/prototypes/bike-handling.html)), ported to TypeScript as they are. The prototype's chase-camera block becomes `camera.ts`.
+**Port, don't rewrite.** `bakeTrack`, `sampleAt` and `step` come from the play-tested prototype (`prototype/bike-handling`, deleted once ported), ported to TypeScript as they are. The prototype's chase-camera block becomes `camera.ts`.
 
 ## Milestones
 
@@ -193,7 +193,7 @@ Accept when:
 
 ### M7: Bike look
 
-Replaces the wireframe box with a light-cycle model whose orientation reads at a glance, plus an Attitude indicator while Airborne. Source: [`prototype/bike-look`](https://github.com/rokaN8/racing_game/tree/prototype/bike-look), variant C in `src/render/bike-variants.prototype.ts` and the HUD block in `src/render/air-aids.prototype.ts`. Rewrite properly; don't copy the prototype as-is.
+Replaces the wireframe box with a light-cycle model whose orientation reads at a glance, plus an Attitude indicator while Airborne. Source: `prototype/bike-look` (variant C and the Attitude indicator block; deleted once built).
 
 **Model** (Bike local: +z forward, +y up, +x left; Track surface at y = 0; fits the old ~0.7 × 2.2 m footprint):
 - Two glowing cyan ring wheels, radius 0.36 m, centred at z = ±0.72. Each has a dark hub disc with cyan edges.
