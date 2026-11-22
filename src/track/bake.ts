@@ -1,6 +1,9 @@
 // Ported from prototypes/bike-handling.html.
 import { CatmullRomCurve3, MathUtils, Vector3 } from 'three';
-import type { ControlPoint } from './layout';
+import type { TrackDef } from './tracks';
+
+// [x, y, z, bankDeg]. Closed centripetal Catmull-Rom. y is up; + bank tilts up toward the right.
+export type ControlPoint = [x: number, y: number, z: number, bankDeg: number];
 
 export interface Track {
   L: number; N: number; ds: number;
@@ -10,7 +13,7 @@ export interface Track {
 }
 export interface Frame { p: Vector3; t: Vector3; u: Vector3; r: Vector3; gap: boolean }
 
-export function bakeTrack(cps: ControlPoint[], gapSegs: number[], cpIdx: number[], halfWidth: number): Track {
+export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, halfWidth }: Pick<TrackDef, 'cps' | 'gapSegments' | 'checkpointCps' | 'halfWidth'>): Track {
   const n = cps.length;
   const curve = new CatmullRomCurve3(cps.map(c => new Vector3(c[0], c[1], c[2])), true, 'centripetal');
   curve.arcLengthDivisions = 6000; curve.updateArcLengths();

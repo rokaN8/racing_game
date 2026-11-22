@@ -3,22 +3,25 @@ import { newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
 import { sfx, updateEngine } from './audio';
 import { createChaseCamera } from './camera';
-import { createGhost } from './ghost';
+import { createGhost, migrateOldGhost } from './ghost';
 import { delta, drawCenter, drawHud } from './hud';
 import { onRespawn, readInput } from './input';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
-import { CHECKPOINT_CPS, CPS, GAP_SEGMENTS, HALF_WIDTH } from './track/layout';
+import { TRACKS, trackById } from './track/tracks';
 
-const T = bakeTrack(CPS, GAP_SEGMENTS, CHECKPOINT_CPS, HALF_WIDTH);
+// ponytail: dev-only ?track=<id> picks the Track until the Menu's Track select (M10) does.
+const track = trackById(import.meta.env.DEV ? new URLSearchParams(location.search).get('track') : null);
+const T = bakeTrack(track);
 const st = newState(T);
 const { scene, bike, ghostBike, updateBike, trail, resizeLines } = createScene(T);
 const { camera, update: updateCamera } = createChaseCamera();
 const msgEl = document.getElementById('msg')!;
 let storage: Storage | null = null;
 try { storage = localStorage; } catch { /* blocked: the Ghost lives in memory only */ }
-const ghost = createGhost(storage);
-st.best = ghost.bestTime; // the HUD's best survives a reload with the Ghost
+migrateOldGhost(storage, TRACKS[0].id); // the best Lap from before Tracks belongs to Overdrive
+const ghost = createGhost(storage, track.id);
+st.best = ghost.bestTime; // the HUD's best (the Track's #1) survives a reload with the Ghost
 
 const renderer = new WebGLRenderer({ antialias: true });
 // ponytail: pixel ratio capped at 2 since bloom runs at full resolution; drop to 1 or render bloom at half size if a dense screen misses 60 fps.
@@ -43,7 +46,7 @@ let split: number | null = null, splitT = 0;
 
 function retry() {
   Object.assign(st, newState(T), { best: st.best });
-  ghost.reset();
+  ghost.restart();
   trail.update(st.pos, st.quat, true);
   phase = 'countdown'; countT = COUNTDOWN; split = null; snap = true;
 }
