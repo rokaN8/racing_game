@@ -1,6 +1,6 @@
-// Headless driver standing in for the player, for any Track: full throttle, steering to the centre line;
-// Boost in the last 40 m before each Gap (if asked); in the air it pitches the nose onto the flight path (if asked),
-// like a player lining up a landing, or holds a fixed pitch.
+// Headless driver standing in for the player, for any Track: full throttle, steering to the centre line; braking for
+// turns too tight to hold (if asked); Boost in the last 40 m before each Gap, or on straights (if asked); in the air it
+// pitches the nose onto the flight path (if asked), like a player lining up a landing, or holds a fixed pitch.
 import { MathUtils } from 'three';
 import type { Track } from '../src/track/bake';
 import { cornerPull, step, type BikeState, type Input } from '../src/bike/physics';
@@ -8,7 +8,7 @@ import { TUNING } from '../src/bike/tuning';
 
 export const DT = 1 / 120;
 export const NONE: Input = { throttle: 0, brake: 0, steer: 0, pitch: 0, boost: false };
-export interface Pilot { boost?: boolean; airControl?: boolean; pitch?: number }
+export interface Pilot { boost?: boolean; boostStraights?: boolean; brakes?: boolean; airControl?: boolean; pitch?: number }
 export const BOOSTED: Pilot = { airControl: true, boost: true };
 export interface RideEvent { kind: 'launch' | 'land' | 'respawn'; s: number; msg: string; lapTimeJump: number }
 export const lapDone = (st: BikeState) => st.laps > 0;
@@ -32,6 +32,20 @@ export function createPilot(T: Track) {
     return MathUtils.clamp(target / (TUNING.steerRate * Math.max(0.1, Math.min(1, Math.abs(st.speed) / 10))), -1, 1);
   };
 
+  // The fastest the Bike may go here: every turn in the next 200 m stays reachable, braking at 85% of brake, and is
+  // taken at 85% of the speed full steer can hold (speed² × pull per speed² ≤ steerRate × steerResponse).
+  const HOLD = TUNING.steerRate * TUNING.steerResponse;
+  function safeSpeed(s: number) {
+    let v = Infinity;
+    for (let ds = 0; ds < 200; ds += 2) {
+      const k = Math.abs(cornerPull(T, s + ds, 1, TUNING));
+      if (k < 1e-5) continue;
+      const vt = 0.85 * Math.sqrt(HOLD / k);
+      v = Math.min(v, Math.sqrt(vt * vt + 2 * 0.85 * TUNING.brake * ds));
+    }
+    return v;
+  }
+
   function pilot(st: BikeState, o: Pilot): Input {
     if (st.mode === 'air') {
       if (o.pitch !== undefined) return { ...NONE, pitch: o.pitch };
@@ -39,8 +53,9 @@ export function createPilot(T: Track) {
       const v = st.vel.clone().applyQuaternion(st.quat.clone().invert()).normalize(); // flight path, Bike-local
       return { ...NONE, pitch: MathUtils.clamp(-v.y * 10, -1, 1) };
     }
-    const boost = !!o.boost && gaps.some(([a]) => st.s > a - 40 && st.s < a);
-    return { ...NONE, throttle: 1, steer: steerToCentre(st), boost };
+    const safe = o.brakes || o.boostStraights ? safeSpeed(st.s) : Infinity, over = !!o.brakes && st.speed > safe;
+    const boost = (!!o.boost && gaps.some(([a]) => st.s > a - 40 && st.s < a)) || (!!o.boostStraights && safe > 90);
+    return { ...NONE, throttle: over ? 0 : 1, brake: over ? 1 : 0, steer: steerToCentre(st), boost };
   }
 
   // Ride until `done` (or 90 s), logging every launch, landing and respawn.

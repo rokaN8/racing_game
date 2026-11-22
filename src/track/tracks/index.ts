@@ -3,6 +3,7 @@ import type { Song } from '../../audio/songs';
 import type { Palette } from '../../render/palette';
 import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
+import { switchback } from './technical';
 
 export interface TrackDef {
   id: string;      // stable: storage keys use it, so never rename one
@@ -16,4 +17,4 @@ export interface TrackDef {
   song: Song;
 }
 
-export const TRACKS: TrackDef[] = [overdrive];
+export const TRACKS: TrackDef[] = [overdrive, switchback];

@@ -46,7 +46,7 @@ describe.each(TRACKS)('$name', track => {
     st.lastCP = k - 1;
     respawn(st, T, TUNING, 'test');
     const next = T.cpS[k], respawns = st.respawns; // undefined after the last: ride to the line
-    ride(st, BOOSTED, st => st.respawns > respawns || st.laps > 0 || (next !== undefined && st.mode === 'track' && st.s >= next));
+    ride(st, { ...BOOSTED, brakes: true }, st => st.respawns > respawns || st.laps > 0 || (next !== undefined && st.mode === 'track' && st.s >= next));
     expect(st.respawns).toBe(respawns);
   });
 });
