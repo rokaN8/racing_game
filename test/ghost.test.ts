@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Quaternion, Vector3 } from 'three';
-import { createGhost } from '../src/ghost';
+import { createGhost, migrateOldGhost } from '../src/ghost';
 
 // Stand-in for the Bike's state: only what the Ghost reads.
+const ID = 'allround', KEY = 'neon-racer.track.allround.v1';
 const bikeAt = () => ({ laps: 0, lastLap: null as number | null, lastCP: 0, lapTime: 0, pos: new Vector3(), quat: new Quaternion() });
 type Bike = ReturnType<typeof bikeAt>;
 
@@ -48,24 +49,24 @@ function expectTraces(ghost: ReturnType<typeof createGhost>, b: Bike, best: numb
 
 describe('Ghost', () => {
   it('shows nothing before the first Lap', () => {
-    const ghost = createGhost(memoryStorage()), b = bikeAt();
+    const ghost = createGhost(memoryStorage(), ID), b = bikeAt();
     poseAt(b, 0, 1); ghost.record(b);
     expect(ghost.pose(new Vector3(), new Quaternion())).toBe(false);
   });
 
   it('after a Lap, the next run traces that Lap step by step', () => {
-    const ghost = createGhost(memoryStorage()), b = bikeAt();
+    const ghost = createGhost(memoryStorage(), ID), b = bikeAt();
     const first = lap(ghost, b, 300, 40, 1);
     expectTraces(ghost, b, first);
   });
 
   it('keeps the best Lap: a slower Lap does not replace it, a faster one does', () => {
-    const ghost = createGhost(memoryStorage()), b = bikeAt();
+    const ghost = createGhost(memoryStorage(), ID), b = bikeAt();
     const first = lap(ghost, b, 300, 40, 1);
     lap(ghost, b, 320, 42, 2);                 // slower
     expectTraces(ghost, b, first);
     expect(ghost.bestTime).toBe(40);
-    const g2 = createGhost(memoryStorage()), b2 = bikeAt();
+    const g2 = createGhost(memoryStorage(), ID), b2 = bikeAt();
     lap(g2, b2, 300, 40, 1);
     const faster = lap(g2, b2, 280, 38, 3);
     expectTraces(g2, b2, faster);
@@ -73,42 +74,139 @@ describe('Ghost', () => {
   });
 
   it('ends when the best Lap runs out', () => {
-    const ghost = createGhost(memoryStorage()), b = bikeAt();
+    const ghost = createGhost(memoryStorage(), ID), b = bikeAt();
     lap(ghost, b, 10, 40, 1);
     for (let k = 0; k < 10; k++) { poseAt(b, k, 9); ghost.record(b); expect(ghost.pose(new Vector3(), new Quaternion())).toBe(true); }
     poseAt(b, 10, 9); ghost.record(b);
     expect(ghost.pose(new Vector3(), new Quaternion())).toBe(false);
   });
 
-  it('ignores a corrupt saved Ghost', () => {
-    const ghostIn = (v: string) => { const s = memoryStorage(); s.setItem('neon-racer.ghost.v1', v); return createGhost(s); };
+  it('ignores a corrupt saved record', () => {
+    const ghostIn = (v: string) => { const s = memoryStorage(); s.setItem(KEY, v); return createGhost(s, ID); };
     const corrupt = [
-      'not json', '{}',
-      JSON.stringify({ time: 'x', poses: btoa('abcd') }), // time not a number
-      JSON.stringify({ time: 40, poses: btoa('abc') }),   // not whole floats
-      JSON.stringify({ time: 40, poses: btoa('abcd') }),  // one float, not a whole pose
+      'not json', '{}', 'null',
+      JSON.stringify({ scores: [{ time: 'x', date: 1 }], ghost: null }),               // time not a number
+      JSON.stringify({ scores: [{ time: 41, date: 1 }, { time: 40, date: 1 }], ghost: null }), // not fastest first
     ];
     for (const v of corrupt) {
       const ghost = ghostIn(v), b = bikeAt();
       expect(ghost.bestTime).toBeNull();
+      expect(ghost.scores).toEqual([]);
       poseAt(b, 0, 1); ghost.record(b);
+      expect(ghost.pose(new Vector3(), new Quaternion())).toBe(false);
+    }
+    // a Ghost that doesn't decode is dropped, its times kept
+    for (const poses of [btoa('abc'), btoa('abcd'), 42]) { // not whole floats; one float, not a whole pose; not a string
+      const ghost = ghostIn(JSON.stringify({ scores: [{ time: 40, date: 1 }], ghost: { poses, splits: [0] } }));
+      expect(ghost.bestTime).toBe(40);
+      poseAt(bikeAt(), 0, 1); ghost.record(bikeAt());
       expect(ghost.pose(new Vector3(), new Quaternion())).toBe(false);
     }
   });
 
   it('survives a page reload', () => {
     const storage = memoryStorage(), b = bikeAt();
-    const ghost = createGhost(storage);
+    const ghost = createGhost(storage, ID);
     const first = lap(ghost, b, 4800, 40, 1); // a full 40 s Lap of 120 Hz samples
     ghost.record(b);                            // first step past the line saves it
-    const reloaded = createGhost(storage);
+    const reloaded = createGhost(storage, ID);
     expect(reloaded.bestTime).toBe(40);
     expectTraces(reloaded, bikeAt(), first);
   });
 
+  it('keeps the top 5, fastest first, dated; an equal time ranks below; the Ghost is #1', () => {
+    let t = 1000;
+    const storage = memoryStorage(), ghost = createGhost(storage, ID, () => t++), b = bikeAt();
+    lap(ghost, b, 100, 45, 1);
+    for (const time of [47, 44, 46, 45, 50, 43.5]) lap(ghost, b, 100, time, 2); // 44 takes the Ghost, 43.5 takes it again
+    const fastest = lap(ghost, b, 100, 43, 3);
+    lap(ghost, b, 100, 60, 4);                                 // too slow for the top 5: nothing changes
+    expectTraces(ghost, b, fastest);                           // its first step closes the 60 s Lap
+    expect(ghost.scores.map(s => s.time)).toEqual([43, 43.5, 44, 45, 45]);
+    expect(ghost.scores[3].date).toBeLessThan(ghost.scores[4].date!); // the first 45 stays above the later, equal one
+    const reloaded = createGhost(storage, ID);                 // survives a reload: times, dates and Ghost
+    expect(reloaded.scores).toEqual(ghost.scores);
+    expectTraces(reloaded, bikeAt(), fastest);
+  });
+
+  it('a Lap outside #1 joins the top 5 without replacing the Ghost', () => {
+    const storage = memoryStorage(), ghost = createGhost(storage, ID), b = bikeAt();
+    const first = lap(ghost, b, 200, 40, 1);
+    lap(ghost, b, 220, 42, 2);
+    ghost.record(b);
+    expect(ghost.scores.map(s => s.time)).toEqual([40, 42]);
+    expectTraces(createGhost(storage, ID), bikeAt(), first);
+  });
+
+  it('clear() resets the Track: times and Ghost gone, in memory and storage', () => {
+    const storage = memoryStorage(), ghost = createGhost(storage, ID), b = bikeAt();
+    lap(ghost, b, 100, 40, 1); ghost.record(b);
+    ghost.clear();
+    expect(ghost.scores).toEqual([]);
+    expect(ghost.bestTime).toBeNull();
+    expect(storage.getItem(KEY)).toBeNull();
+    expect(createGhost(storage, ID).scores).toEqual([]);
+    ghost.restart(); ghost.record(b);
+    expect(ghost.pose(new Vector3(), new Quaternion())).toBe(false);
+  });
+
+  it('keeps each Track separate', () => {
+    const storage = memoryStorage(), a = createGhost(storage, 'a'), b = bikeAt();
+    lap(a, b, 100, 40, 1); a.record(b);
+    expect(createGhost(storage, 'b').scores).toEqual([]);
+    expect(createGhost(storage, 'a').bestTime).toBe(40);
+  });
+
+  describe('migration from before Tracks', () => {
+    // A best Lap saved by the POC: v2 has splits, v1 doesn't.
+    const oldLap = (time: number) => {
+      const g = createGhost(memoryStorage(), 'tmp'), b = bikeAt();
+      const poses = lap(g, b, 50, time, 1); g.record(b);
+      return { poses, saved: { time, poses: btoa(String.fromCharCode(...new Uint8Array(Float32Array.from(poses.flat()).buffer))), splits: [0] } };
+    };
+
+    it('moves the old best Lap to the Track as its undated #1, then removes the old keys', () => {
+      for (const oldKey of ['neon-racer.ghost.v2', 'neon-racer.ghost.v1']) {
+        const storage = memoryStorage(), { poses, saved } = oldLap(39);
+        storage.setItem(oldKey, JSON.stringify(saved));
+        migrateOldGhost(storage, ID);
+        expect(storage.getItem(oldKey)).toBeNull();
+        const ghost = createGhost(storage, ID);
+        expect(ghost.scores).toEqual([{ time: 39, date: null }]);
+        expectTraces(ghost, bikeAt(), poses);
+      }
+    });
+
+    it("doesn't overwrite a Track that already has a record", () => {
+      const storage = memoryStorage(), ghost = createGhost(storage, ID), b = bikeAt();
+      lap(ghost, b, 100, 41, 1); ghost.record(b);
+      storage.setItem('neon-racer.ghost.v2', JSON.stringify(oldLap(39).saved));
+      migrateOldGhost(storage, ID);
+      expect(createGhost(storage, ID).bestTime).toBe(41);
+    });
+
+    it('keeps the old key when the new record cannot be written', () => {
+      const storage = memoryStorage(), old = JSON.stringify(oldLap(39).saved);
+      storage.setItem('neon-racer.ghost.v2', old);
+      const full = { ...storage, getItem: storage.getItem, removeItem: storage.removeItem,
+        setItem: () => { throw new Error('QuotaExceededError'); } } as Storage;
+      migrateOldGhost(full, ID);
+      expect(storage.getItem('neon-racer.ghost.v2')).toBe(old);
+    });
+
+    it('ignores a garbage old key and blocked storage', () => {
+      const storage = memoryStorage();
+      storage.setItem('neon-racer.ghost.v2', 'not json');
+      migrateOldGhost(storage, ID);
+      expect(storage.getItem(KEY)).toBeNull();
+      expect(() => migrateOldGhost(blocked, ID)).not.toThrow();
+      expect(() => migrateOldGhost(null, ID)).not.toThrow();
+    });
+  });
+
   it('still works with storage blocked or missing', () => {
     for (const storage of [blocked, null]) {
-      const ghost = createGhost(storage), b = bikeAt();
+      const ghost = createGhost(storage, ID), b = bikeAt();
       const first = lap(ghost, b, 300, 40, 1);
       expectTraces(ghost, b, first);
     }

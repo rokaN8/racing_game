@@ -1,7 +1,7 @@
-// The test Track (docs/poc-spec.md → Test Track layout, ticket #7). Fitted to the locked physics.
-// Control points [x, y, z, bankDeg]. Closed centripetal Catmull-Rom. y is up; + bank tilts up toward the right.
+// Overdrive, the all-rounder: the POC's test Track (docs/poc-spec.md → Test Track layout, ticket #7). Fitted to the locked physics.
 // Lap: Loop → right turn → Rollercoaster (two steep hills) → left turn → Wall-ride → Gap B → right turn onto the home straight.
-export type ControlPoint = [x: number, y: number, z: number, bankDeg: number];
+import type { ControlPoint } from '../bake';
+import type { TrackDef } from '.';
 
 const rad = (d: number) => (d * Math.PI) / 180;
 
@@ -21,7 +21,7 @@ const arc = (cx: number, cz: number, r: number, a0: number, a1: number, n: numbe
     return [cx + r * Math.cos(a), 0, cz + r * Math.sin(a), bank];
   });
 
-export const CPS: ControlPoint[] = [
+const CPS: ControlPoint[] = [
   [0, 0, 0, 0], [0, 0, 60, 0], [0, 0, 100, 0],          // 0-2 home straight; 0 = start line (CP 1), 1 = CP 2
   [0, 0, 130, 0], ...loop(130), [12, 0, 130, 0],        // 3-11 Loop
   [12, 0, 170, 0],                                      // 12
@@ -44,6 +44,10 @@ export const CPS: ControlPoint[] = [
   [0, 0, -275, 0], [0, 0, -180, 0], [0, 0, -90, 0],     // 56-58
 ];
 
-export const GAP_SEGMENTS = [40, 41]; // segments (cp i → i+1) with no geometry: Gap B
-export const CHECKPOINT_CPS = [0, 1, 17, 37];
-export const HALF_WIDTH = 4;
+export const overdrive: TrackDef = {
+  id: 'allround', name: 'Overdrive', kind: 'All-rounder',
+  cps: CPS,
+  gapSegments: [40, 41], // segments (cp i → i+1) with no geometry: Gap B
+  checkpointCps: [0, 1, 17, 37],
+  halfWidth: 4,
+};
