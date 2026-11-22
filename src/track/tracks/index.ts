@@ -13,6 +13,3 @@ export interface TrackDef {
 }
 
 export const TRACKS: TrackDef[] = [overdrive];
-
-// Unknown or missing id → the first Track.
-export const trackById = (id: string | null) => TRACKS.find(t => t.id === id) ?? TRACKS[0];

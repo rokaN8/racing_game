@@ -122,6 +122,7 @@ describe('Ghost', () => {
     const fastest = lap(ghost, b, 100, 43, 3);
     lap(ghost, b, 100, 60, 4);                                 // too slow for the top 5: nothing changes
     expectTraces(ghost, b, fastest);                           // its first step closes the 60 s Lap
+    expect(ghost.lastRank).toBeNull();                          // the 60 s Lap missed the top 5
     expect(ghost.scores.map(s => s.time)).toEqual([43, 43.5, 44, 45, 45]);
     expect(ghost.scores[3].date).toBeLessThan(ghost.scores[4].date!); // the first 45 stays above the later, equal one
     const reloaded = createGhost(storage, ID);                 // survives a reload: times, dates and Ghost
@@ -135,6 +136,7 @@ describe('Ghost', () => {
     lap(ghost, b, 220, 42, 2);
     ghost.record(b);
     expect(ghost.scores.map(s => s.time)).toEqual([40, 42]);
+    expect(ghost.lastRank).toBe(2);
     expectTraces(createGhost(storage, ID), bikeAt(), first);
   });
 

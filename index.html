@@ -21,6 +21,44 @@
       #center .ahead { color: #3f6; text-shadow: 0 0 10px #3f6; } #center .behind { color: #f44; text-shadow: 0 0 10px #f44; }
       #attitude { position: fixed; right: 16px; bottom: 16px; pointer-events: none; }
       #attitude[hidden] { display: none; }
+      /* Menu, Pause, Finish: the side-rail overlay (src/ui/menu.ts). The game stays visible on the right. */
+      body.ui-open #hud, body.ui-open #center, body.ui-open #msg, body.ui-open #attitude { visibility: hidden; }
+      #ui { position: fixed; inset: 0; color: #0ff; font-variant-numeric: tabular-nums; text-shadow: 0 0 8px #0ff; user-select: none;
+            background: linear-gradient(90deg, #000e 0%, #000c 34%, #0000 60%); }
+      #ui:empty { display: none; }
+      #ui h1, #ui h2, #ui h3 { margin: 0; font-weight: 700; letter-spacing: .08em; }
+      #ui .logo { font-size: 54px; line-height: 1; margin-bottom: 24px; color: #ff2bd6; text-shadow: 0 0 18px #ff2bd6, 0 0 40px #ff2bd6; }
+      #ui h2 { font-size: 26px; text-transform: uppercase; }
+      #ui small { color: #8af; text-shadow: none; margin-left: 8px; font-size: 12px; }
+      #ui .sub { color: #fff; text-shadow: none; opacity: .8; }
+      #ui .hint { color: #fff; opacity: .5; text-shadow: none; font-size: 13px; margin-top: 20px; }
+      #ui .ahead { color: #3f6; text-shadow: 0 0 10px #3f6; } #ui .behind { color: #f44; text-shadow: 0 0 10px #f44; }
+      #ui .time { font-size: 56px; font-weight: 700; } #ui .delta { font-size: 24px; }
+      #ui .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 34%; min-width: 300px; padding: 8vh 40px; box-sizing: border-box;
+                  display: flex; flex-direction: column; gap: 10px; }
+      #ui .list { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
+      #ui .item { font-size: 20px; text-transform: uppercase; letter-spacing: .1em; padding: 8px 14px; color: #fff; text-shadow: none; opacity: .7;
+                  display: flex; align-items: center; justify-content: space-between; }
+      #ui .item small { color: inherit; opacity: .7; text-transform: none; letter-spacing: 0; }
+      #ui .item.on { opacity: 1; background: #ff2bd6; color: #000; box-shadow: 0 0 20px #ff2bd6; }
+      #ui .item.armed { background: #f44; color: #000; box-shadow: 0 0 20px #f44; }
+      #ui .panel { position: absolute; right: 6vw; top: 50%; transform: translateY(-50%); min-width: 360px; padding: 24px 28px;
+                   background: #000a; border: 1px solid #0ff4; border-radius: 6px; }
+      #ui .panel h1 { font-size: 44px; color: var(--a); text-shadow: 0 0 14px var(--a); }
+      #ui .panel h3 { margin-top: 14px; font-size: 14px; opacity: .8; }
+      #ui .band { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--a), var(--b)); box-shadow: 0 0 16px var(--a); margin-bottom: 14px; }
+      #ui .sw { display: inline-block; width: 28px; height: 10px; border-radius: 5px; margin: 0 8px; vertical-align: middle;
+                background: linear-gradient(90deg, var(--a), var(--b)); box-shadow: 0 0 8px var(--a); }
+      #ui canvas.outline { display: block; margin: 14px 0 4px; background: #05051a; border: 1px solid #0ff3; border-radius: 4px; }
+      #ui ol.top { list-style: none; padding: 0; margin: 8px 0; min-width: 260px; }
+      #ui ol.top li { display: flex; gap: 8px; align-items: baseline; padding: 3px 8px; }
+      #ui ol.top li span { width: 26px; opacity: .6; } #ui ol.top li b { width: 64px; text-align: right; }
+      #ui ol.top li.empty { opacity: .35; } #ui ol.top li.me { background: #ff2bd633; outline: 1px solid #ff2bd6; }
+      #ui ol.top li em { font-style: normal; font-size: 11px; color: #ff2bd6; border: 1px solid #ff2bd6; border-radius: 3px; padding: 0 4px; text-shadow: none; }
+      #ui table { border-collapse: collapse; } #ui td, #ui th { padding: 6px 12px; text-align: left; }
+      #ui table.grid td small { display: block; margin: 0; }
+      #ui kbd { font: inherit; color: #fff; text-shadow: none; border: 1px solid #0ff6; border-radius: 4px; padding: 1px 6px; }
+      #ui .warn { color: #f44; text-shadow: 0 0 8px #f44; }
     </style>
   </head>
   <body>
@@ -28,6 +66,7 @@
     <div id="hud"></div>
     <div id="center"></div>
     <canvas id="attitude" width="140" height="140" hidden></canvas>
+    <div id="ui"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
