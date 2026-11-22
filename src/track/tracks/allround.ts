@@ -50,4 +50,14 @@ export const overdrive: TrackDef = {
   gapSegments: [40, 41], // segments (cp i → i+1) with no geometry: Gap B
   checkpointCps: [0, 1, 17, 37],
   halfWidth: 4,
+  palette: { primary: 0xff2bd6, secondary: 0xffe600, sky: 0x000000 }, // magenta / yellow
+  // Mid-tempo synthwave in A minor, i–VI–III–VII: octave bass, rolling arp.
+  song: {
+    bpm: 100, echo: 0.35,
+    bars: [['Am', 45, [57, 60, 64]], ['F', 41, [57, 60, 65]], ['C', 48, [55, 60, 64]], ['G', 43, [55, 59, 62]]],
+    bass: { pat: 'r.o.r.o.r.o.r.o.', wave: 'sawtooth', cutoff: 700, vol: 0.14, len: 1.8 },
+    pad: { wave: 'sawtooth', cutoff: 1400, vol: 0.035, attack: 0.5 },
+    arp: { pat: '0120120120120120', wave: 'square', cutoff: 2500, vol: 0.03, len: 0.8, oct: 12 },
+    drums: { kick: 'x.......x.......', snare: '....x.......x...', hat: '.x.x.x.x.x.x.x.x', vol: 1 },
+  },
 };

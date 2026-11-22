@@ -1,6 +1,7 @@
 // Synth sound, Web Audio only: no files. An engine hum that follows speed, plus one-shot sounds for events.
 // Browsers keep audio off until the player interacts, so the AudioContext starts on the first key or click.
-// Plus a looping synthwave backing track. M mutes everything; the choice is kept in localStorage when storage works.
+// Plus music: the current Song (see setMusic). M mutes everything; the choice is kept in localStorage when storage works.
+import { stepEvents, type Note, type Song } from './audio/songs';
 
 const MUTE_KEY = 'neon-racer.muted';
 const VOLUME = 0.35; // master; leaves headroom for music later
@@ -27,38 +28,85 @@ function start() {
   startMusic();
 }
 
-// Background music: a looping synthwave bar pattern, sequenced live. Under the master, so M mutes it too.
-// A minor, i–VI–III–VII (Am F C G), one bar each: bass root (MIDI) + chord tones for the pad and arp.
-const BPM = 100, STEP = 60 / BPM / 4; // one 16th note
-const BARS: [number, number[]][] = [[45, [57, 60, 64]], [41, [57, 60, 65]], [48, [55, 60, 64]], [43, [55, 59, 62]]];
+// Music (docs/game-spec.md → Songs): the current Song, sequenced live from its data. Under the master, so M mutes it.
+// Each sounding Song is a player with its own bus and echo, so a change of Song crossfades: two overlap for a moment.
+// The chain: player bus → muffle (low-pass) → music gain → master. Pause muffles: low-pass and half volume.
+const MUSIC = 0.35, CROSSFADE = 1.5, MUFFLE_HZ = 700, OPEN_HZ = 20000;
 const hz = (m: number) => 440 * 2 ** ((m - 69) / 12);
-let music: GainNode, echo: GainNode, nextT = 0, stepN = 0;
+interface Player { song: Song; step: number; bus: GainNode; echo: GainNode; n: number; nextT: number; stopAt: number }
+let music: GainNode, muffle: BiquadFilterNode, players: Player[] = [];
+let wantSong: Song | null = null, wantMuffled = false; // what the game asked for, kept until the AudioContext starts
 
 function startMusic() {
   if (!ctx) return;
-  music = ctx.createGain(); music.gain.value = 0.35; music.connect(master);
-  // Echo for the arp: a dotted-8th feedback delay, the 80s staple.
-  echo = ctx.createGain();
-  const dl = ctx.createDelay(1), fb = ctx.createGain();
-  dl.delayTime.value = STEP * 3; fb.gain.value = 0.35;
-  echo.connect(dl).connect(fb).connect(dl); dl.connect(music); echo.connect(music);
-  nextT = ctx.currentTime + 0.1;
+  music = ctx.createGain(); music.gain.value = MUSIC; music.connect(master);
+  muffle = ctx.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = OPEN_HZ; muffle.connect(music);
+  if (wantSong) play(wantSong, 0);
+  setMuffle(wantMuffled);
   // ponytail: setInterval lookahead scheduler; a hidden tab throttles it, so a returning tab skips ahead rather than catch up.
-  setInterval(() => {
-    if (!ctx) return;
-    if (nextT < ctx.currentTime) nextT = ctx.currentTime + 0.05;
-    while (nextT < ctx.currentTime + 0.12) { playStep(stepN, nextT); nextT += STEP; stepN = (stepN + 1) % 64; }
-  }, 25);
+  setInterval(schedule, 25);
 }
 
-function playStep(n: number, t: number) {
-  const [root, chord] = BARS[n >> 4], s = n % 16;
-  if (s % 2 === 0) voice(hz(root + (s % 4 ? 12 : 0)), t, STEP * 1.8, 'sawtooth', 0.14, 700, 0.005, music); // octave bass
-  if (s === 0) chord.forEach(m => voice(hz(m), t, STEP * 16, 'sawtooth', 0.035, 1400, 0.5, music));         // pad
-  voice(hz(chord[s % 3] + 12), t, STEP * 0.8, 'square', 0.03, 2500, 0.003, echo);                         // arp
-  if (s % 8 === 0) kick(t);
-  if (s % 8 === 4) hit(t, 0.18, 1500, 0.35); // snare
-  if (s % 2 === 1) hit(t, 0.04, 7000, 0.12); // hi-hat
+function play(song: Song, fadeIn: number) {
+  const c = ctx!, t = c.currentTime + 0.05, step = 60 / song.bpm / 4; // one 16th note
+  const bus = c.createGain(), echo = c.createGain(), dl = c.createDelay(1), fb = c.createGain();
+  bus.gain.setValueAtTime(fadeIn ? 0.0001 : 1, t);
+  if (fadeIn) bus.gain.exponentialRampToValueAtTime(1, t + fadeIn);
+  // Echo for the arp: a dotted-8th feedback delay, the 80s staple.
+  dl.delayTime.value = step * 3; fb.gain.value = song.echo;
+  echo.connect(dl).connect(fb).connect(dl); dl.connect(bus); echo.connect(bus); bus.connect(muffle);
+  players.push({ song, step, bus, echo, n: 0, nextT: t, stopAt: Infinity });
+}
+
+function fadeOut(p: Player, secs: number) {
+  const t = ctx!.currentTime, g = p.bus.gain;
+  g.cancelScheduledValues(t); g.setValueAtTime(Math.max(g.value, 0.0001), t); g.exponentialRampToValueAtTime(0.0001, t + secs);
+  p.stopAt = t + secs;
+}
+
+function setMuffle(on: boolean) {
+  const t = ctx!.currentTime;
+  muffle.frequency.setTargetAtTime(on ? MUFFLE_HZ : OPEN_HZ, t, 0.03); // eases in about 0.1 s
+  music.gain.setTargetAtTime(on ? MUSIC / 2 : MUSIC, t, 0.03);
+}
+
+function schedule() {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  players = players.filter(p => { if (now < p.stopAt + 0.5) return true; p.bus.disconnect(); return false; });
+  for (const p of players) {
+    if (p.nextT < now) p.nextT = now + 0.05;
+    while (p.nextT < now + 0.12 && p.nextT < p.stopAt) {
+      for (const note of stepEvents(p.song, p.n)) sound(p, note, p.nextT);
+      p.nextT += p.step; p.n++;
+    }
+  }
+}
+
+// Call every frame with what should be playing. A different Song crossfades in; the same one keeps going (so a Retry
+// doesn't restart it).
+export function setMusic(song: Song, muffled: boolean) {
+  const songChanged = song !== wantSong, muffleChanged = muffled !== wantMuffled;
+  wantSong = song; wantMuffled = muffled;
+  if (!ctx || !music) return;
+  if (songChanged) {
+    const live = players.find(p => p.stopAt === Infinity);
+    if (live) fadeOut(live, CROSSFADE);
+    play(song, live ? CROSSFADE : 0);
+  }
+  if (muffleChanged) setMuffle(muffled);
+}
+
+function sound(p: Player, note: Note, t: number) {
+  const { song, step } = p, dv = song.drums.vol;
+  switch (note.voice) {
+    case 'bass': { const v = song.bass; return voice(hz(note.midi), t, step * v.len, v.wave, v.vol, v.cutoff, 0.005, p.bus); }
+    case 'pad': { const v = song.pad; return voice(hz(note.midi), t, step * 16, v.wave, v.vol, v.cutoff, v.attack, p.bus); }
+    case 'arp': { const v = song.arp; return voice(hz(note.midi), t, step * v.len, v.wave, v.vol, v.cutoff, 0.003, p.echo); }
+    case 'kick': return kick(t, 0.6 * dv, p.bus);
+    case 'snare': return hit(t, 0.18, 1500, 0.35 * dv, p.bus);
+    case 'hat': return hit(t, 0.04, 7000, 0.12 * dv, p.bus);
+  }
 }
 
 // A synth note: osc → low-pass → envelope (attack, then fade out by the end).
@@ -69,19 +117,19 @@ function voice(f: number, t: number, dur: number, type: OscillatorType, vol: num
   o.connect(lp).connect(g).connect(dest); o.start(t); o.stop(t + dur);
 }
 
-function kick(t: number) {
+function kick(t: number, vol: number, dest: AudioNode) {
   const o = ctx!.createOscillator(), g = ctx!.createGain();
   o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.15);
-  g.gain.setValueAtTime(0.6, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-  o.connect(g).connect(music); o.start(t); o.stop(t + 0.3);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(g).connect(dest); o.start(t); o.stop(t + 0.3);
 }
 
 // High-passed noise: snare and hi-hat.
-function hit(t: number, dur: number, hpf: number, vol: number) {
+function hit(t: number, dur: number, hpf: number, vol: number, dest: AudioNode) {
   const src = ctx!.createBufferSource(), f = ctx!.createBiquadFilter(), g = ctx!.createGain();
   src.buffer = noise; f.type = 'highpass'; f.frequency.value = hpf;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(music); src.start(t, Math.random() * 0.5); src.stop(t + dur);
+  src.connect(f).connect(g).connect(dest); src.start(t, Math.random() * 0.5); src.stop(t + dur);
 }
 
 // ponytail: a gamepad press doesn't count as a user gesture in Chrome, so a pad-only player stays silent until a key or click.
