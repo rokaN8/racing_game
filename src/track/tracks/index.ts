@@ -3,6 +3,7 @@ import type { Song } from '../../audio/songs';
 import type { Palette } from '../../render/palette';
 import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
+import { hangTime } from './bigair';
 import { switchback } from './technical';
 
 export interface TrackDef {
@@ -17,4 +18,4 @@ export interface TrackDef {
   song: Song;
 }
 
-export const TRACKS: TrackDef[] = [overdrive, switchback];
+export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime];
