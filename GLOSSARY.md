@@ -2,13 +2,17 @@
 
 **Bike** — The single player-controlled vehicle. Leaves a light trail (visual only).
 
-**Track** — The surface the Bike rides on. Can twist, bank, and form Loops; may contain Gaps.
+**Track** — One closed course the Bike races, with its own layout, palette, Song and High scores. Can twist, bank, and form Loops; may contain Gaps.
 
 **Loop** — A section of Track that curves fully vertical, carrying the Bike upside down and back.
 
 **Wall-ride** — A stretch of Track banked to roughly vertical, ridden sideways by Track-relative gravity.
 
 **Gap** — A break in the Track the Bike must jump across while Airborne.
+
+**Kicker** — The ramp before a Gap that lifts the Bike into the air at the lip.
+
+**Landing deck** — The flat Track after a Gap, long enough that every speed which clears the Gap lands on it.
 
 **Track-relative gravity** — While on the Track, gravity pulls the Bike into the Track surface beneath it, not world-down. This is what lets the Bike ride walls and Loops.
 
@@ -27,6 +31,8 @@
 **Air control** — Player rotation of the Bike while Airborne, to line up a landing.
 
 **Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is one Lap.
+
+**Ghost** — A replay of a Track's fastest Lap, ridden alongside the current run.
 
 **Lap** — One full trip round the closed Track, start line to start line.
 
