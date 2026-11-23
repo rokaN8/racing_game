@@ -8,6 +8,7 @@ import { createGhost, migrateOldGhost } from './ghost';
 import { drawCenter, drawHud, lapBanner } from './hud';
 import { onRespawn, readInput } from './input';
 import { css } from './render/palette';
+import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
@@ -58,7 +59,7 @@ function retry() {
   Object.assign(st, newState(w.T));
   ghost().restart();
   w.trail.update(st.pos, st.quat, true, false);
-  phase = 'countdown'; countT = COUNTDOWN; split = null; bannerT = 0; lapsShown = 0; snap = true;
+  phase = 'countdown'; countT = COUNTDOWN; split = null; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
 }
 function selectTrack(i: number, n: number) {
   w = worlds[i]; laps = n;
@@ -93,6 +94,10 @@ onRespawn(() => {
 const DT = 1 / 120, shownQuat = st.quat.clone();
 let trailRespawns = -1; // respawn count the trail last saw: -1 starts it fresh at the Bike
 let acc = 0, last = performance.now(), snap = true, seenRespawns = 0;
+// A crash plays the explosion where the Bike was, with the Bike hidden, the camera held and physics paused (so it
+// costs no race time); then the camera snaps to the respawn as before.
+const boom = createExplosion();
+let wreckT = 0;
 // Last frame's state, to spot sound events.
 let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT };
 renderer.setAnimationLoop(now => {
@@ -101,7 +106,7 @@ renderer.setAnimationLoop(now => {
   menu.tick(frame);
   const frozen = menu.screen !== null;
   if (phase === 'countdown' && !frozen && (countT -= frame) <= 0) { phase = 'racing'; goT = 0.7; prevBest = ghost().bestTime; }
-  if (phase !== 'racing' || frozen) acc = 0; // nothing piles up to catch up on at GO or on Resume
+  if (phase !== 'racing' || frozen || wreckT > 0) acc = 0; // nothing piles up to catch up on at GO, on Resume or after a crash
   while (acc >= DT) {
     step(st, inp, TUNING, w.T, DT); acc -= DT;
     const s = ghost().record(st);
@@ -113,7 +118,14 @@ renderer.setAnimationLoop(now => {
     trailRespawns = st.respawns;
     if (st.laps === laps) { finish(); break; }
   }
-  if (st.respawns !== seenRespawns) { seenRespawns = st.respawns; snap = true; }
+  if (st.respawns !== seenRespawns) {
+    if (st.respawns > seenRespawns) { // a crash, not a retry: the Bike still shows last frame's pose, the crash spot
+      w.scene.add(boom.points); boom.start(w.bike.position, w.bike.quaternion); wreckT = EXPLOSION_T;
+    }
+    seenRespawns = st.respawns; snap = true;
+  }
+  if (!frozen) { wreckT -= frame; boom.update(frame); }
+  const wrecked = wreckT > 0;
 
   // Sound: one-shots when state changes ('>' so a retry's reset to zero is silent).
   if (st.respawns > was.respawns) sfx.crash();
@@ -125,18 +137,20 @@ renderer.setAnimationLoop(now => {
   // The Menu Song covers the Menu screens; the Track's Song its countdown, race, Pause and Finish. Pause muffles it.
   const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
   setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');
-  updateEngine(phase === 'racing' && !frozen ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
+  updateEngine(phase === 'racing' && !frozen && !wrecked ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
 
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
     : bannerT > 0 ? banner : '');
-  if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
-  w.bike.position.copy(st.pos); w.bike.quaternion.copy(shownQuat); w.updateBike(st, frame);
+  w.bike.visible = !wrecked;
+  if (!wrecked) {
+    if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
+    w.bike.position.copy(st.pos); w.bike.quaternion.copy(shownQuat); w.updateBike(st, frame);
+  }
   const run = ghost().run;
   drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime });
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
-  updateCamera(st, shownQuat, frame, snap);
-  snap = false;
+  if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
   bloom.render();
 });

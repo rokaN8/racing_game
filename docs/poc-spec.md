@@ -36,7 +36,7 @@ The look is neon on black with bloom: solid dark shapes with glowing edges. Ther
 | Track grip | stickSpeed 18: below this speed the Bike drops off when upside down (Track up.y below -0.3) |
 | Airborne | airGravity 12 m/s², airControlRate 2.5 rad/s, landingTolerance 35°, maxAirTime 6 s |
 | Boost | +20 m/s top speed, +10 m/s kick, 2× accel, 1.2 s duration, 3 s cooldown |
-| Respawn | at the last Checkpoint, 20 m/s, +3 s penalty, Boost ready again (also when the player respawns by hand) |
+| Respawn | at the last Checkpoint, 20 m/s, +3 s penalty, Boost ready again (also when the player respawns by hand). First a 0.8 s pixel explosion plays where the Bike was, with the Bike hidden, the camera held and physics paused, so it costs no race time (render-only, `render/explosion.ts`) |
 
 ### Controls
 
