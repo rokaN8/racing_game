@@ -195,25 +195,27 @@ Accept when:
 
 Replaces the wireframe box with a light-cycle model whose orientation reads at a glance, plus an Attitude indicator while Airborne. Source: `prototype/bike-look` (variant C and the Attitude indicator block; deleted once built).
 
-**Model** (Bike local: +z forward, +y up, +x left; Track surface at y = 0; fits the old ~0.7 × 2.2 m footprint):
-- Two glowing cyan ring wheels, radius 0.36 m, centred at z = ±0.72. Each has a dark hub disc with cyan edges.
-- A low wedge body between them, about 2.05 m long and 0.4 m wide.
-- Every body part is solid near-black (`0x040a14`, below the bloom threshold) with thick cyan `Line2` edges, so hidden lines stay hidden.
+**Model** (Bike local: +z forward, +y up, +x left; Track surface at y = 0; about 0.56 × 2.5 m, under 1 m tall; light-cycle redesign in [#49](https://github.com/rokaN8/racing_game/issues/49)):
+- Two hubless wheels, radius 0.4 m, centred at z = ±0.8: a wide glowing cyan tyre band and a thin inner ring.
+- One bevelled shell, 0.46 m wide (plus bevel), that wraps each wheel's centre inside its rim. It has a low belly between the wheels and a spine that dips at the cockpit and humps over the rear, so it reads as a narrow teardrop from the chase camera.
+- Every body part is solid near-black (`0x040a14`) with thick dim-teal `Line2` edges (`0x1a5a66`), both below the bloom threshold, so hidden lines stay hidden and only the wheels and lights glow.
 
 **Orientation cues:**
 - **Up / roll:** a tall white dorsal fin over the rear half.
 - **Heading:** a flat white chevron on the deck, tip forward.
-- **Front / back:** a white headlight at the nose; an orange-red tail light (`0xff4a10`).
+- **Front / back:** a white headlight at the nose; an orange-red tail stripe (`0xff4a10`) across the full width of the shell's back slope.
 - **Underside:** an orange underglow (`0xff7a00`, additive), seen only from below.
 - No cue uses the Track's magenta or the Checkpoints' yellow.
 
-**Wheel spin:** each hub carries 3 short white dashes. The spin is scaled down from the true rolling rate, so that it shows about 4 turns a second at top speed (55 m/s) and rises linearly with speed. While Airborne, the wheels keep the spin they had at take-off.
+**Wheel spin:** each wheel carries 3 short white dashes between the inner ring and the rim. The spin is scaled down from the true rolling rate, so that it shows about 4 turns a second at top speed (55 m/s) and rises linearly with speed. While Airborne, the wheels keep the spin they had at take-off.
 
-**Boost glow:** while Boost is active, the Bike's cyan edges and rings brighten towards white (bigger bloom) and the tail light flares. Both fade back over the last 0.3 s of Boost. The Light trail is unchanged.
+**Boost glow:** while Boost is active, the body's edges light up to cyan, the rings brighten towards white (bigger bloom) and the tail light flares. Both fade back over the last 0.3 s of Boost. The Light trail is unchanged.
 
-**Ghost Bike:** the same model with every part translucent white (fin, chevron and underglow included). It has no wheel spin and no Boost glow. The recording format is unchanged.
+**Lean:** on the Track the Bike leans into its sideways acceleration (yaw rate × speed plus the change in sideways speed), up to 25° at 30 m/s², smoothed. It rolls about the contact line and levels out while Airborne. This is render-only: physics and the camera ignore it.
 
-**Light trail:** starts at the new tail, (0, 0.4, −1.05) in Bike-local coordinates. Its style is unchanged from M5.
+**Ghost Bike:** the same model with every part translucent white (fin, chevron and underglow included). It has no wheel spin, no lean and no Boost glow. The recording format is unchanged.
+
+**Light trail:** starts at the tail, (0, 0.5, −1.08) in Bike-local coordinates. Its style is unchanged from M5.
 
 **Attitude indicator** (in `hud.ts`):
 - An artificial horizon about 140 px across, bottom-right, shown only while Airborne.
@@ -257,7 +259,7 @@ Accept when:
 - A Track editor or procedural Tracks.
 - More than one Track.
 - Polished art.
-- Bike lean into steer and suspension squash on landing (revisit after M7).
+- Suspension squash on landing.
 - Drift.
 - A Boost meter or Boost pickups.
 - Split times.
