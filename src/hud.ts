@@ -1,7 +1,7 @@
 // In-race HUD, plain HTML over the canvas (markup and styles in index.html). Top left: the run clock (penalties
 // included), the Checkpoint split under it, then the current Lap time and the best run. Top right: the Lap counter,
 // flagged on the final Lap. Bottom left: speed and the Boost meter. Bottom right: the Attitude indicator while
-// Airborne. Centre: the countdown, GO and the Lap banner. Each field is written only when its text changes.
+// Airborne. Very top right: frames per second. Centre: the countdown, GO and the Lap banner. Each field is written only when its text changes.
 import { Vector3, type Quaternion } from 'three';
 import type { BikeState } from './bike/physics';
 import { TUNING } from './bike/tuning';
@@ -18,7 +18,7 @@ const $ = (id: string) => document.getElementById(id)!;
 const hud = $('hud'), center = $('center');
 const f = {
   time: $('h-time'), split: $('h-split'), lapTime: $('h-laptime'), best: $('h-best'),
-  lap: $('h-lap'), laps: $('h-laps'), speed: $('h-speed'), meter: $('h-meter'), boost: $('h-boost'),
+  lap: $('h-lap'), laps: $('h-laps'), speed: $('h-speed'), meter: $('h-meter'), boost: $('h-boost'), fps: $('h-fps'),
 };
 const shown = new Map<HTMLElement, string>();
 const put = (el: HTMLElement, text: string, html = false) => {
@@ -32,8 +32,19 @@ const att = $('attitude') as HTMLCanvasElement;
 const ctx = att.getContext('2d')!;
 const fwd = new Vector3(), up = new Vector3(), left = new Vector3();
 
+// Frames per second, averaged over half a second (drawHud runs once per rendered frame).
+let fpsFrames = 0, fpsFrom = performance.now();
+function countFrame() {
+  const now = performance.now();
+  fpsFrames++;
+  if (now - fpsFrom < 500) return;
+  put(f.fps, String(Math.round((fpsFrames * 1000) / (now - fpsFrom))));
+  fpsFrames = 0; fpsFrom = now;
+}
+
 export interface RunHud { time: number; lap: number; laps: number; best: number | null }
 export function drawHud(st: BikeState, q: Quaternion, split: number | null, run: RunHud) {
+  countFrame();
   flag('laps', run.laps > 1 ? 'multi' : 'single');
   flag('final', run.laps > 1 && run.lap >= run.laps ? '1' : '');
   put(f.time, clock(run.time));

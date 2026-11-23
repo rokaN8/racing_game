@@ -34,7 +34,9 @@
       #hud .times { display: flex; gap: 28px; }
       #hud .times b { display: block; margin-top: 2px; font-size: 18px; font-weight: 600; color: var(--ink); }
 
-      #hud .lapc { top: 22px; right: 32px; text-align: right; }
+      #hud .fps { top: 8px; right: 32px; font-size: 11px; font-weight: 600; letter-spacing: .2em; opacity: .7; text-shadow: none; }
+      #hud .fps b { color: var(--ink); letter-spacing: .04em; }
+      #hud .lapc { top: 30px; right: 32px; text-align: right; }
       #h-lap { font-size: clamp(56px, 6.2vw, 84px); }
       #h-laps { margin-left: 4px; font-size: clamp(22px, 2.4vw, 32px); font-weight: 600; opacity: .65; }
       #hud .final { display: none; margin-top: 8px; padding: 3px 10px 2px; font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase;
@@ -190,6 +192,7 @@
           <div><span class="k">Best</span><b id="h-best">—</b></div>
         </div>
       </div>
+      <div class="fps"><b id="h-fps">—</b> FPS</div>
       <div class="lapc">
         <span class="k">Lap</span>
         <b class="num" id="h-lap">1</b><span id="h-laps">/3</span>
