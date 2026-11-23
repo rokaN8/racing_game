@@ -17,7 +17,7 @@ describe('Menu state', () => {
   it('Menu → Play → Track select → a Track starts it and closes the overlay', () => {
     const { s, effects } = run(initialMenu(), open('menu'), pick, down, pick);
     expect(s.screen).toBeNull();
-    expect(effects).toEqual([{ start: 1 }]);
+    expect(effects).toEqual([{ start: 1, laps: 3 }]);
     expect(s.track).toBe(1);
   });
 
@@ -43,7 +43,7 @@ describe('Menu state', () => {
     expect(run(scores, pick, tick(ARM_TIME - 0.1), pick).effects).toEqual([{ reset: 0 }]);
     expect(run(scores, pick, tick(ARM_TIME), pick).effects).toEqual([]);              // timed out: re-armed instead
     expect(run(scores, pick, down, up, pick).effects).toEqual([]);                    // moving focus disarms
-    expect(run(scores, up, pick, pick).effects).toEqual([{ reset: 'all' }]);          // the last item resets all
+    expect(run(scores, up, up, pick, pick).effects).toEqual([{ reset: 'all' }]);      // the last reset resets all
     const done = run(scores, pick, pick).s;
     expect(done.armed).toBe(-1);
     expect(run(done, pick).effects).toEqual([]);                                      // and a third press starts over
@@ -71,5 +71,16 @@ describe('Menu state', () => {
       expect(run(start, back).s.screen).toBe('menu');
     }
     expect(run(initialMenu(), open('menu'), back).s.screen).toBe('menu');
+  });
+
+  it('Laps (the last item) cycles 3 → 5 → 1 → 3; a Track starts with it and High scores shows it', () => {
+    const select = run(initialMenu(), open('menu'), pick).s;
+    expect(select.laps).toBe(3);
+    expect([1, 2, 3].map(n => run(select, up, ...Array<Action>(n).fill(pick)).s.laps)).toEqual([5, 1, 3]);
+    expect(run(select, up, pick)).toMatchObject({ s: { screen: 'select' }, effects: [] });
+    expect(run(select, up, pick, down, pick).effects).toEqual([{ start: 0, laps: 5 }]);
+    const scores = run(select, up, pick, back, down, pick).s;
+    expect(scores).toMatchObject({ screen: 'scores', laps: 5 });
+    expect(run(scores, up, pick)).toMatchObject({ s: { laps: 1 }, effects: [] });
   });
 });

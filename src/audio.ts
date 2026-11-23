@@ -17,7 +17,7 @@ function start() {
   try { ctx = new AudioContext(); } catch { return; } // no Web Audio: play silent
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOLUME; master.connect(ctx.destination);
 
-  engine = ctx.createOscillator(); engine.type = 'sawtooth';
+  engine = ctx.createOscillator(); engine.type = 'triangle';
   engFilter = ctx.createBiquadFilter(); engFilter.type = 'lowpass'; engFilter.Q.value = 4;
   engGain = ctx.createGain(); engGain.gain.value = 0;
   engine.connect(engFilter).connect(engGain).connect(master); engine.start();
@@ -143,12 +143,13 @@ addEventListener('keydown', e => {
 addEventListener('pointerdown', start);
 
 // Each frame. Glides with setTargetAtTime so the engine never clicks or zippers.
+// A deep triangle hum: narrow pitch range (35-65 Hz) and a dark filter, so speed and Boost never make it whine.
 export function updateEngine(speed: number, airborne: boolean) {
   if (!ctx) return;
   const t = ctx.currentTime, v = Math.min(1, Math.abs(speed) / 75); // 75 m/s ≈ top speed with Boost
-  engine.frequency.setTargetAtTime(40 + 140 * v, t, 0.05);
-  engFilter.frequency.setTargetAtTime(250 + 2200 * v, t, 0.05);
-  engGain.gain.setTargetAtTime(0.5 * (0.05 + 0.15 * v) * (airborne ? 0.5 : 1), t, 0.08); // 0.5: engine sits under the music
+  engine.frequency.setTargetAtTime(35 + 30 * v, t, 0.05);
+  engFilter.frequency.setTargetAtTime(300 + 500 * v, t, 0.05);
+  engGain.gain.setTargetAtTime(2 * 0.5 * (0.05 + 0.15 * v) * (airborne ? 0.5 : 1), t, 0.08); // 2: a triangle is quieter than a saw; 0.5: under the music
 }
 
 // A pitched blip: glides f0 → f1 and fades out over dur seconds, starting `at` seconds from now.

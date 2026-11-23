@@ -112,26 +112,27 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
   - **Rail:** name, kind and palette swatch per Track. Focus starts on the last-raced Track.
   - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track, and its top 5.
   - **Outline:** drawn from the baked Track's x/z, with Gaps left open and the start line marked, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
-- **High scores.** The rail holds Reset Overdrive · Reset Switchback · Reset Hang Time · Reset all. The panel is one table: ranks #1–5 down, Tracks across, each cell showing time and date ("—" when empty or undated).
-- **Reset confirm.** The first press turns the item red with "Press again · 3…" and shows "Deletes Lap times and Ghost". A second press within 3 s resets. A timeout or moving focus cancels.
+- **Laps.** The last rail item on Track select and High scores. Picking it cycles the lap count 3 → 5 → 1 (3 at boot). Track select starts runs at it and shows its top 5; High scores shows its table.
+- **High scores.** The rail holds Reset Overdrive · Reset Switchback · Reset Hang Time · Reset all · Laps. The panel is one table for the current lap count: ranks #1–5 down, Tracks across, each cell showing time, Lap times (more than 1 Lap) and date ("—" when empty or undated).
+- **Reset confirm.** The first press turns the item red with "Press again · 3…" and shows "Deletes times and Ghosts at every lap count". A second press within 3 s resets every lap count of that Track. A timeout or moving focus cancels.
 - **Controls.** A Keyboard | Gamepad table.
-- **Pause** (Esc / Start). The rail shows the Track name and the current Lap time, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
+- **Pause** (Esc / Start). The rail shows the Track name and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
 - **Finish.**
-  - **Rail head:** the Lap time and the delta against the best (or NEW BEST), then Retry · Track select · Menu.
-  - **Panel:** the Track's top 5 with this Lap highlighted and its rank, or "not in top 5". R / Y still retry.
-- **Top 5 rows.** `#n · time · date`, with a **Ghost** tag on #1.
+  - **Rail head:** the run time and the delta against the best (or NEW BEST), then Retry · Track select · Menu.
+  - **Panel:** the Track's top 5 at this lap count with this run highlighted and its rank, or "not in top 5", then each Lap's time with the fastest tagged. R / Y still retry.
+- **Top 5 rows.** `#n · time · date`, with a **Ghost** tag on #1, and the Lap times under it for runs of more than 1 Lap.
 - **Input.** Arrows/WASD move, Enter/Space pick, Esc/Backspace back. Gamepad: d-pad or left stick move, A picks, B backs out, Start pauses and resumes. All edge-triggered.
 
 ## Storage
 
-- **One key per Track:** `neon-racer.track.<id>.v1` = `{ scores: [{ time, date }], ghost: { poses, splits } | null }`.
-  - `scores` holds at most 5, fastest first. `date` is epoch ms, shown in the local format.
-  - `ghost` always belongs to `scores[0]`. One write per finish, so scores and Ghost can't disagree.
-- **Ranking.** A finished Lap is inserted into the top 5. An equal time ranks below the existing one. A new #1 replaces the Ghost.
-- **Reset.** Reset a Track = `removeItem` on its key. Reset all = loop over `TRACKS`.
+- **One key per Track and lap count:** `neon-racer.track.<id>.v1` (1 Lap: the key from before lap counts) or `neon-racer.track.<id>.<n>laps.v1` = `{ scores: [{ time, date, lapTimes }], ghost: { poses, splits } | null }`.
+  - `scores` holds at most 5, fastest first. `time` is the run total, `lapTimes` each Lap's time (a 1-Lap score saved without it reads as `[time]`). `date` is epoch ms, shown in the local format.
+  - `ghost` belongs to `scores[0]`: the whole run, with a split at every Checkpoint pass of every Lap. One write per finish, so scores and Ghost can't disagree. If that write is over quota, the scores are written without the Ghost.
+- **Ranking.** A finished run is inserted into the top 5. An equal time ranks below the existing one. A new #1 replaces the Ghost.
+- **Reset.** Reset a Track = `removeItem` on its keys at every lap count. Reset all = loop over `TRACKS`.
 - **Migration** (once, at boot). If `neon-racer.ghost.v2` (or v1) exists and the Overdrive key doesn't, write Overdrive = `{ scores: [{ time, date: null }], ghost }`. Remove the old keys only after that write succeeds.
 - **Guarding.** Every read and write is guarded as today. Garbage loads as empty, and the game runs with storage blocked.
-- **Ghost module.** `createGhost(storage, trackId)`, one instance per Track, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `clear()` for resets, and `restart()`, which is today's `reset()` (retry) renamed.
+- **Ghost module.** `createGhost(storage, trackId, laps)`, one instance per Track and lap count, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `clear()` for resets, and `restart()`, which is today's `reset()` (retry) renamed.
 
 ## Palettes
 

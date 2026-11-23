@@ -12,19 +12,23 @@ import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
 import { createMenu } from './ui/menu';
+import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
 let storage: Storage | null = null;
 try { storage = localStorage; } catch { /* blocked: High scores and Ghosts live in memory only */ }
 migrateOldGhost(storage, TRACKS[0].id); // the best Lap from before Tracks belongs to Overdrive
 
-// Every Track's world is built at boot; picking a Track swaps which one is drawn and ridden.
+// Every Track's world is built at boot, with High scores and a Ghost per lap count; picking a Track swaps which one
+// is drawn and ridden.
 const worlds = TRACKS.map(track => {
   const T = bakeTrack(track);
-  return { track, T, ...createScene(T, track.palette), ghost: createGhost(storage, track.id) };
+  const ghosts = Object.fromEntries(LAP_OPTIONS.map(n => [n, createGhost(storage, track.id, n)]));
+  return { track, T, ...createScene(T, track.palette), ghosts };
 });
-let w = worlds[0];
+let w = worlds[0], laps = DEFAULT_LAPS;
+const ghost = () => w.ghosts[laps];
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 const st = newState(w.T);
-st.best = w.ghost.bestTime; // the HUD's best is the Track's #1
 const { camera, update: updateCamera } = createChaseCamera();
 const msgEl = document.getElementById('msg')!;
 
@@ -42,41 +46,41 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-// A run: a 3-2-1 countdown at the line, one Lap, then the Finish screen. Physics only steps while racing and no
+// A run: a 3-2-1 countdown at the line, `laps` Laps, then the Finish screen. Physics only steps while racing and no
 // screen is open, so the clock and the Ghost both start on GO, and Pause freezes everything.
 const COUNTDOWN = 3;
 let phase: 'countdown' | 'racing' | 'finished' = 'countdown', countT = COUNTDOWN, goT = 0;
-let prevBest = st.best;
+let prevBest = ghost().bestTime;
 let split: number | null = null, splitT = 0;
 
 function retry() {
-  Object.assign(st, newState(w.T), { best: w.ghost.bestTime });
-  w.ghost.restart();
-  w.trail.update(st.pos, st.quat, true);
+  Object.assign(st, newState(w.T));
+  ghost().restart();
+  w.trail.update(st.pos, st.quat, true, false);
   phase = 'countdown'; countT = COUNTDOWN; split = null; snap = true;
 }
-function selectTrack(i: number) {
-  w = worlds[i];
+function selectTrack(i: number, n: number) {
+  w = worlds[i]; laps = n;
   bloom.setScene(w.scene);
   retry();
 }
 function finish() {
   phase = 'finished';
-  menu.open('finish', { time: st.lastLap!, delta: prevBest === null ? null : st.lastLap! - prevBest, rank: w.ghost.lastRank });
+  const lapTimes = ghost().lastRun!, time = sum(lapTimes);
+  menu.open('finish', { time, lapTimes, delta: prevBest === null ? null : time - prevBest, rank: ghost().lastRank });
 }
 
 const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   name: x.track.name, kind: x.track.kind,
   colors: [css(x.track.palette.primary), css(x.track.palette.secondary)],
   outline: x.T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: x.T.gap[i] })),
-  scores: () => x.ghost.scores,
+  scores: n => x.ghosts[n].scores,
 })), effect => {
   if (effect === 'resume') return;
   if (effect === 'restart' || effect === 'endRun') return retry();
-  if ('start' in effect) return selectTrack(effect.start);
-  for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) x.ghost.clear();
-  st.best = w.ghost.bestTime;
-}, () => { if (phase !== 'finished') menu.open('pause', { lapTime: st.lapTime }); });
+  if ('start' in effect) return selectTrack(effect.start, effect.laps);
+  for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) for (const g of Object.values(x.ghosts)) g.clear();
+}, () => { if (phase !== 'finished') menu.open('pause', { raceTime: sum(ghost().run) + st.lapTime }); });
 menu.open('menu');
 
 onRespawn(() => {
@@ -95,16 +99,15 @@ renderer.setAnimationLoop(now => {
   const inp = readInput();
   menu.tick(frame);
   const frozen = menu.screen !== null;
-  if (phase === 'countdown' && !frozen && (countT -= frame) <= 0) { phase = 'racing'; goT = 0.7; prevBest = st.best; }
+  if (phase === 'countdown' && !frozen && (countT -= frame) <= 0) { phase = 'racing'; goT = 0.7; prevBest = ghost().bestTime; }
   if (phase !== 'racing' || frozen) acc = 0; // nothing piles up to catch up on at GO or on Resume
   while (acc >= DT) {
-    const laps = st.laps;
     step(st, inp, TUNING, w.T, DT); acc -= DT;
-    const s = w.ghost.record(st);
+    const s = ghost().record(st);
     if (s !== null) { split = s; splitT = 2; }
-    w.trail.update(st.pos, st.quat, st.respawns !== trailRespawns); // also catches an R-key respawn between steps
+    w.trail.update(st.pos, st.quat, st.respawns !== trailRespawns, st.boostT > 0); // also catches an R-key respawn between steps
     trailRespawns = st.respawns;
-    if (st.laps !== laps) { finish(); break; }
+    if (st.laps === laps) { finish(); break; }
   }
   if (st.respawns !== seenRespawns) { seenRespawns = st.respawns; snap = true; }
 
@@ -125,8 +128,9 @@ renderer.setAnimationLoop(now => {
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>' : '');
   if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
   w.bike.position.copy(st.pos); w.bike.quaternion.copy(shownQuat); w.updateBike(st, frame);
-  drawHud(st, shownQuat, splitT > 0 ? split : null);
-  w.ghostBike.visible = phase !== 'countdown' && w.ghost.pose(w.ghostBike.position, w.ghostBike.quaternion);
+  const run = ghost().run;
+  drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime });
+  w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
   updateCamera(st, shownQuat, frame, snap);
   snap = false;
   bloom.render();

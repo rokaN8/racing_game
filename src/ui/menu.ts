@@ -7,9 +7,10 @@ export interface MenuTrack {
   name: string; kind: string;
   colors: [string, string];                          // swatch, band and outline gradient
   outline: { x: number; z: number; gap: boolean }[]; // the baked Track's samples, for the top-down outline
-  scores: () => readonly Score[];
+  scores: (laps: number) => readonly Score[];
 }
-interface RunInfo { lapTime: number; time: number; delta: number | null; rank: number | null }
+// raceTime: the run so far (Pause); time, lapTimes, delta, rank: the finished run (Finish)
+interface RunInfo { raceTime: number; time: number; lapTimes: readonly number[]; delta: number | null; rank: number | null }
 
 const CONTROLS: [string, string, string][] = [
   ['Throttle · nose down', 'W  ↑', 'RT · stick up'], ['Brake · nose up', 'S  ↓', 'LT · stick down'],
@@ -18,13 +19,14 @@ const CONTROLS: [string, string, string][] = [
 ];
 const TITLE: Record<Screen, string> = { menu: '', select: 'Track select', scores: 'High scores', controls: 'Controls', pause: 'Paused', finish: '' };
 const fmt = (t: number) => t.toFixed(2);
+const lapsText = (n: number) => `${n} Lap${n === 1 ? '' : 's'}`;
 const date = (d: number | null) => (d === null ? '—' : new Date(d).toLocaleDateString());
 const esc = (s: string) => s.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
 const deltaHtml = (d: number | null) => d === null ? 'NEW BEST'
   : `<span class="${d < 0 ? 'ahead' : 'behind'}">${d < 0 ? '−' : '+'}${fmt(Math.abs(d))}</span>${d < 0 ? ' · NEW BEST' : ''}`;
 
 export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void) {
-  let s = initialMenu(), info: RunInfo = { lapTime: 0, time: 0, delta: null, rank: null }, shownArm = -1;
+  let s = initialMenu(), info: RunInfo = { raceTime: 0, time: 0, lapTimes: [], delta: null, rank: null }, shownArm = -1;
 
   const dispatch = (a: Action) => {
     const [next, effect] = reduce(s, a, tracks.length);
@@ -36,12 +38,14 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
 
   const swatch = (t: MenuTrack) => `<i class="sw" style="--a:${t.colors[0]};--b:${t.colors[1]}"></i>`;
   const top5 = (t: MenuTrack, mark: number | null = null) => {
-    const sc = t.scores();
+    const sc = t.scores(s.laps);
     return `<ol class="top">${[0, 1, 2, 3, 4].map(k => sc[k]
       ? `<li class="${k + 1 === mark ? 'me' : ''}"><span>#${k + 1}</span><b>${fmt(sc[k].time)}</b><small>${date(sc[k].date)}</small>${k === 0 ? '<em>Ghost</em>' : ''}</li>`
+        + (s.laps > 1 ? `<li class="laps"><small>${sc[k].lapTimes.map(fmt).join(' · ')}</small></li>` : '')
       : `<li class="empty"><span>#${k + 1}</span><b>—</b></li>`).join('')}</ol>`;
   };
   const label = (it: Item, i: number) => {
+    if (it === 'laps') return `<span>Laps</span><b>‹ ${s.laps} ›</b>`;
     if (typeof it === 'object' && 'track' in it) { const t = tracks[it.track]; return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${swatch(t)}`; }
     if (typeof it === 'object') {
       if (s.armed === i) return `Press again · ${Math.ceil(s.armedT)}`;
@@ -53,15 +57,15 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
 
   function panel(screen: Screen) {
     if (screen === 'select') {
-      const t = tracks[s.focus];
+      const t = tracks[s.focus] ?? tracks[s.track]; // on the Laps item: the last-raced Track
       return `<div class="panel" style="--a:${t.colors[0]};--b:${t.colors[1]}"><div class="band"></div><h1>${esc(t.name)}</h1>`
-        + `<div class="sub">${esc(t.kind)}</div><canvas class="outline" width="320" height="200"></canvas><h3>Best Laps</h3>${top5(t)}</div>`;
+        + `<div class="sub">${esc(t.kind)}</div><canvas class="outline" width="320" height="200"></canvas><h3>Best · ${lapsText(s.laps)}</h3>${top5(t)}</div>`;
     }
     if (screen === 'scores') {
-      return `<div class="panel"><table class="grid"><tr><th></th>${tracks.map(t => `<th>${swatch(t)}${esc(t.name)}</th>`).join('')}</tr>`
-        + [0, 1, 2, 3, 4].map(k => `<tr><td>#${k + 1}</td>${tracks.map(t => { const x = t.scores()[k];
-          return `<td>${x ? `<b>${fmt(x.time)}</b><small>${date(x.date)}</small>` : '—'}</td>`; }).join('')}</tr>`).join('')
-        + `</table>${s.armed >= 0 ? '<p class="warn">Deletes Lap times and Ghost</p>' : ''}</div>`;
+      return `<div class="panel"><h3>${lapsText(s.laps)}</h3><table class="grid"><tr><th></th>${tracks.map(t => `<th>${swatch(t)}${esc(t.name)}</th>`).join('')}</tr>`
+        + [0, 1, 2, 3, 4].map(k => `<tr><td>#${k + 1}</td>${tracks.map(t => { const x = t.scores(s.laps)[k];
+          return `<td>${x ? `<b>${fmt(x.time)}</b>${s.laps > 1 ? `<small>${x.lapTimes.map(fmt).join(' · ')}</small>` : ''}<small>${date(x.date)}</small>` : '—'}</td>`; }).join('')}</tr>`).join('')
+        + `</table>${s.armed >= 0 ? '<p class="warn">Deletes times and Ghosts at every lap count</p>' : ''}</div>`;
     }
     if (screen === 'controls') {
       return `<div class="panel"><table class="ctl"><tr><th></th><th>Keyboard</th><th>Gamepad</th></tr>`
@@ -70,7 +74,10 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
     }
     if (screen === 'finish') {
       const t = tracks[s.track];
-      return `<div class="panel"><h3>${esc(t.name)} · ${info.rank ? `#${info.rank}` : 'not in the top 5'}</h3>${top5(t, info.rank)}</div>`;
+      const fastest = Math.min(...info.lapTimes);
+      const laps = info.lapTimes.length > 1 ? `<h3>Laps</h3><ol class="top">${info.lapTimes.map((x, i) =>
+        `<li><span>${i + 1}</span><b>${fmt(x)}</b>${x === fastest ? '<em>Fastest</em>' : ''}</li>`).join('')}</ol>` : '';
+      return `<div class="panel"><h3>${esc(t.name)} · ${lapsText(s.laps)} · ${info.rank ? `#${info.rank}` : 'not in the top 5'}</h3>${top5(t, info.rank)}${laps}</div>`;
     }
     return '';
   }
@@ -82,14 +89,14 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
     const screen = s.screen, t = tracks[s.track];
     const head = screen === 'menu' ? '<h1 class="logo">NEON<br>RACER</h1>'
       : screen === 'finish' ? `<div class="time">${fmt(info.time)}</div><div class="delta">${deltaHtml(info.delta)}</div>`
-      : `<h2>${TITLE[screen]}</h2>${screen === 'pause' ? `<div class="sub">${esc(t.name)} · ${fmt(info.lapTime)} s</div>` : ''}`;
+      : `<h2>${TITLE[screen]}</h2>${screen === 'pause' ? `<div class="sub">${esc(t.name)} · ${fmt(info.raceTime)} s</div>` : ''}`;
     const items = itemsFor(screen, tracks.length).map((it, i) =>
       `<div class="item${i === s.focus ? ' on' : ''}${s.armed === i ? ' armed' : ''}">${label(it, i)}</div>`).join('');
     const hint = screen === 'finish' ? 'Enter / A pick · R / Y retry'
       : `${screen === 'menu' ? '' : 'Esc / B back · '}Enter / A pick`;
     root.innerHTML = `<div class="rail">${head}<div class="list">${items}</div><div class="hint">${hint}</div></div>${panel(screen)}`;
     const cv = root.querySelector<HTMLCanvasElement>('canvas.outline');
-    if (cv) drawOutline(cv, tracks[s.focus]);
+    if (cv) drawOutline(cv, tracks[s.focus] ?? tracks[s.track]);
   }
 
   // Keyboard: only while the overlay is open, except Esc, which asks to pause.

@@ -1,5 +1,5 @@
-// Minimal HUD, plain HTML over the canvas: lap time (penalties included), Checkpoint split, speed, Boost,
-// last and best Lap, plus the Attitude indicator while Airborne and the centre banner (countdown, finish).
+// Minimal HUD, plain HTML over the canvas: run time (penalties included), Checkpoint split, Lap count and Lap time,
+// speed, Boost, last Lap and best run, plus the Attitude indicator while Airborne and the centre banner (countdown, finish).
 import { Vector3, type Quaternion } from 'three';
 import type { BikeState } from './bike/physics';
 
@@ -12,12 +12,14 @@ const fmt = (t: number | null) => (t === null ? '—' : t.toFixed(2));
 export const delta = (d: number) => `<span class="${d < 0 ? 'ahead' : 'behind'}">${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}</span>`;
 const fwd = new Vector3(), up = new Vector3(), left = new Vector3();
 
-export function drawHud(st: BikeState, q: Quaternion, split: number | null) {
+export interface RunHud { time: number; lap: number; laps: number; best: number | null }
+export function drawHud(st: BikeState, q: Quaternion, split: number | null, run: RunHud) {
   const speed = st.mode === 'track' ? Math.abs(st.speed) : st.vel.length();
   const boost = st.boostT > 0 ? 'BOOST' : st.boostCD > 0 ? `cooldown ${st.boostCD.toFixed(1)} s` : 'ready';
   // ponytail: rebuilds the HUD markup every frame; split into spans + textContent if it ever shows in a profile.
-  el.innerHTML = `<b>${fmt(st.lapTime)}</b> s<br>${split === null ? '' : `${delta(split)}<br>`}${Math.round(speed)} m/s<br>Boost ${boost}<br>`
-    + `last ${fmt(st.lastLap)} · best ${fmt(st.best)}`;
+  el.innerHTML = `<b>${fmt(run.time)}</b> s<br>${split === null ? '' : `${delta(split)}<br>`}`
+    + `${run.laps > 1 ? `Lap ${run.lap}/${run.laps} · ${fmt(st.lapTime)}<br>` : ''}${Math.round(speed)} m/s<br>Boost ${boost}<br>`
+    + `last ${fmt(st.lastLap)} · best ${fmt(run.best)}`;
 
   att.hidden = st.mode !== 'air';
   if (!att.hidden) drawAttitude(q);

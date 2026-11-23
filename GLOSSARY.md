@@ -20,27 +20,27 @@
 
 **Airborne** — The Bike is off the Track (e.g. crossing a Gap). Gravity is world-down but weak, giving floaty hang time.
 
-**Light trail** — Glowing ribbon left behind the Bike. Purely visual; no collision.
+**Light trail** — Glowing ribbon left behind the Bike: cyan, red where it was laid while Boosting. Purely visual; no collision.
 
 **Checkpoint** — Fixed point on the Track. Leaving the Track (e.g. missing a Gap) respawns the Bike at the last Checkpoint passed, with a time penalty.
 
-**Boost** — Player-triggered burst of speed.
+**Boost** — Player-triggered burst of speed. The camera's view widens while it lasts.
 
 **Attitude indicator** — HUD gauge showing the Bike's pitch and roll while Airborne.
 
 **Air control** — Player rotation of the Bike while Airborne, to line up a landing.
 
-**Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is one Lap.
+**Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is 1, 3 or 5 Laps, picked on Track select; 3 by default.
 
-**Ghost** — A replay of a Track's fastest Lap, ridden alongside the current run.
+**Ghost** — A replay of the fastest run on a Track at the current lap count, ridden alongside the current run.
 
 **Lap** — One full trip round the closed Track, start line to start line.
 
 **Menu** — The screens outside a run: Track select, High scores and Controls. Has its own Song.
 
-**Track select** — Menu screen where the player picks which Track to race.
+**Track select** — Menu screen where the player picks which Track to race, and how many Laps.
 
-**High scores** — The fastest Lap times kept per Track, top five, on this device only. The player can reset them. The fastest one's Lap is that Track's Ghost.
+**High scores** — The fastest run times kept per Track and lap count, top five, each with its Lap times, on this device only. The player can reset them. The fastest run is the Ghost.
 
 **Pause** — Stopping a run mid-Lap, with the choice to resume, restart or quit to the Menu.
 

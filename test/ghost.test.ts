@@ -116,7 +116,7 @@ describe('Ghost', () => {
 
   it('keeps the top 5, fastest first, dated; an equal time ranks below; the Ghost is #1', () => {
     let t = 1000;
-    const storage = memoryStorage(), ghost = createGhost(storage, ID, () => t++), b = bikeAt();
+    const storage = memoryStorage(), ghost = createGhost(storage, ID, 1, () => t++), b = bikeAt();
     lap(ghost, b, 100, 45, 1);
     for (const time of [47, 44, 46, 45, 50, 43.5]) lap(ghost, b, 100, time, 2); // 44 takes the Ghost, 43.5 takes it again
     const fastest = lap(ghost, b, 100, 43, 3);
@@ -159,6 +159,56 @@ describe('Ghost', () => {
     expect(createGhost(storage, 'a').bestTime).toBe(40);
   });
 
+  describe('runs of several Laps', () => {
+    it('ranks the run total once its last Lap closes, with each Lap time; the Ghost is the whole run', () => {
+      const storage = memoryStorage(), ghost = createGhost(storage, ID, 3), b = bikeAt();
+      const poses = [...lap(ghost, b, 100, 20, 1), ...lap(ghost, b, 100, 19, 1), ...lap(ghost, b, 100, 18, 1)];
+      expect(ghost.run).toEqual([20, 19]); // the last Lap closes on the next step
+      expect(ghost.scores).toEqual([]);
+      expectTraces(ghost, b, poses);
+      expect(ghost.lastRun).toEqual([20, 19, 18]);
+      expect(ghost.scores).toEqual([{ time: 57, date: expect.any(Number), lapTimes: [20, 19, 18] }]);
+      const reloaded = createGhost(storage, ID, 3);
+      expect(reloaded.scores).toEqual(ghost.scores);
+      expectTraces(reloaded, bikeAt(), poses);
+    });
+
+    it('keeps each lap count separate; records from before lap counts are 1-Lap runs', () => {
+      const storage = memoryStorage(), b = bikeAt();
+      storage.setItem(KEY, JSON.stringify({ scores: [{ time: 40, date: 1 }], ghost: null }));
+      const three = createGhost(storage, ID, 3);
+      lap(three, b, 10, 20, 1); lap(three, b, 10, 20, 1); lap(three, b, 10, 20, 1); three.record(b);
+      expect(createGhost(storage, ID, 1).scores).toEqual([{ time: 40, date: 1, lapTimes: [40] }]);
+      expect(createGhost(storage, ID, 3).bestTime).toBe(60);
+      expect(createGhost(storage, ID, 5).scores).toEqual([]);
+    });
+
+    it('drops a score whose lap splits do not match the lap count', () => {
+      const storage = memoryStorage();
+      storage.setItem('neon-racer.track.allround.3laps.v1', JSON.stringify({ scores: [{ time: 40, date: 1, lapTimes: [40] }], ghost: null }));
+      expect(createGhost(storage, ID, 3).scores).toEqual([]);
+    });
+
+    it('Checkpoint splits run on across Laps: each Lap start is timed against the Ghost', () => {
+      const ghost = createGhost(memoryStorage(), ID, 2), b = bikeAt();
+      lap(ghost, b, 10, 20, 1); lap(ghost, b, 10, 20, 1); // the Ghost: 20 + 20
+      lap(ghost, b, 10, 19, 2);                           // its first step closes the Ghost's run
+      expect(ghost.record(b)).toBeCloseTo(-1);            // onto Lap 2 at 19 s, against the Ghost's 20 s
+    });
+
+    it('saves the times without the Ghost when the Ghost would overflow storage', () => {
+      const storage = memoryStorage(), tight = { ...storage, getItem: storage.getItem, removeItem: storage.removeItem,
+        setItem: (k: string, v: string) => { if (v.length > 1000) throw new Error('QuotaExceededError'); storage.setItem(k, v); } } as Storage;
+      const ghost = createGhost(tight, ID, 3), b = bikeAt();
+      lap(ghost, b, 100, 20, 1); lap(ghost, b, 100, 20, 1); lap(ghost, b, 100, 20, 1); ghost.record(b);
+      const reloaded = createGhost(tight, ID, 3);
+      expect(reloaded.bestTime).toBe(60);
+      reloaded.record(bikeAt());
+      expect(reloaded.pose(new Vector3(), new Quaternion())).toBe(false);
+      expect(ghost.pose(new Vector3(), new Quaternion())).toBe(true); // still raced against this session
+    });
+  });
+
   describe('migration from before Tracks', () => {
     // A best Lap saved by the POC: v2 has splits, v1 doesn't.
     const oldLap = (time: number) => {
@@ -174,7 +224,7 @@ describe('Ghost', () => {
         migrateOldGhost(storage, ID);
         expect(storage.getItem(oldKey)).toBeNull();
         const ghost = createGhost(storage, ID);
-        expect(ghost.scores).toEqual([{ time: 39, date: null }]);
+        expect(ghost.scores).toEqual([{ time: 39, date: null, lapTimes: [39] }]);
         expectTraces(ghost, bikeAt(), poses);
       }
     });

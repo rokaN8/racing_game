@@ -1,9 +1,9 @@
 // Hybrid chase camera (prototype preset C): rolls with the Bike on the Track, levels to world up
-// and follows the flight path when Airborne, snaps on respawn.
+// and follows the flight path when Airborne, snaps on respawn. Widens its FOV while Boosting, for the rush of speed.
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import type { BikeState } from './bike/physics';
 
-const DIST = 9, HEIGHT = 3, LOOK_AHEAD = 8, FOV = 102, STIFFNESS = 8;
+const DIST = 9, HEIGHT = 3, LOOK_AHEAD = 8, FOV = 102, BOOST_FOV = 114, FOV_RATE = 5, STIFFNESS = 8;
 
 export function createChaseCamera() {
   const camera = new PerspectiveCamera(FOV, 1, 0.1, 3000);
@@ -20,6 +20,9 @@ export function createChaseCamera() {
     const k = snap ? 1 : 1 - Math.exp(-STIFFNESS * frame);
     camera.position.lerp(want, k); smUp.lerp(camUp, k).normalize(); camera.up.copy(smUp);
     camera.lookAt(st.pos.clone().addScaledVector(fwd, LOOK_AHEAD).addScaledVector(camUp, 1));
+    const fov = st.boostT > 0 ? BOOST_FOV : FOV;
+    camera.fov = snap ? fov : camera.fov + (fov - camera.fov) * (1 - Math.exp(-FOV_RATE * frame));
+    camera.updateProjectionMatrix();
   }
 
   return { camera, update };

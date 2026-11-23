@@ -11,7 +11,7 @@ export interface BikeState {
   pos: Vector3; vel: Vector3; quat: Quaternion;
   airT: number; lastCP: number; respawns: number;
   boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
-  lapTime: number; lastLap: number | null; best: number | null; laps: number;
+  lapTime: number; lastLap: number | null; laps: number;
   msg: string; msgT: number;
 }
 
@@ -21,7 +21,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, lapTime: 0, lastLap: null, best: null, laps: 0, msg: '', msgT: 0 };
+    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -50,7 +50,7 @@ function launch(st: BikeState, f: Frame, why?: string) {
 }
 
 export function respawn(st: BikeState, T: Track, P: Tuning, why: string) {
-  Object.assign(st, { mode: 'track', s: T.cpS[st.lastCP], d: 0, latVel: 0, speed: P.respawnSpeed, boostT: 0, airT: 0 });
+  Object.assign(st, { mode: 'track', s: T.cpS[st.lastCP], d: 0, latVel: 0, speed: P.respawnSpeed, boostT: 0, boostCD: 0, airT: 0 }); // Boost ready again
   st.lapTime += P.penalty; st.respawns++;
   say(st, `${why} · +${P.penalty}s`);
   placeOnTrack(st, T);
@@ -79,8 +79,7 @@ export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number)
 
     st.s += st.speed * dt;
     if (st.s >= T.L) {
-      st.s -= T.L; st.laps++; st.lastLap = st.lapTime;
-      st.best = st.best === null ? st.lapTime : Math.min(st.best, st.lapTime); st.lapTime = 0;
+      st.s -= T.L; st.laps++; st.lastLap = st.lapTime; st.lapTime = 0;
     }
     if (st.s < 0) st.s += T.L;
     st.lastCP = T.cpS.findLastIndex(c => c <= st.s);

@@ -84,18 +84,20 @@ function finishBanner(T: Track, scene: Scene, thick: (pts: Vector3[], color: num
 }
 
 // Light trail: visual-only ribbon from the Bike's tail, newest point first, fading to black (additive, so black = gone).
-// One point per 120 Hz physics step, so its length is the same at any frame rate.
+// One point per 120 Hz physics step, so its length is the same at any frame rate. Cyan, red where it was laid
+// while Boosting.
 const TRAIL_N = 180, TRAIL_HALF_WIDTH = 0.25; // 1.5 s
+const CYAN = [0, 1, 1], RED = [1, 0.1, 0.1]; // red: no Track palette uses it (#ff1a1a)
 function createTrail(scene: Scene) {
   const pos = new Float32Array(TRAIL_N * 6), col = new Float32Array(TRAIL_N * 6), idx: number[] = [];
+  const fade = new Float32Array(TRAIL_N), tint = new Float32Array(TRAIL_N * 3); // per point: brightness, colour
   for (let i = 0; i < TRAIL_N; i++) {
-    const f = 0.6 * (1 - i / (TRAIL_N - 1)) ** 2; // 0.6: peak brightness, keeps its bloom soft
-    col.set([0, f, f, 0, f, f], i * 6); // cyan
+    fade[i] = 0.6 * (1 - i / (TRAIL_N - 1)) ** 2; // 0.6: peak brightness, keeps its bloom soft
     if (i < TRAIL_N - 1) idx.push(2 * i, 2 * i + 2, 2 * i + 1, 2 * i + 1, 2 * i + 2, 2 * i + 3);
   }
   const g = new BufferGeometry();
-  const posAttr = new BufferAttribute(pos, 3);
-  g.setAttribute('position', posAttr); g.setAttribute('color', new BufferAttribute(col, 3)); g.setIndex(idx);
+  const posAttr = new BufferAttribute(pos, 3), colAttr = new BufferAttribute(col, 3);
+  g.setAttribute('position', posAttr); g.setAttribute('color', colAttr); g.setIndex(idx);
   const mesh = new Mesh(g, new MeshBasicMaterial({
     vertexColors: true, blending: AdditiveBlending, transparent: true, depthWrite: false, side: DoubleSide,
   }));
@@ -108,12 +110,13 @@ function createTrail(scene: Scene) {
     return [tail.x - side.x, tail.y - side.y, tail.z - side.z, tail.x + side.x, tail.y + side.y, tail.z + side.z];
   };
   return {
-    // snap: start a fresh trail (respawn), so it doesn't streak across the map
-    update(p: Vector3, q: Quaternion, snap: boolean) {
-      const h = tailEdge(p, q);
-      if (snap) for (let i = 0; i < TRAIL_N; i++) pos.set(h, i * 6);
-      else { pos.copyWithin(6, 0, pos.length - 6); pos.set(h, 0); }
-      posAttr.needsUpdate = true;
+    // snap: start a fresh trail (respawn), so it doesn't streak across the map. boost: lay this point red.
+    update(p: Vector3, q: Quaternion, snap: boolean, boost: boolean) {
+      const h = tailEdge(p, q), c = boost ? RED : CYAN;
+      if (snap) for (let i = 0; i < TRAIL_N; i++) { pos.set(h, i * 6); tint.set(c, i * 3); }
+      else { pos.copyWithin(6, 0, pos.length - 6); pos.set(h, 0); tint.copyWithin(3, 0, tint.length - 3); tint.set(c, 0); }
+      for (let i = 0; i < TRAIL_N; i++) for (let k = 0; k < 3; k++) col[i * 6 + k] = col[i * 6 + 3 + k] = tint[i * 3 + k] * fade[i];
+      posAttr.needsUpdate = colAttr.needsUpdate = true;
     },
   };
 }

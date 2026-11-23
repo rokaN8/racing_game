@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { bakeTrack, sampleAt } from '../src/track/bake';
 import { TRACKS } from '../src/track/tracks';
-import { newState, respawn } from '../src/bike/physics';
+import { newState, respawn, step } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
 import { BOOSTED, createPilot } from './pilot';
 
@@ -49,4 +49,14 @@ describe.each(TRACKS)('$name', track => {
     ride(st, { ...BOOSTED, brakes: true }, st => st.respawns > respawns || st.laps > 0 || (next !== undefined && st.mode === 'track' && st.s >= next));
     expect(st.respawns).toBe(respawns);
   });
+});
+
+it('Boost is ready again straight after a respawn', () => {
+  const T = bakeTrack(TRACKS[0]), st = newState(T), boost = { throttle: 1, brake: 0, steer: 0, pitch: 0, boost: true };
+  step(st, boost, TUNING, T, 1 / 120);
+  expect(st.boostCD).toBeGreaterThan(0);
+  respawn(st, T, TUNING, 'test');
+  expect(st.boostCD).toBeLessThanOrEqual(0);
+  step(st, boost, TUNING, T, 1 / 120);
+  expect(st.boostT).toBeGreaterThan(0);
 });
