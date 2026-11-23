@@ -12,7 +12,7 @@ The POC's Time trial, rounded out:
   - **Overdrive**: the all-rounder, today's Track
   - **Switchback**: technical, with braking turns
   - **Hang Time**: big air, with Gaps and drops
-- a **Menu** with Track select, High scores and Controls; **Pause** mid-run; a **Finish screen** after each Lap;
+- a **Menu** with Track select (High scores included) and Controls; **Pause** mid-run; a **Finish screen** after each Lap;
 - **High scores**: the top 5 Lap times per Track, on this device only. #1 is that Track's Ghost;
 - a neon **palette** and a synth **Song** per Track, plus a Menu Song.
 
@@ -22,7 +22,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 
 | Area | Decision | Ticket |
 |---|---|---|
-| Flow | Boot → Menu (Play → Track select · High scores · Controls). Picking a Track → countdown → run → Finish (Retry · Track select · Menu). Pause (Esc / Start): Resume · Restart · Quit to Menu. Keyboard and gamepad everywhere. | [Wayfinder: Rounded-out game spec](https://github.com/rokaN8/racing_game/issues/33) |
+| Flow | Boot → Menu (Play → Track select · Controls; High scores and Reset times live in Track select). Picking a Track → countdown → run → Finish (Retry · Track select · Menu). Pause (Esc / Start): Resume · Restart · Quit to Menu. Keyboard and gamepad everywhere. | [Wayfinder: Rounded-out game spec](https://github.com/rokaN8/racing_game/issues/33) |
 | Runtime and storage | One `TrackDef` record per Track in an ordered `TRACKS` array. Every Track's scene is built at boot and swapped. One storage key per Track holds its top 5 and its Ghost. Today's best migrates to Overdrive. | [Multi-Track runtime and storage](https://github.com/rokaN8/racing_game/issues/34) |
 | Screens | Side-rail overlay over the frozen game. Track select shows each Track's kind, top-down outline and top 5. Reset is press twice within 3 s. | [Menu, Pause and High scores screens](https://github.com/rokaN8/racing_game/issues/35) |
 | Songs | Song as data, played by a pure step generator. Four Songs. Crossfade 1.5 s; Retry keeps the Song going; Pause muffles it. | [Four distinct synth Songs](https://github.com/rokaN8/racing_game/issues/36) |
@@ -106,22 +106,21 @@ Overdrive keeps its hand-written control points.
 
 An HTML overlay over the frozen game. While it's open the HUD is hidden and the run is frozen (countdown, physics and engine sound). Built in M10: `src/ui/menu.ts` draws the pure state machine in `src/ui/menuState.ts`.
 
-- **Layout.** A left rail of items over a dark gradient on the left third. The focused item is solid magenta with dark text. A detail panel on the right shows whatever the focused item is about. The game stays visible behind.
-- **Menu.** Logo, then Play · High scores · Controls. Coming back to it restores the last focus.
-- **Track select.**
-  - **Rail:** name, kind and palette swatch per Track. Focus starts on the last-raced Track.
-  - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track, and its top 5.
+- **Layout.** A left rail over a dark gradient on the left third: title, items, then key hints for that screen as key chips. The focused item is a slanted magenta bar with dark text. A detail panel on the right shows whatever the focused item is about; it shares the rail's top line, never runs under the rail, and scrolls inside itself rather than off screen. The game stays visible behind.
+- **Menu.** Logo, then Play · Controls. Coming back to it restores the last focus.
+- **Track select** (also where the High scores live).
+  - **Rail:** the lap count under the title (`‹ 3 Laps ›`, set with ← →, stopping at 1 and 5; 3 at boot), then name, kind and palette swatch per Track, then a smaller Reset times. Focus starts on the last-raced Track.
+  - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track (centred, scaled to the window height), and its top 5 at the current lap count. With no times yet: "No times yet. Your fastest run becomes your Ghost."
   - **Outline:** drawn from the baked Track's x/z, with Gaps left open and the start line marked, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
-- **Laps.** The last rail item on Track select and High scores. Picking it cycles the lap count 3 → 5 → 1 (3 at boot). Track select starts runs at it and shows its top 5; High scores shows its table.
-- **High scores.** The rail holds Reset Overdrive · Reset Switchback · Reset Hang Time · Reset all · Laps. The panel is one table for the current lap count: ranks #1–5 down, Tracks across, each cell showing time, Lap times (more than 1 Lap) and date ("—" when empty or undated).
-- **Reset confirm.** The first press turns the item red with "Press again · 3…" and shows "Deletes times and Ghosts at every lap count". A second press within 3 s resets every lap count of that Track. A timeout or moving focus cancels.
-- **Controls.** A Keyboard | Gamepad table.
-- **Pause** (Esc / Start). The rail shows the Track name and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
+- **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then All Tracks; the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
+- **Controls.** The Keyboard | Gamepad table sits in the rail.
+- **Pause** (Esc / Start). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
 - **Finish.**
-  - **Rail head:** the run time and the delta against the best (or NEW BEST), then Retry · Track select · Menu.
-  - **Panel:** the Track's top 5 at this lap count with this run highlighted and its rank, or "not in top 5", then each Lap's time with the fastest tagged. R / Y still retry.
-- **Top 5 rows.** `#n · time · date`, with a **Ghost** tag on #1, and the Lap times under it for runs of more than 1 Lap.
-- **Input.** Arrows/WASD move, Enter/Space pick, Esc/Backspace back. Gamepad: d-pad or left stick move, A picks, B backs out, Start pauses and resumes. All edge-triggered.
+  - **Rail head:** the Track and lap count in its palette colour, the run time, then the rank as a big numeral. A new #1 adds a slanted magenta NEW BEST tag that pops in, with the gain on the old best; otherwise the gap to the best. Outside the top 5 it says so instead of a rank. Then Retry · Track select · Menu.
+  - **Panel:** the Track's top 5 at this lap count with this run highlighted; outside the top 5, a dashed "You" row with the gap to #5. Then each Lap's time, the first fastest tagged. R / Y still retry.
+  - **Lock:** a pick is ignored for 0.7 s after Finish opens, so a Boost tap (Space / A) at the line can't skip it.
+- **Top 5 rows.** `#n · time · date`, with a **Ghost** tag on #1, and #1's Lap times under it for runs of more than 1 Lap.
+- **Input.** Up/down (arrows, W/S, d-pad or left stick) move; left/right (arrows, A/D, d-pad or stick) set the lap count on Track select and move elsewhere. Enter/Space pick, Esc/Backspace back. Gamepad: A picks, B backs out, Start pauses and resumes. All edge-triggered.
 
 ## Storage
 
@@ -185,7 +184,7 @@ Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turn
 | Switchback | 118 | Em F Em D | Dark: driving 16th bass, choppy arp, syncopated kick |
 | Hang Time | 128 | D A Bm G | Bright: four-on-the-floor, offbeat bass, rising arp |
 
-**When each plays.** The Menu Song covers the Menu, Track select, High scores and Controls. A Track's Song covers its countdown, race, Pause and Finish.
+**When each plays.** The Menu Song covers the Menu, Track select, Reset times and Controls. A Track's Song covers its countdown, race, Pause and Finish.
 
 **Switching.**
 - A change of Song **crossfades over 1.5 s**. Each sounding Song has its own bus and echo.
@@ -208,7 +207,7 @@ src/
   audio.ts                   # engine, sfx, sequencer playing a Song; crossfade, muffle
   audio/songs.ts             # the Menu Song (Track Songs live on their TrackDef)
   ghost.ts                   # per Track: top 5 + Ghost in one key, migration
-  ui/menu.ts                 # the side-rail overlay: Menu, Track select, High scores, Controls, Pause, Finish
+  ui/menu.ts                 # the side-rail overlay: Menu, Track select (+ High scores, Reset times), Controls, Pause, Finish
 test/
   pilot.ts                   # headless pilots: steer to centre, brake for turns, Air control onto the flight path
   track.test.ts              # shared checks, looped over TRACKS

@@ -5,7 +5,7 @@ import { setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost } from './ghost';
-import { drawCenter, drawHud } from './hud';
+import { drawCenter, drawHud, lapBanner } from './hud';
 import { onRespawn, readInput } from './input';
 import { css } from './render/palette';
 import { createBloom, createScene } from './render/scene';
@@ -52,12 +52,13 @@ const COUNTDOWN = 3;
 let phase: 'countdown' | 'racing' | 'finished' = 'countdown', countT = COUNTDOWN, goT = 0;
 let prevBest = ghost().bestTime;
 let split: number | null = null, splitT = 0;
+let banner = '', bannerT = 0, lapsShown = 0; // the Lap banner, and how many of the run's Laps it has announced
 
 function retry() {
   Object.assign(st, newState(w.T));
   ghost().restart();
   w.trail.update(st.pos, st.quat, true, false);
-  phase = 'countdown'; countT = COUNTDOWN; split = null; snap = true;
+  phase = 'countdown'; countT = COUNTDOWN; split = null; bannerT = 0; lapsShown = 0; snap = true;
 }
 function selectTrack(i: number, n: number) {
   w = worlds[i]; laps = n;
@@ -80,7 +81,7 @@ const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   if (effect === 'restart' || effect === 'endRun') return retry();
   if ('start' in effect) return selectTrack(effect.start, effect.laps);
   for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) for (const g of Object.values(x.ghosts)) g.clear();
-}, () => { if (phase !== 'finished') menu.open('pause', { raceTime: sum(ghost().run) + st.lapTime }); });
+}, () => { if (phase !== 'finished') menu.open('pause', { raceTime: sum(ghost().run) + st.lapTime, lap: ghost().run.length + 1 }); });
 menu.open('menu');
 
 onRespawn(() => {
@@ -105,6 +106,9 @@ renderer.setAnimationLoop(now => {
     step(st, inp, TUNING, w.T, DT); acc -= DT;
     const s = ghost().record(st);
     if (s !== null) { split = s; splitT = 2; }
+    const done = ghost().run.length; // a closed Lap that isn't the last: announce the next one
+    if (done > lapsShown && done < laps) { banner = lapBanner(done + 1, laps, st.lastLap!, s); bannerT = 2.4; }
+    lapsShown = done;
     w.trail.update(st.pos, st.quat, st.respawns !== trailRespawns, st.boostT > 0); // also catches an R-key respawn between steps
     trailRespawns = st.respawns;
     if (st.laps === laps) { finish(); break; }
@@ -124,8 +128,9 @@ renderer.setAnimationLoop(now => {
   updateEngine(phase === 'racing' && !frozen ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
 
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
-  goT -= frame; splitT -= frame;
-  drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>' : '');
+  goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
+  drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
+    : bannerT > 0 ? banner : '');
   if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
   w.bike.position.copy(st.pos); w.bike.quaternion.copy(shownQuat); w.updateBike(st, frame);
   const run = ghost().run;

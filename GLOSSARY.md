@@ -36,9 +36,9 @@
 
 **Lap** — One full trip round the closed Track, start line to start line.
 
-**Menu** — The screens outside a run: Track select, High scores and Controls. Has its own Song.
+**Menu** — The screens outside a run: Track select (with the High scores) and Controls. Has its own Song.
 
-**Track select** — Menu screen where the player picks which Track to race, and how many Laps.
+**Track select** — Menu screen where the player picks which Track to race and how many Laps, and sees each Track's High scores.
 
 **High scores** — The fastest run times kept per Track and lap count, top five, each with its Lap times, on this device only. The player can reset them. The fastest run is the Ghost.
 

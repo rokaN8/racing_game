@@ -84,7 +84,7 @@ While Airborne, the left stick does Air control: forward is nose down.
 
 ### HUD
 
-Shows lap time (penalties included), speed, Boost ready/cooldown, and last and best Lap.
+Top left: the run clock (penalties included, `m:ss.cc`), the Checkpoint split against the Ghost, the current Lap time and the best run. Top right: the Lap counter, tagged on the final Lap (hidden for 1-Lap runs). Bottom left: speed and a segmented Boost meter that drains red while Boosting and refills over the cooldown. Crossing the line onto a new Lap shows a centre banner ("Lap 2/3" or "Final lap") with the Lap just finished and the split. Lettering is Oxanium, self-hosted from `public/fonts/`.
 
 While Airborne it also shows the Attitude indicator (see M7).
 
