@@ -99,7 +99,7 @@ let acc = 0, last = performance.now(), snap = true, seenRespawns = 0;
 const boom = createExplosion();
 let wreckT = 0;
 // Last frame's state, to spot sound events.
-let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT };
+let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
 renderer.setAnimationLoop(now => {
   const frame = Math.min(0.1, (now - last) / 1000); last = now; acc += frame;
   const inp = readInput();
@@ -130,10 +130,11 @@ renderer.setAnimationLoop(now => {
   // Sound: one-shots when state changes ('>' so a retry's reset to zero is silent).
   if (st.respawns > was.respawns) sfx.crash();
   else if (was.mode === 'air' && st.mode === 'track') sfx.land();
+  if (st.padHits > was.padHits) sfx.pad();
   if (st.boostT > was.boostT) sfx.boost();
   if (st.lastCP > was.lastCP) sfx.checkpoint();
   if (st.laps > was.laps) sfx.lap();
-  was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT };
+  was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
   // The Menu Song covers the Menu screens; the Track's Song its countdown, race, Pause and Finish. Pause muffles it.
   const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
   setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');

@@ -57,7 +57,7 @@ export function drawHud(st: BikeState, q: Quaternion, split: number | null, run:
 
   // Boost meter: drains while Boosting, refills over the cooldown, full when ready.
   const { boostDuration: D, boostCooldown: C } = TUNING;
-  const [state, fill] = st.boostT > 0 ? ['on', st.boostT / D] : st.boostCD > 0 ? ['charging', 1 - st.boostCD / C] : ['ready', 1];
+  const [state, fill] = st.boostT > 0 ? ['on', st.boostT / Math.max(D, st.boostLen)] : st.boostCD > 0 ? ['charging', 1 - st.boostCD / C] : ['ready', 1];
   flag('boost', state as string);
   f.meter.style.setProperty('--fill', Math.min(1, Math.max(0, fill as number)).toFixed(3));
   put(f.boost, state === 'on' ? 'active' : state as string);

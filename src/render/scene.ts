@@ -13,7 +13,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import type { Track } from '../track/bake';
+import { sampleAt, type Track } from '../track/bake';
 import { createBikeModels, TRAIL_ANCHOR } from './bike';
 import { color, css, derive, type Palette } from './palette';
 
@@ -47,6 +47,11 @@ export function createScene(T: Track, palette: Palette) {
     scene.add(new LineSegments2(new LineSegmentsGeometry().setPositions(pts.flatMap(p => p.toArray())), mat));
   };
   thick(edge, c.edge, 2); thick(cps, c.accent, 4);
+  // Boost pads: forward-pointing chevrons every 6 m along the strip, in the secondary colour
+  const on = (s: number, side: number) => { const f = sampleAt(T, s); return f.p.addScaledVector(f.r, side * T.halfWidth).addScaledVector(f.u, 0.06); };
+  const chevrons: Vector3[] = [];
+  for (const pad of T.pads) for (let s = pad.s; s <= pad.s + pad.len - 2.5; s += 6) chevrons.push(on(s, -0.85), on(s + 2.5, 0), on(s + 2.5, 0), on(s, 0.85));
+  if (chevrons.length) thick(chevrons, c.accent, 5);
   finishBanner(T, scene, thick, c.accent, c.fill);
 
   const grid = new GridHelper(3000, 150, c.gridMajor, c.gridMinor);

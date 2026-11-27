@@ -28,6 +28,8 @@
 
 **Boost** — Player-triggered burst of speed. The camera's view widens while it lasts.
 
+**Boost pad** — A strip on the Track, marked with chevrons in the Track's secondary colour. Riding onto it gives a speed kick and a Boost that lasts until the strip ends (plus a short tail), without using up the player's own Boost. Each Track sets its strips' lengths to suit its layout.
+
 **Attitude indicator** — HUD gauge showing the Bike's pitch and roll while Airborne.
 
 **Air control** — Player rotation of the Bike while Airborne, to line up a landing.
