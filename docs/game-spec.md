@@ -8,10 +8,11 @@ The hand-off spec that rounds the neon racer POC out into a game. Each section s
 
 The POC's Time trial, rounded out:
 
-- **three Tracks**, all open from the start, one Lap per run:
+- **four Tracks**, all open from the start, one Lap per run:
   - **Overdrive**: the all-rounder, today's Track
   - **Switchback**: technical, with braking turns
   - **Hang Time**: big air, with Gaps and drops
+  - **Slipstream**: flow, no braking, with a Corkscrew and Boost pads ([Wayfinder: Tracks 4 and 5](https://github.com/rokaN8/racing_game/issues/51))
 - a **Menu** with Track select (High scores included) and Controls; **Pause** mid-run; a **Finish screen** after each Lap;
 - **High scores**: the top 5 Lap times per Track, on this device only. #1 is that Track's Ghost;
 - a neon **palette** and a synth **Song** per Track, plus a Menu Song.
@@ -28,6 +29,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Songs | Song as data, played by a pure step generator. Four Songs. Crossfade 1.5 s; Retry keeps the Song going; Pause muffles it. | [Four distinct synth Songs](https://github.com/rokaN8/racing_game/issues/36) |
 | Switchback | 3 km figure-8 with an overpass, braking turns, a curving Wall-ride and no Gaps. 7 Checkpoints, ~54 s. | [Technical Track layout](https://github.com/rokaN8/racing_game/issues/37) |
 | Hang Time | 3.2 km figure-8: lift hill, 5 Gaps onto Landing decks, two Loops. 7 Checkpoints, ~54 s. No handling change. | [Big air Track layout](https://github.com/rokaN8/racing_game/issues/38) |
+| Slipstream | 3.4 km figure-8, no braking: Loop, Rollercoaster, a Corkscrew upside down over the start straight, curving Wall-ride, one Gap, two Boost pads. 6 Checkpoints, ~53 s. | [All-rounder Track 4 layout](https://github.com/rokaN8/racing_game/issues/55) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
 
@@ -37,25 +39,26 @@ Still no art or audio files: everything is drawn and synthesised in code.
 
 ```ts
 interface TrackDef {
-  id: 'allround' | 'technical' | 'bigair'; // stable: used in storage keys, never renamed
+  id: 'allround' | 'technical' | 'bigair' | 'flow'; // stable: used in storage keys, never renamed
   name: string;                            // display name
-  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air'
+  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow'
   cps: ControlPoint[]; gapSegments: number[]; checkpointCps: number[]; halfWidth: number;
+  boostPads?: { cp: number; len: number }[]; // see Design rules → Boost pads
   palette: Palette;                        // see Palettes
   song: Song;                              // see Songs
 }
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime]; // this order everywhere
+export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream]; // this order everywhere
 ```
 
 One module per Track in `src/track/tracks/<id>.ts`. Physics already takes the baked Track as a parameter, so it doesn't change.
 
-| | Overdrive | Switchback | Hang Time |
-|---|---|---|---|
-| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air |
-| Length | 2,251 m | 3,022 m | 3,240 m |
-| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s |
-| Checkpoints | 4 | 7 | 7 |
-| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` |
+| | Overdrive | Switchback | Hang Time | Slipstream |
+|---|---|---|---|---|
+| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow |
+| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m |
+| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s |
+| Checkpoints | 4 | 7 | 7 | 6 |
+| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` |
 
 **Overdrive.** Today's Track as it is: Loop → right turn → Rollercoaster → left turn → Wall-ride → Gap B → right turn.
 
@@ -77,7 +80,16 @@ Checkpoints: start line, before the hairpin, before the chicane, before the swit
 
 Checkpoints: start line, before the drop Gap, before the over-the-top Gap, before the step-up, before Loop 2, on the home straight before the double, on the first double deck.
 
-The exact pieces are in `src/track/tracks/technical.ts` and `src/track/tracks/bigair.ts`.
+**Slipstream** (figure-8, no braking: every turn holds at full throttle, even Boosted):
+- start straight → **Boost pad** (60 m) → **Loop** (R22) → right sweeper (R60) → **Rollercoaster** (two rolling hills)
+- → right sweeper → climbing right turn (+14 m) onto the **bridge**
+- → **Corkscrew** (200 m, rolling right, 40 m held upside down), upside down right over the start straight, 14 m below
+- → **curving Wall-ride** (left, 90° at R90, descending) → **Gap** (8° Kicker, deck level with the lip)
+- → **Boost pad** (150 m) down the deck run-out → two left sweepers → home straight, on under the bridge
+
+Checkpoints: start line, before the Loop, before the climb, on the bridge before the Corkscrew, before the Wall-ride, before the Gap.
+
+The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts` and `src/track/tracks/flow.ts`.
 
 ### Building Tracks 2 and 3: the turtle builder
 
@@ -163,6 +175,7 @@ Built in M11: `src/render/palette.ts`.
 | Overdrive | `#ff2bd6` | `#ffe600` | `#000000` |
 | Switchback | `#39ff14` | `#ffb000` | `#010a04` |
 | Hang Time | `#ff8a00` | `#a64dff` | `#0d0418` |
+| Slipstream | `#00ffa3` | `#c400ff` | `#000a06` |
 
 ## Songs
 
@@ -183,7 +196,7 @@ interface Song {
 
 Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turns a Song and a step number into notes. The Web Audio code only plays them.
 
-**The four Songs.** Overdrive's Song is today's hard-coded one, unchanged.
+**The Songs.** Overdrive's Song is today's hard-coded one, unchanged.
 
 | Song | BPM | Chords | Character |
 |---|---|---|---|
@@ -191,6 +204,7 @@ Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turn
 | Overdrive | 100 | Am F C G | Today's Song |
 | Switchback | 118 | Em F Em D | Dark: driving 16th bass, choppy arp, syncopated kick |
 | Hang Time | 128 | D A Bm G | Bright: four-on-the-floor, offbeat bass, rising arp |
+| Slipstream | 96 | Cmaj7 Am7 Fmaj7 G | Dreamwave: half-time beat, slow wide pads, echoing triangle arp ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/54)) |
 
 **When each plays.** The Menu Song covers the Menu, Track select, Reset times and Controls. A Track's Song covers its countdown, race, Pause and Finish.
 
@@ -209,6 +223,7 @@ src/
   track/tracks/allround.ts   # Overdrive: today's layout.ts, moved, plus name/kind/palette/song
   track/tracks/technical.ts  # Switchback (turtle pieces)
   track/tracks/bigair.ts     # Hang Time (turtle pieces)
+  track/tracks/flow.ts       # Slipstream (turtle pieces)
   track/tracks/index.ts      # TrackDef, TRACKS
   track/turtle.ts            # turtle builder: straights, arcs, Kickers, Gaps, Loops, free-straight closing
   render/palette.ts          # Palette, derive()
