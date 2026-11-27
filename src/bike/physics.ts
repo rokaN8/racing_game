@@ -1,7 +1,7 @@
 // Pure Bike kinematics, ported from prototypes/bike-handling.html. No DOM, no rendering.
 import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 import { sampleAt, type Frame, type Track } from '../track/bake';
-import { CEILING_UP_Y, type Tuning } from './tuning';
+import { BOOST_PAD_TAIL, CEILING_UP_Y, type Tuning } from './tuning';
 
 // throttle/brake 0..1, steer -1..1, pitch -1..1 (+ = nose down; Air control only)
 export interface Input { throttle: number; brake: number; steer: number; pitch: number; boost: boolean }
@@ -11,6 +11,7 @@ export interface BikeState {
   pos: Vector3; vel: Vector3; quat: Quaternion;
   airT: number; lastCP: number; respawns: number;
   boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
+  boostLen: number; padHits: number; // the running Boost's full length (HUD meter); Boost pads ridden onto (sound)
   lapTime: number; lastLap: number | null; laps: number;
   msg: string; msgT: number;
 }
@@ -21,7 +22,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
+    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -59,7 +60,8 @@ export function respawn(st: BikeState, T: Track, P: Tuning, why: string) {
 export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number) {
   st.lapTime += dt; st.msgT -= dt; st.boostT -= dt; st.boostCD -= dt;
   if (inp.boost && st.boostCD <= 0) {
-    st.boostT = P.boostDuration; st.boostCD = P.boostDuration + P.boostCooldown;
+    st.boostT = Math.max(st.boostT, P.boostDuration); st.boostCD = P.boostDuration + P.boostCooldown; // never cuts a Boost pad's short
+    st.boostLen = st.boostT;
     if (st.mode === 'track') st.speed += P.boostKick;
   }
   const boosting = st.boostT > 0;
@@ -77,7 +79,19 @@ export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number)
     st.latVel += (target - st.latVel) * Math.min(1, P.steerResponse * dt) + cornerPull(T, st.s, st.speed, P) * dt;
     st.d += st.latVel * dt;
 
+    const s0 = st.s;
     st.s += st.speed * dt;
+    // Boost pad: riding onto one kicks and Boosts until the strip ends, plus a short tail, leaving the button alone.
+    // The Boost is sized on entry as if ridden at Boost top speed (so the HUD meter drains across the strip) and held
+    // while on the strip (however the Bike got there: also a landing or respawn on it), so it never ends early.
+    for (const pad of T.pads) {
+      if ((s0 < pad.s && st.s >= pad.s) || (s0 < pad.s + T.L && st.s >= pad.s + T.L)) {
+        st.padHits++; st.speed += P.boostKick;
+        st.boostT = Math.max(st.boostT, pad.len / (P.topSpeed + P.boostSpeed) + BOOST_PAD_TAIL); st.boostLen = st.boostT;
+      }
+      const into = (st.s - pad.s + T.L) % T.L;
+      if (into < pad.len) st.boostT = Math.max(st.boostT, BOOST_PAD_TAIL);
+    }
     if (st.s >= T.L) {
       st.s -= T.L; st.laps++; st.lastLap = st.lapTime; st.lapTime = 0;
     }

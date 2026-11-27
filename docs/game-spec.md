@@ -82,7 +82,7 @@ The exact pieces are in `src/track/tracks/technical.ts` and `src/track/tracks/bi
 ### Building Tracks 2 and 3: the turtle builder
 
 `src/track/turtle.ts` lays a Track out from a heading instead of hand-placed points, so turn radii are exact:
-- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change), Kicker, Gap, Loop, and Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52))
+- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change), Kicker, Gap, Loop, Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52)), and Boost pad (a strip length, starting where the next piece starts; [Boost pads](https://github.com/rokaN8/racing_game/issues/53))
 - **closing:** two straights are marked *free*. Their lengths are solved (a 2×2 linear solve) so the Lap closes on the start line. A figure-8 turns 0° in total.
 - **output:** the usual `ControlPoint[]` plus Gap segments and Checkpoint indices, for `bakeTrack`
 
@@ -101,6 +101,12 @@ Overdrive keeps its hand-written control points.
 - **Boost:** no Gap needs Boost.
 
 **Corkscrews.** A flat straight that rolls 360° around its centre line, eased in and out. The bake steps bank the short way between control points, so a roll ending at 360° carries on at 0° instead of unwinding (any step between two points stays under 180°). Riding upside down needs no handling change: below `stickSpeed` (18 m/s) the Bike drops off, as on a Loop, so a respawn at 20 m/s must still clear it.
+
+**Boost pads.** A strip `len` m long, drawn as forward chevrons every 6 m in the secondary colour. `TUNING` is unchanged.
+- **Riding onto one:** +`boostKick` speed, the rising pad chime plus the Boost whoosh, and a Boost sized as the strip's length at Boost top speed plus `BOOST_PAD_TAIL` (0.3 s), so the HUD meter drains across it.
+- **On the strip** the Boost is held at least `BOOST_PAD_TAIL`, however the Bike got there (also a landing or respawn), so it ends about 0.3 s past the strip's end.
+- **The Boost button** is left alone: still ready if it was, and pressing it on a strip never cuts the pad's Boost short.
+- **Placing them:** the strip length is the layout's call, so a long straight gets a long strip. A pad isn't a Gap's way across: every Gap still clears without Boost.
 
 **Checkpoints.** Each sits ≥60 m before the hazard that follows it, and a respawn at 20 m/s clears that hazard.
 

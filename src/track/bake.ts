@@ -10,10 +10,11 @@ export interface Track {
   pos: Vector3[]; tan: Vector3[]; up: Vector3[]; rgt: Vector3[];
   gap: boolean[]; cpS: number[]; // per-sample "no geometry here"; Checkpoint distances
   halfWidth: number; minY: number;
+  pads: { s: number; len: number }[]; // Boost pads: strip start distance and length
 }
 export interface Frame { p: Vector3; t: Vector3; u: Vector3; r: Vector3; gap: boolean }
 
-export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, halfWidth }: Pick<TrackDef, 'cps' | 'gapSegments' | 'checkpointCps' | 'halfWidth'>): Track {
+export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, halfWidth, boostPads = [] }: Pick<TrackDef, 'cps' | 'gapSegments' | 'checkpointCps' | 'halfWidth' | 'boostPads'>): Track {
   const n = cps.length;
   const curve = new CatmullRomCurve3(cps.map(c => new Vector3(c[0], c[1], c[2])), true, 'centripetal');
   curve.arcLengthDivisions = 6000; curve.updateArcLengths();
@@ -49,8 +50,9 @@ export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, hal
     gap.push(gapSegs.includes(a));
   }
   const cpS = cpIdx.map(k => seg.indexOf(k) * ds);
+  const pads = boostPads.map(b => ({ s: seg.indexOf(b.cp) * ds, len: b.len }));
   const minY = Math.min(...pos.map(p => p.y));
-  return { L, N, ds, pos, tan, up, rgt, gap, cpS, halfWidth, minY };
+  return { L, N, ds, pos, tan, up, rgt, gap, cpS, halfWidth, minY, pads };
 }
 
 export function sampleAt(T: Track, s: number): Frame {

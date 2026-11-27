@@ -8,4 +8,5 @@ export const TUNING = {
 };
 export type Tuning = typeof TUNING;
 
+export const BOOST_PAD_TAIL = 0.3; // s of Boost past a Boost pad's end at the speed it was ridden onto (game-spec → Boost pads)
 export const CEILING_UP_Y = -0.3; // "upside down" = Track up points this far below horizontal

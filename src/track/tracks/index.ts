@@ -16,6 +16,7 @@ export interface TrackDef {
   halfWidth: number;
   palette: Palette;
   song: Song;
+  boostPads?: { cp: number; len: number }[]; // Boost pads: a strip len m long from control point cp
 }
 
 export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime];

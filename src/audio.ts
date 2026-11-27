@@ -174,6 +174,7 @@ function burst(f0: number, f1: number, dur: number, attack: number, vol: number)
 
 export const sfx = {
   boost: () => burst(300, 5000, 0.6, 0.25, 0.35),
+  pad: () => { blip(440, 1760, 0.22, 0, 'sawtooth', 0.12); blip(660, 2640, 0.22, 0.06, 'square', 0.08); }, // rising chime
   land: () => blip(140, 45, 0.18, 0, 'sine', 0.5),
   crash: () => burst(4000, 120, 0.7, 0.01, 0.6),
   checkpoint: () => { blip(880, 880, 0.09); blip(1320, 1320, 0.14, 0.09); },
