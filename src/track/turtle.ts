@@ -1,7 +1,7 @@
 // Turtle builder (docs/game-spec.md → Building Tracks 2 and 3): lays a Track out as straights and arcs from a heading,
 // so turn radii are exact, instead of hand-placed control points. Two straights are marked free; their lengths are
 // solved so the Lap closes on the start line (the end position is linear in them). The Lap must turn 0° (a figure-8)
-// or ±360° in total. Also Kickers, Gaps onto Landing decks, and Loops (docs/game-spec.md → Design rules).
+// or ±360° in total. Also Kickers, Gaps onto Landing decks, Loops and Corkscrews (docs/game-spec.md → Design rules).
 // Output is the usual control points, Gap segments and Checkpoint indices for bakeTrack.
 import type { ControlPoint } from './bake';
 
@@ -13,7 +13,8 @@ export type Piece =
   | { kind: 'turn'; deg: number; radius: number; bank: number; rise?: number; checkpoint?: boolean }
   | { kind: 'kicker'; len: number; deg: number; checkpoint?: boolean }
   | { kind: 'gap'; drop: number; vMin: number; vMax: number; checkpoint?: boolean; deckCheckpoint?: boolean }
-  | { kind: 'loop'; radius: number; drift: number; checkpoint?: boolean };
+  | { kind: 'loop'; radius: number; drift: number; checkpoint?: boolean }
+  | { kind: 'corkscrew'; len: number; dir: 1 | -1; hold: number; checkpoint?: boolean };
 
 export const straight = (len: number, o: Omit<Extract<Piece, { kind: 'straight' }>, 'kind' | 'len'> = {}): Piece => ({ kind: 'straight', len, ...o });
 export const turn = (deg: number, radius: number, bank: number, o: { rise?: number; checkpoint?: boolean } = {}): Piece =>
@@ -27,6 +28,10 @@ export const gap = (drop: number, o: { vMin: number; vMax: number; checkpoint?: 
   ({ kind: 'gap', drop, ...o });
 // Loop of `radius`, drifting `drift` m to the left so its entry and exit don't overlap. Needs flat ground either side.
 export const loop = (radius: number, drift: number, o: { checkpoint?: boolean } = {}): Piece => ({ kind: 'loop', radius, drift, ...o });
+// Corkscrew: a flat straight `len` m long on which the Track rolls a full 360° around its centre line (dir 1 = right
+// side down first, -1 = left). Eased in and out. hold: metres ridden upside down at 180° halfway through.
+export const corkscrew = (len: number, o: { dir?: 1 | -1; hold?: number; checkpoint?: boolean } = {}): Piece =>
+  ({ kind: 'corkscrew', len, dir: o.dir ?? 1, hold: o.hold ?? 0, checkpoint: o.checkpoint });
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const AIR_GRAVITY = 12; // bike/tuning.ts airGravity: a Gap's reach depends on it
@@ -69,6 +74,15 @@ function walk(pieces: Piece[], free: [number, number]) {
         cps.push([px, y + p.radius + p.radius * Math.sin(th), pz, 0]);
       }
       [x, z] = ahead(0, p.drift); cps.push([x, y, z, 0]); grade = 0; bank = 0;
+      continue;
+    }
+    if (p.kind === 'corkscrew') { // a point every ≤10 m (8+), so no step between two points nears 180° (bake wraps them)
+      const ease = (f: number) => f * f * (3 - 2 * f), half = (p.len - p.hold) / 2;
+      const roll = (d: number) => p.hold === 0 ? 360 * ease(d / p.len)
+        : d < half ? 180 * ease(d / half) : d < half + p.hold ? 180 : 180 + 180 * ease((d - half - p.hold) / half);
+      const n = Math.max(8, Math.ceil(p.len / 10));
+      for (let k = 1; k <= n; k++) { const [px, pz] = ahead((p.len * k) / n); cps.push([px, y, pz, bank + p.dir * roll((p.len * k) / n)]); }
+      [x, z] = ahead(p.len); grade = 0;
       continue;
     }
     const y0 = y, rise = p.kind === 'straight' && p.ground ? -y : p.rise ?? 0;

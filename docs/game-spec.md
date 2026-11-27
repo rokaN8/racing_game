@@ -82,7 +82,7 @@ The exact pieces are in `src/track/tracks/technical.ts` and `src/track/tracks/bi
 ### Building Tracks 2 and 3: the turtle builder
 
 `src/track/turtle.ts` lays a Track out from a heading instead of hand-placed points, so turn radii are exact:
-- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change), Kicker, Gap, and Loop
+- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change), Kicker, Gap, Loop, and Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52))
 - **closing:** two straights are marked *free*. Their lengths are solved (a 2×2 linear solve) so the Lap closes on the start line. A figure-8 turns 0° in total.
 - **output:** the usual `ControlPoint[]` plus Gap segments and Checkpoint indices, for `bakeTrack`
 
@@ -99,6 +99,8 @@ Overdrive keeps its hand-written control points.
 - **Why flat:** decks sloping downhill made fast Bikes fly for 3–5 s and overshoot (airGravity is only 12).
 - **Drops:** big drops go on the Track between jumps.
 - **Boost:** no Gap needs Boost.
+
+**Corkscrews.** A flat straight that rolls 360° around its centre line, eased in and out. The bake steps bank the short way between control points, so a roll ending at 360° carries on at 0° instead of unwinding (any step between two points stays under 180°). Riding upside down needs no handling change: below `stickSpeed` (18 m/s) the Bike drops off, as on a Loop, so a respawn at 20 m/s must still clear it.
 
 **Checkpoints.** Each sits ≥60 m before the hazard that follows it, and a respawn at 20 m/s clears that hazard.
 
