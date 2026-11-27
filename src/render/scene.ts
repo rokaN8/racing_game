@@ -13,7 +13,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import type { Track } from '../track/bake';
+import { sampleAt, type Track } from '../track/bake';
 import { createBikeModels, TRAIL_ANCHOR } from './bike';
 import { color, css, derive, type Palette } from './palette';
 
@@ -48,6 +48,7 @@ export function createScene(T: Track, palette: Palette) {
   };
   thick(edge, c.edge, 2); thick(cps, c.accent, 4);
   finishBanner(T, scene, thick, c.accent, c.fill);
+  drawPads(T, scene, thick, c.accent); // PROTOTYPE (#53)
 
   const grid = new GridHelper(3000, 150, c.gridMajor, c.gridMinor);
   grid.position.y = T.minY - 2; scene.add(grid);
@@ -60,6 +61,33 @@ export function createScene(T: Track, palette: Palette) {
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
   return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines };
+}
+
+// PROTOTYPE (#53): A chevrons on the deck, B a glowing strip the pad's length, C a gate over the Track.
+function drawPads(T: Track, scene: Scene, thick: (pts: Vector3[], color: number, px: number) => void, col: number) {
+  const at = (s: number, side: number, h = 0.06) => { const f = sampleAt(T, s); return f.p.addScaledVector(f.r, side * T.halfWidth).addScaledVector(f.u, h); };
+  for (const pad of T.pads) {
+    if (T.padMode === 'A') for (let k = 0; k < 4; k++) {
+      const s = pad.s - 9 + 3 * k;
+      thick([at(s, -0.85), at(s + 2.5, 0), at(s + 2.5, 0), at(s, 0.85)], col, 5);
+    }
+    if (T.padMode === 'B') {
+      const v: number[] = [], idx: number[] = [], edge: Vector3[] = [];
+      for (let s = pad.s, i = 0; s <= pad.s + pad.m; s += 1, i++) {
+        v.push(...at(s, -1, 0.04).toArray(), ...at(s, 1, 0.04).toArray());
+        if (i) idx.push(2 * i - 2, 2 * i, 2 * i - 1, 2 * i - 1, 2 * i, 2 * i + 1);
+        if (i % 6 === 0) edge.push(at(s, -1), at(s + 3, 0), at(s + 3, 0), at(s, 1));
+      }
+      const g = new BufferGeometry(); g.setAttribute('position', new Float32BufferAttribute(v, 3)); g.setIndex(idx);
+      scene.add(new Mesh(g, new MeshBasicMaterial({ color: col, transparent: true, opacity: 0.22, side: DoubleSide, depthWrite: false })));
+      thick(edge, col, 3);
+    }
+    if (T.padMode === 'C') {
+      const w = 1.12, H = 5;
+      thick([at(pad.s, -w), at(pad.s, -w, H), at(pad.s, w), at(pad.s, w, H), at(pad.s, -w, H), at(pad.s, w, H),
+        at(pad.s, -w, H - 0.6), at(pad.s, w, H - 0.6), at(pad.s, -1), at(pad.s, 1)], col, 6);
+    }
+  }
 }
 
 // FINISH arch over the start line (s = 0): two posts, a crossbar, and a text panel facing the oncoming Bike.

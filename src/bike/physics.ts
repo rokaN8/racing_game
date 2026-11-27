@@ -11,6 +11,7 @@ export interface BikeState {
   pos: Vector3; vel: Vector3; quat: Quaternion;
   airT: number; lastCP: number; respawns: number;
   boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
+  boostLen: number; padHits: number; // PROTOTYPE (#53): length of the Boost running now (HUD); pads hit (sound)
   lapTime: number; lastLap: number | null; laps: number;
   msg: string; msgT: number;
 }
@@ -21,7 +22,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
+    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -59,7 +60,7 @@ export function respawn(st: BikeState, T: Track, P: Tuning, why: string) {
 export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number) {
   st.lapTime += dt; st.msgT -= dt; st.boostT -= dt; st.boostCD -= dt;
   if (inp.boost && st.boostCD <= 0) {
-    st.boostT = P.boostDuration; st.boostCD = P.boostDuration + P.boostCooldown;
+    st.boostT = P.boostDuration; st.boostCD = P.boostDuration + P.boostCooldown; st.boostLen = P.boostDuration;
     if (st.mode === 'track') st.speed += P.boostKick;
   }
   const boosting = st.boostT > 0;
@@ -77,7 +78,16 @@ export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number)
     st.latVel += (target - st.latVel) * Math.min(1, P.steerResponse * dt) + cornerPull(T, st.s, st.speed, P) * dt;
     st.d += st.latVel * dt;
 
+    const s0 = st.s;
     st.s += st.speed * dt;
+    // PROTOTYPE (#53): Boost pads, three ways
+    for (const pad of T.pads) if (s0 < pad.s && st.s >= pad.s) {
+      st.padHits++; st.speed += P.boostKick;
+      if (T.padMode === 'A') st.boostT = Math.max(st.boostT, pad.secs);                      // timed pad: its own length
+      if (T.padMode === 'B') st.boostT = Math.max(st.boostT, pad.m / Math.max(st.speed, 20) + 0.3); // strip: to its end
+      if (T.padMode === 'C') { st.boostT = Math.max(0, st.boostT) + pad.secs; st.boostCD = st.boostT; } // stacks; button ready after
+      st.boostLen = st.boostT;
+    }
     if (st.s >= T.L) {
       st.s -= T.L; st.laps++; st.lastLap = st.lapTime; st.lapTime = 0;
     }

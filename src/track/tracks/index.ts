@@ -5,6 +5,7 @@ import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
 import { hangTime } from './bigair';
 import { switchback } from './technical';
+import { prototypeBoostPads } from './prototype-boost-pads';
 
 export interface TrackDef {
   id: string;      // stable: storage keys use it, so never rename one
@@ -16,6 +17,9 @@ export interface TrackDef {
   halfWidth: number;
   palette: Palette;
   song: Song;
+  // PROTOTYPE (#53): Boost pads at distance s; secs = Boost length (A, C), m = strip length (B)
+  boostPads?: { s: number; secs: number; m: number }[];
+  padMode?: 'A' | 'B' | 'C';
 }
 
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime];
+export const TRACKS: TrackDef[] = [...(prototypeBoostPads ? [prototypeBoostPads] : []), overdrive, switchback, hangTime]; // PROTOTYPE: ?boostpad=
