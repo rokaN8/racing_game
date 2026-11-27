@@ -5,6 +5,7 @@ import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
 import { hangTime } from './bigair';
 import { switchback } from './technical';
+import { lookTracks } from './prototype-looks';
 
 export interface TrackDef {
   id: string;      // stable: storage keys use it, so never rename one
@@ -19,4 +20,4 @@ export interface TrackDef {
   boostPads?: { cp: number; len: number }[]; // Boost pads: a strip len m long from control point cp
 }
 
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime];
+export const TRACKS: TrackDef[] = [...lookTracks(overdrive, hangTime), overdrive, switchback, hangTime]; // PROTOTYPE: ?look=
