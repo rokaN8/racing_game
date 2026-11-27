@@ -8,11 +8,12 @@ The hand-off spec that rounds the neon racer POC out into a game. Each section s
 
 The POC's Time trial, rounded out:
 
-- **four Tracks**, all open from the start, one Lap per run:
+- **five Tracks**, all open from the start, one Lap per run:
   - **Overdrive**: the all-rounder, today's Track
   - **Switchback**: technical, with braking turns
   - **Hang Time**: big air, with Gaps and drops
   - **Slipstream**: flow, no braking, with a Corkscrew and Boost pads ([Wayfinder: Tracks 4 and 5](https://github.com/rokaN8/racing_game/issues/51))
+  - **Afterglow**: flight, no braking, with five Gaps, a Corkscrew into a Gap and Boost pads
 - a **Menu** with Track select (High scores included) and Controls; **Pause** mid-run; a **Finish screen** after each Lap;
 - **High scores**: the top 5 Lap times per Track, on this device only. #1 is that Track's Ghost;
 - a neon **palette** and a synth **Song** per Track, plus a Menu Song.
@@ -30,6 +31,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Switchback | 3 km figure-8 with an overpass, braking turns, a curving Wall-ride and no Gaps. 7 Checkpoints, ~54 s. | [Technical Track layout](https://github.com/rokaN8/racing_game/issues/37) |
 | Hang Time | 3.2 km figure-8: lift hill, 5 Gaps onto Landing decks, two Loops. 7 Checkpoints, ~54 s. No handling change. | [Big air Track layout](https://github.com/rokaN8/racing_game/issues/38) |
 | Slipstream | 3.4 km figure-8, no braking: Loop, Rollercoaster, a Corkscrew upside down over the start straight, curving Wall-ride, one Gap, two Boost pads. 6 Checkpoints, ~53 s. | [All-rounder Track 4 layout](https://github.com/rokaN8/racing_game/issues/55) |
+| Afterglow | 3.3 km single loop, no braking: launch Gap, lift hill, a Corkscrew on the ridge straight into a drop Gap, step-up Gap, big drop, Loop, double. Two Boost pads. 7 Checkpoints, ~54 s. | [Big air Track 5 layout](https://github.com/rokaN8/racing_game/issues/56) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
 
@@ -39,26 +41,26 @@ Still no art or audio files: everything is drawn and synthesised in code.
 
 ```ts
 interface TrackDef {
-  id: 'allround' | 'technical' | 'bigair' | 'flow'; // stable: used in storage keys, never renamed
+  id: 'allround' | 'technical' | 'bigair' | 'flow' | 'flight'; // stable: used in storage keys, never renamed
   name: string;                            // display name
-  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow'
+  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow', 'Flight'
   cps: ControlPoint[]; gapSegments: number[]; checkpointCps: number[]; halfWidth: number;
   boostPads?: { cp: number; len: number }[]; // see Design rules → Boost pads
   palette: Palette;                        // see Palettes
   song: Song;                              // see Songs
 }
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream]; // this order everywhere
+export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow]; // this order everywhere
 ```
 
 One module per Track in `src/track/tracks/<id>.ts`. Physics already takes the baked Track as a parameter, so it doesn't change.
 
-| | Overdrive | Switchback | Hang Time | Slipstream |
-|---|---|---|---|---|
-| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow |
-| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m |
-| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s |
-| Checkpoints | 4 | 7 | 7 | 6 |
-| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` |
+| | Overdrive | Switchback | Hang Time | Slipstream | Afterglow |
+|---|---|---|---|---|---|
+| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow | `flight` · Flight |
+| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m | 3,329 m |
+| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s | ~54 s |
+| Checkpoints | 4 | 7 | 7 | 6 | 7 |
+| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` | `src/track/tracks/flight.ts` |
 
 **Overdrive.** Today's Track as it is: Loop → right turn → Rollercoaster → left turn → Wall-ride → Gap B → right turn.
 
@@ -89,7 +91,18 @@ Checkpoints: start line, before the drop Gap, before the over-the-top Gap, befor
 
 Checkpoints: start line, before the Loop, before the climb, on the bridge before the Corkscrew, before the Wall-ride, before the Gap.
 
-The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts` and `src/track/tracks/flow.ts`.
+**Afterglow** (single loop, 360° right, no crossings, no braking):
+- start straight → **launch Gap** (deck 6 m lower) → right sweeper → **lift hill** (+40 m) with a **Boost pad** (140 m) up most of it
+- → ridge → **Corkscrew** (100 m, rolling left, no hold) straight into the **drop Gap** (deck 10 m lower)
+- → descending left sweeper → **step-up Gap** (14° Kicker, deck 3 m higher) → 180° right sweeper
+- → **big drop** back to the ground → **Loop** (R22) → **Boost pad** (150 m) down the back straight
+- → right sweeper → **double** (two Gaps back to back) → run-out → right sweeper → home straight
+
+Every Boost pad ends ≥200 m before the next Kicker, so every lip is back under 76 m/s and the Landing decks hold.
+
+Checkpoints: start line, at the foot of the lift hill, on the ridge before the Corkscrew, at the start of the left sweeper before the step-up, before the Loop, before the double, on the first double deck.
+
+The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts`, `src/track/tracks/flow.ts` and `src/track/tracks/flight.ts`.
 
 ### Building Tracks 2 and 3: the turtle builder
 
@@ -176,6 +189,7 @@ Built in M11: `src/render/palette.ts`.
 | Switchback | `#39ff14` | `#ffb000` | `#010a04` |
 | Hang Time | `#ff8a00` | `#a64dff` | `#0d0418` |
 | Slipstream | `#00ffa3` | `#c400ff` | `#000a06` |
+| Afterglow | `#ff3d7f` | `#ffd000` | `#12020a` |
 
 ## Songs
 
@@ -205,6 +219,7 @@ Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turn
 | Switchback | 118 | Em F Em D | Dark: driving 16th bass, choppy arp, syncopated kick |
 | Hang Time | 128 | D A Bm G | Bright: four-on-the-floor, offbeat bass, rising arp |
 | Slipstream | 96 | Cmaj7 Am7 Fmaj7 G | Dreamwave: half-time beat, slow wide pads, echoing triangle arp ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/54)) |
+| Afterglow | 140 | A♭ E♭ Fm D♭ | Anthemic: half-time drums, long bass notes, big echoing arp |
 
 **When each plays.** The Menu Song covers the Menu, Track select, Reset times and Controls. A Track's Song covers its countdown, race, Pause and Finish.
 
@@ -224,6 +239,7 @@ src/
   track/tracks/technical.ts  # Switchback (turtle pieces)
   track/tracks/bigair.ts     # Hang Time (turtle pieces)
   track/tracks/flow.ts       # Slipstream (turtle pieces)
+  track/tracks/flight.ts     # Afterglow (turtle pieces)
   track/tracks/index.ts      # TrackDef, TRACKS
   track/turtle.ts            # turtle builder: straights, arcs, Kickers, Gaps, Loops, free-straight closing
   render/palette.ts          # Palette, derive()
