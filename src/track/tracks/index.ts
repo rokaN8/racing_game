@@ -5,6 +5,7 @@ import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
 import { hangTime } from './bigair';
 import { switchback } from './technical';
+import { prototypeCorkscrew } from './prototype-corkscrew';
 
 export interface TrackDef {
   id: string;      // stable: storage keys use it, so never rename one
@@ -18,4 +19,4 @@ export interface TrackDef {
   song: Song;
 }
 
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime];
+export const TRACKS: TrackDef[] = [...(prototypeCorkscrew ? [prototypeCorkscrew] : []), overdrive, switchback, hangTime]; // PROTOTYPE: ?corkscrew=

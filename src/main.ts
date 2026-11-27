@@ -12,6 +12,7 @@ import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
+import { corkscrewTick } from './track/tracks/prototype-corkscrew';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -139,6 +140,7 @@ renderer.setAnimationLoop(now => {
   setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');
   updateEngine(phase === 'racing' && !frozen && !wrecked ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
 
+  corkscrewTick(st, w.T); // PROTOTYPE readout
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
