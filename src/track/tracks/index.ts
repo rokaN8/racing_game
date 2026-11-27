@@ -4,6 +4,7 @@ import type { Palette } from '../../render/palette';
 import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
 import { hangTime } from './bigair';
+import { afterglow } from './flight';
 import { slipstream } from './flow';
 import { switchback } from './technical';
 
@@ -20,4 +21,4 @@ export interface TrackDef {
   boostPads?: { cp: number; len: number }[]; // Boost pads: a strip len m long from control point cp
 }
 
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream];
+export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow];
