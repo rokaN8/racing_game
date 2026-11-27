@@ -20,6 +20,7 @@ There is no separate lint step; `tsc` (strict unused-locals/params, `erasableSyn
 
 - `docs/poc-spec.md` and `docs/game-spec.md` hold the locked decisions (with ticket links), handling values, design rules, module layout and milestones. Code comments cite them as `docs/game-spec.md → <section>`; keep that up to date when behaviour changes.
 - `GLOSSARY.md` defines the game's terms (Track, Lap, Gap, Kicker, Landing deck, Checkpoint, Airborne, Cornering pull, Ghost…). Code, comments, tests and UI use these capitalized terms; stick to them.
+- `docs/feature-ideas.md` is the backlog of feature ideas (ids like A1, D2, each tagged with its issue once filed). Keep it current: a PR that builds an item ticks its box (`- [x]`) in that same PR, a newly filed issue gets its `[#n]` tag, and new or dropped ideas are recorded there.
 - `TUNING` in `src/bike/tuning.ts` is the locked set of handling values from the POC spec. Don't retune it to make a Track work; fit the Track geometry to the physics instead.
 
 ## Architecture
