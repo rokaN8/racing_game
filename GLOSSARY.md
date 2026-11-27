@@ -8,6 +8,8 @@
 
 **Wall-ride** — A stretch of Track banked to roughly vertical, ridden sideways by Track-relative gravity.
 
+**Corkscrew** — A straight stretch of Track that rolls a full 360° around its centre line, carrying the Bike upside down and back upright. Built with the turtle's Corkscrew piece; each Track picks its length, roll direction and how long it holds upside down.
+
 **Gap** — A break in the Track the Bike must jump across while Airborne.
 
 **Kicker** — The ramp before a Gap that lifts the Bike into the air at the lip.

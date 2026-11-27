@@ -40,7 +40,10 @@ export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, hal
   const rgt: Vector3[] = [], gap: boolean[] = [];
   for (let i = 0; i < N; i++) {
     const a = seg[i], b = (a + 1) % n;
-    const bank = MathUtils.degToRad(cps[a][3] + (cps[b][3] - cps[a][3]) * frac[i]); // + bank tilts up toward the right
+    // + bank tilts up toward the right. The step to the next point is wrapped to ±180°, so a Corkscrew ending at 360°
+    // (or the Lap seam after one) carries on at 0° instead of unwinding. Any step between two points stays under 180°.
+    const step = ((((cps[b][3] - cps[a][3]) % 360) + 540) % 360) - 180;
+    const bank = MathUtils.degToRad(cps[a][3] + step * frac[i]);
     up[i].applyAxisAngle(tan[i], err * i / N + bank).normalize();
     rgt.push(new Vector3().crossVectors(tan[i], up[i]));
     gap.push(gapSegs.includes(a));
