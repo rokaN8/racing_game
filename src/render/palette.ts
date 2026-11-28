@@ -20,6 +20,9 @@ export function derive(p: Palette) {
     edge: p.primary, accent: p.secondary, sky: p.sky,
     fill: mix(p.sky, p.primary, 0.06), rungs: mix(0, p.primary, 0.3),
     gridMajor: mix(0, p.primary, 0.22), gridMinor: mix(0, p.primary, 0.1),
+    // the horizon: a dimmed sun that only blooms a little, mountains and stars below the threshold
+    sunTop: mix(p.sky, p.secondary, 0.6), sunBottom: mix(p.sky, p.primary, 0.6),
+    mountain: mix(0, p.primary, 0.35), mountainFill: mix(p.sky, p.primary, 0.03), star: mix(p.sky, 0xffffff, 0.4),
   };
 }
 

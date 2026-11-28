@@ -31,6 +31,16 @@ export function stepEvents(song: Song, n: number): Note[] {
   return notes;
 }
 
+// Seconds since the last kick heard at `now`, for a player that has scheduled steps 0..n-1 with step n due at nextT
+// (docs/game-spec.md → Songs). Notes are scheduled ahead, so this counts from the step that is sounding, not the
+// last one scheduled. Null before the first step sounds, or with no kick in the bar before. Pure.
+export function sinceKick(song: Song, n: number, nextT: number, now: number): number | null {
+  const step = 60 / song.bpm / 4, at = (k: number) => nextT - (n - k) * step;
+  const sounding = Math.min(n - 1, Math.floor(n - (nextT - now) / step));
+  for (let k = sounding; k >= 0 && k > sounding - 16; k--) if (song.drums.kick[k % 16] === 'x') return now - at(k);
+  return null;
+}
+
 // Slow and dreamy: soft pads, a lazy echoing arp, almost no drums.
 export const MENU_SONG: Song = {
   bpm: 84, echo: 0.5,

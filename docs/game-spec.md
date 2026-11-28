@@ -148,13 +148,17 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
   - **Outline** (`ui/outline.ts`, shared with the HUD's minimap): drawn from the baked Track's x/z, with Gaps left open, the start line marked and a tick across each other Checkpoint, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
 - **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then All Tracks; the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
 - **Controls.** The Keyboard | Gamepad table sits in the rail.
-- **Pause** (Esc / Start). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
+- **Pause** (Esc / Start, or leaving the game mid-run: a hidden tab or the window losing focus during the countdown, a run or a crash, [#69](https://github.com/rokaN8/racing_game/issues/69); already on a screen, nothing changes). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
 - **Finish.**
   - **Rail head:** the Track and lap count in its palette colour, the run time, then the rank as a big numeral. A new #1 adds a slanted magenta NEW BEST tag that pops in, with the gain on the old best; otherwise the gap to the best. Outside the top 5 it says so instead of a rank. Under it, the Medal this run earned and the gap to the next one ("Gold · 0.41 to Neon", or "No Medal · 1.20 to Bronze"); a Medal better than the old #1's pops in like NEW BEST. Then Retry · Track select · Menu.
   - **Panel:** the Track's top 5 at this lap count with this run highlighted; outside the top 5, a dashed "You" row with the gap to #5. Then the Ideal time and how far #1 is off it ("Ideal 1:58.40 · best 1.10 off"), then each Lap's time, the first fastest tagged. R / Y still retry.
   - **Lock:** a pick is ignored for 0.7 s after Finish opens, so a Boost tap (Space / A) at the line can't skip it.
 - **Top 5 rows.** `#n · time · date`, with a **Ghost** tag on #1, and #1's Lap times under it for runs of more than 1 Lap.
 - **Input.** Up/down (arrows, W/S, d-pad or left stick) move; left/right (arrows, A/D, d-pad or stick) set the lap count on Track select and move elsewhere. Enter/Space pick, Esc/Backspace back. Gamepad: A picks, B backs out, Start pauses and resumes. All edge-triggered.
+
+## Input
+
+The POC's controls, plus **gamepad rumble** ([#68](https://github.com/rokaN8/racing_game/issues/68), `rumble()` in `input.ts`, off the same state changes as the sound effects): a thump on landing that grows the further off the landing angle, a strong 0.4 s one on a crash, a light 0.2 s buzz on a Boost pad, a lighter 0.15 s one on Boost, a tick at each Checkpoint and a double tick on each Lap. Only during a run: Pause stops it, while the last Lap's double tick still plays as the Finish screen opens. A weaker rumble never cuts a stronger one short. M doesn't touch it; with no pad or no support (Firefox) it does nothing.
 
 ## Medals
 
@@ -187,7 +191,7 @@ Built in M11: `src/render/palette.ts`.
 - **Shape.** A `Palette` is `{ primary, secondary, sky }`, as sRGB hex.
   - **primary:** Track edges, and the Menu swatch, band and outline start.
   - **secondary:** Checkpoint lines, the FINISH arch and banner text, and the Menu's second colour.
-  - **sky:** a solid, very dark background. No gradient, no fog.
+  - **sky:** a solid, very dark background. No gradient, no fog. The horizon is objects in front of it.
 - **Derived darks**, mixed byte-wise in **sRGB**, not linear:
   - Track fill = mix(sky, primary, 0.06)
   - rungs = primary × 0.30
@@ -195,6 +199,10 @@ Built in M11: `src/render/palette.ts`.
   - banner background = the fill
 
   They all stay below the bloom threshold, so only the neon glows.
+- **Horizon** ([#66](https://github.com/rokaN8/racing_game/issues/66)): a striped sun where the start straight looks, a ring of wireframe mountains and a few hundred stars, built per Track in `render/scene.ts` and moved with the camera's position (not its rotation), so it sits at infinity. Out past every Track (mountains 2 km, sun 2.3 km, stars 2.6 km; the camera sees 3 km).
+  - sun: a gradient from mix(sky, secondary, 0.6) at the top to mix(sky, primary, 0.6) at the bottom, cut by gaps that widen towards the bottom, its foot behind the mountains. The only part that blooms, a little.
+  - mountains: primary × 0.35 lines over a mix(sky, primary, 0.03) fill that hides the grid behind them and reaches below eye level.
+  - stars: mix(sky, white, 0.4), dimmed at random.
 - **Fixed on every Track:** Bike and Light trail cyan, Ghost white, HUD cyan. The Menu keeps today's cyan and magenta.
 
 | Track | primary | secondary | sky |
@@ -242,6 +250,8 @@ Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turn
 - **Retry and Restart keep the Song going.**
 - **Pause muffles:** a low-pass to ~700 Hz at half volume, eased over ~0.1 s.
 - M still mutes everything.
+
+**Beat pulse** ([#67](https://github.com/rokaN8/racing_game/issues/67)). Each kick of the live Song brightens the Track edges and Checkpoint lines to 1.3×, fading back over 0.15 s: the Menu Song behind the Menu screens, the Track's Song in a run, handed over halfway through a crossfade, when the new Song becomes the louder. Timed off the audio clock (`beat()` in `audio.ts`, the pure `sinceKick` in `audio/songs.ts`), from the step that is sounding rather than the last one scheduled, so it pulses when muted too. None before audio starts, while it's suspended, or with `prefers-reduced-motion`.
 
 ## Module layout
 
