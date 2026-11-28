@@ -249,6 +249,7 @@ export const sfx = {
   checkpoint: () => { blip(880, 880, 0.09); blip(1320, 1320, 0.14, 0.09); },
   lap: () => [660, 880, 1320].forEach((f, i) => blip(f, f, 0.18, i * 0.1, 'triangle', 0.25)),
   whoosh: (side: number) => swoop(side),
+  shard: () => { blip(1568, 1568, 0.08, 0, 'triangle', 0.2); blip(2093, 2093, 0.08, 0.06, 'triangle', 0.18); blip(3136, 3136, 0.22, 0.12, 'sine', 0.14); }, // a bright three-note sparkle
 };
 
 // The Ghost whoosh: a sawtooth swooping 1400 → 350 Hz over 0.5 s, panning out from near the middle to the Ghost's

@@ -53,6 +53,7 @@ interface TrackDef {
   tunnels?: { cp: number; len: number }[];   // see Design rules → Tunnels (looks only)
   palette: Palette;                        // see Palettes
   song: Song;                              // see Songs
+  shards: Shard[];                         // see Data shards: 10, by hand, never reordered
 }
 export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow, vertigo, knot]; // this order everywhere
 ```
@@ -221,8 +222,8 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
 - **Menu.** Logo, then Play · Stats · Controls. Coming back to it restores the last focus.
 - **Track select** (also where the High scores live).
   - **Rail:** the lap count under the title (`‹ 3 Laps ›`, set with ← →, stopping at 1 and 5; 3 at boot), then name, kind and palette swatch per Track, then a smaller Reset times. Focus starts on the last-raced Track.
-  - **Rail Medal:** the Medal each Track's #1 earns at the current lap count, as a small tag before its swatch.
-  - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track (centred, scaled to the window height), its top 5 at the current lap count, the Ideal time ("Ideal 1:58.40", while it isn't above #1), then the four Medal target times, the ones #1 has earned lit (Neon marked "beat the Pilot"). With no times yet: "No times yet. Beat the Pilot: your fastest run becomes your Ghost."
+  - **Rail Medal:** the Medal each Track's #1 earns at the current lap count, as a small tag before its swatch. A Track with every Data shard found also gets a magenta ◆ before it.
+  - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track (centred, scaled to the window height), the Data shards found ("Shards 7/10"), its top 5 at the current lap count, the Ideal time ("Ideal 1:58.40", while it isn't above #1), then the four Medal target times, the ones #1 has earned lit (Neon marked "beat the Pilot"). With no times yet: "No times yet. Beat the Pilot: your fastest run becomes your Ghost."
   - **Outline** (`ui/outline.ts`, shared with the HUD's minimap): drawn from the baked Track's x/z, with Gaps left open, the start line marked and a tick across each other Checkpoint, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
 - **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then All Tracks; the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
 - **Controls.** The Keyboard | Gamepad table sits in the rail.
@@ -302,6 +303,16 @@ Sound only, synth only, no files ([Wind and Ghost whoosh](https://github.com/rok
 
 **Ghost whoosh:** when the Ghost (yours or the Pilot's) crosses the camera's side-to-side line within 12 m, either way: you passing it or it passing you. A sawtooth swoops 1400 → 350 Hz over 0.5 s at 0.12, panning from 0.3 to 1.5 × the Ghost's side (its offset to the camera's right over its distance, clamped to ±1). A respawn or Retry starts the check over, so a jump never fires one.
 
+## Data shards
+
+A collection, not a mode ([Data shards](https://github.com/rokaN8/racing_game/issues/88), `src/shards.ts`): glowing pickups on every Track, found across runs. Time trial stays the only race mode, and a pickup never touches physics, the Lap or the clock.
+
+- **Placement:** by hand, 10 per Track in `TrackDef.shards` as `{ s, d, h }` (distance, side offset, height above the deck). About 6 on or near the racing line (|d| ≤ 1.5), 3 off it (hugging an edge, the high edge of a Wall-ride, near the edge at the top of a Loop), and 1 hard: the top of the Pilot's flight over the longest Gap, or the top of a Loop, or (Switchback, with neither) the high edge of its Wall-ride. A shard is identified by its index, so never reorder them.
+- **Checks** (`test/shards.test.ts`, every Track): 10 shards at least 30 m apart; one on the deck is 1 m up, off any Gap, within 0.9 m of the edge; one in flight is within 1 m of the Pilot's path. The Pilot, riding the centre line, collects every shard with |d| ≤ 1.5 and every one in flight.
+- **Pickup:** within 2.5 m of the Bike, checked every physics step, so only while racing. Not by the Ghost or the Pilot. It counts at once (a crash, Quit or Restart after it keeps it): saved on touch, with a bright three-note chime, a light rumble tick and "Shard 7/10" in the message line (cyan).
+- **Look:** a spinning outline diamond (an octahedron 1.2 m across with a smaller one inside) in the Track's secondary colour, so it blooms; a found one stays, at 15 %. One draw call per Track.
+- **Storage:** one localStorage key, `neon-racer.shards.v1`: `{ <trackId>: [found indices] }`. Guarded like every key: blocked, missing or garbage reads as nothing found, a bad entry is skipped, and with storage blocked shards stay found for the session. Reset times leaves them alone; there is no shard reset.
+
 ## Run stats
 
 Counted, not ridden on: nothing here touches physics ([Run stats](https://github.com/rokaN8/racing_game/issues/85), `src/stats.ts`). A pure counter that `main.ts` feeds every physics step, off state changes between steps (as the sound effects are), so it only counts while racing with no screen open, and never the Pilot.
@@ -347,6 +358,7 @@ Every Track has a rival from the first run ([#61](https://github.com/rokaN8/raci
   - From before Tracks (once, at boot): if `neon-racer.ghost.v2` (or v1) exists and the Overdrive key doesn't, write Overdrive = `{ scores: [{ time, date: null }], ghost }`. Remove the old keys only after that write succeeds.
   - From before the Ghost store: a localStorage record may still hold its Ghost inline (`ghost: { poses, splits, dist? }`, base64 Float32Array). It is raced straight away. When its Track loads, it is put into the Ghost store, and once that transaction completes the record is rewritten without it. Until then every rewrite keeps it, so a failed put loses nothing; the next load tries again.
 - **Lifetime stats:** `neon-racer.stats.v1`, see Run stats.
+- **Data shards:** `neon-racer.shards.v1`, see Data shards.
 - **Guarding.** Every read and write is guarded. Garbage loads as empty, and the game runs with storage blocked: blocked or missing localStorage keeps the times in memory, and a blocked, missing, failing or hung IndexedDB (it fails in several ways, by browser) keeps the Ghosts in memory.
 - **Ghost module.** `createGhost(storage, { id, L, cpS }, laps, now, ghostStore)`, one instance per Track and lap count, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `load()` to fetch its Ghost (once), `clear()` for resets, `restart()`, which is today's `reset()` (retry) renamed, `liveGap(bike)` for the live gap (a binary search over the running max of the Ghost's distances), `idealTime` (the best Sectors added up; null with none, or while above #1), and `needsPilot` / `setPilot()` for the Pilot Ghost.
 
@@ -445,6 +457,7 @@ src/
   audio/songs.ts             # the Menu Song (Track Songs live on their TrackDef)
   ghost.ts                   # per Track: top 5 + Ghost + best Sectors in one key, migration; the Pilot Ghost's run
   stats.ts                   # Run stats counted per physics step; Lifetime stats, banked into one key
+  shards.ts                  # Data shards: positions, the pickup check, found shards in one key
   pilot.ts                   # headless pilots: steer to centre, brake for turns, Air control onto the flight path
   ui/menu.ts                 # the side-rail overlay: Menu, Track select (+ High scores, Reset times), Controls, Pause, Finish
   ui/outline.ts              # the top-down Track outline, for Track select and the minimap

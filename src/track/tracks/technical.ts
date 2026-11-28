@@ -34,6 +34,20 @@ export const switchback: TrackDef = {
   id: 'technical', name: 'Switchback', kind: 'Technical',
   cps, gapSegments: [], checkpointCps, halfWidth: 4,
   pilot: { brakes: true, boostStraights: true }, pilotTimes: { 1: 53.72, 3: 161.1, 5: 268.48 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 252.0, d: 0.0, h: 1.0 },
+    { s: 504.0, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 795.0, d: 1.5, h: 1.0 },
+    { s: 1338.1, d: -1.5, h: 1.0 },
+    { s: 1550.1, d: -3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 1881.1, d: 0.0, h: 1.0 },
+    { s: 2104.1, d: 3.0, h: 1.0 }, // hard: high edge of the Wall-ride
+    { s: 2424.1, d: -1.5, h: 1.0 },
+    { s: 2597.1, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 2967.1, d: 1.5, h: 1.0 },
+  ],
   palette: { primary: 0x39ff14, secondary: 0xffb000, sky: 0x010a04 }, // acid green / amber
   // Dark and driving, E Phrygian: 16th bass, choppy arp, syncopated kick.
   song: {

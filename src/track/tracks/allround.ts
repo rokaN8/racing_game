@@ -51,6 +51,20 @@ export const overdrive: TrackDef = {
   checkpointCps: [0, 1, 17, 37],
   halfWidth: 4,
   pilot: { airControl: true, boost: true }, pilotTimes: { 1: 40.45, 3: 120.12, 5: 199.82 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 47.0, d: 1.5, h: 1.0 },
+    { s: 193.0, d: 2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 246.0, d: 0.0, h: 1.0 },
+    { s: 651.1, d: 1.5, h: 1.0 },
+    { s: 977.1, d: -3.0, h: 1.0 }, // off the line: high edge of the Wall-ride
+    { s: 1055.1, d: -1.5, h: 1.0 },
+    { s: 1192.2, d: 0.0, h: 4.7 }, // hard: the top of the Pilot's flight over the Gap
+    { s: 1243.2, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 1459.2, d: 0.0, h: 1.0 },
+    { s: 1864.2, d: -1.5, h: 1.0 },
+  ],
   palette: { primary: 0xff2bd6, secondary: 0xffe600, sky: 0x000000 }, // magenta / yellow
   // Mid-tempo synthwave in A minor, i–VI–III–VII: octave bass, rolling arp.
   song: {

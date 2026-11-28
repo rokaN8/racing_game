@@ -43,6 +43,20 @@ export const hangTime: TrackDef = {
   id: 'bigair', name: 'Hang Time', kind: 'Big air',
   cps, gapSegments, checkpointCps, halfWidth: 4,
   pilot: { airControl: true, brakes: true, boostStraights: true }, pilotTimes: { 1: 50.33, 3: 149.43, 5: 248.53 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 163.0, d: 2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 270.0, d: 0.0, h: 1.0 },
+    { s: 852.0, d: 1.5, h: 1.0 },
+    { s: 1434.0, d: -1.5, h: 1.0 },
+    { s: 1667.0, d: 0.0, h: 8.0 }, // hard: the top of the Pilot's flight over the Gap
+    { s: 1746.0, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 2016.1, d: 0.0, h: 1.0 },
+    { s: 2211.1, d: -2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 2598.1, d: -1.5, h: 1.0 },
+    { s: 3181.1, d: 1.5, h: 1.0 },
+  ],
   palette: { primary: 0xff8a00, secondary: 0xa64dff, sky: 0x0d0418 }, // orange / violet
   // Bright and euphoric, D major I–V–vi–IV: four-on-the-floor, offbeat bass, rising arp.
   song: {

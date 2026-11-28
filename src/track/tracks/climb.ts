@@ -31,6 +31,20 @@ export const vertigo: TrackDef = {
   id: 'climb', name: 'Vertigo', kind: 'Climb',
   cps, gapSegments, checkpointCps, halfWidth: 4,
   pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 53.15, 3: 158.55, 5: 263.96 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 90.0, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 196.0, d: -1.5, h: 1.0 },
+    { s: 263.0, d: 0.0, h: 1.0 },
+    { s: 1061.1, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 1119.1, d: 1.5, h: 1.0 },
+    { s: 1194.1, d: 0.0, h: -1.2 }, // hard: the top of the Pilot's flight over the Gap
+    { s: 1340.0, d: 1.5, h: 1.0 },
+    { s: 2155.2, d: -3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 2220.2, d: -1.5, h: 1.0 },
+    { s: 2788.2, d: 0.0, h: 1.0 },
+  ],
   palette: { primary: 0x2979ff, secondary: 0xff3ea5, sky: 0x00040f }, // electric blue / hot pink
   // Climbing, D minor i–VI–III–VII: four-on-the-floor, a staircase arp that climbs each bar.
   song: {

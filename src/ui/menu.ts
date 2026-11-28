@@ -16,6 +16,7 @@ export interface MenuTrack extends Outline {
   scores: (laps: number) => readonly Score[];
   ideal: (laps: number) => number | null; // the Ideal time, null while hidden
   pilotTimes: Record<number, number>;     // the Pilot's run time per lap count: the Medals' reference
+  shards: () => { found: number; total: number }; // Data shards found on it, of how many
 }
 // raceTime, lap: the run so far (Pause). time, lapTimes, delta, rank, stats: the finished run (Finish).
 interface RunInfo { raceTime: number; lap: number; time: number; lapTimes: readonly number[]; delta: number | null; rank: number | null; stats: RunStats | null }
@@ -75,14 +76,17 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
     return `<h2 class="label">Medals</h2><ol class="top medals">${MEDALS.map(([m]) => `<li class="${earns(best(t), m, P) ? 'lit' : ''}">`
       + `${medalTag(m)}<b>${fmt(medalTime(m, P))}</b>${m === 'Neon' ? '<small>beat the Pilot</small>' : ''}</li>`).join('')}</ol>`;
   };
+  // Data shards: "Shards 7/10" on the panel; a tag on the rail once all are found.
+  const shardLine = (t: MenuTrack) => { const x = t.shards(); return `<p class="shards"><span>Shards</span> <b>${x.found}/${x.total}</b></p>`; };
+  const shardTag = (t: MenuTrack) => { const x = t.shards(); return x.total && x.found === x.total ? '<i class="shardtag" title="Every Data shard found">◆</i>' : ''; };
   const trackPanel = (t: MenuTrack, extra = '') =>
     `<div class="panel${extra}" style="${palette(t)}"><div class="band"></div><h1>${esc(t.name)}</h1><div class="sub">${esc(t.kind)}</div>`
-    + `<canvas class="outline" width="320" height="200"></canvas><h2 class="label">Best · ${lapsText(s.laps)}</h2>${top5(t)}${ideal(t)}${medals(t)}</div>`;
+    + `<canvas class="outline" width="320" height="200"></canvas>${shardLine(t)}<h2 class="label">Best · ${lapsText(s.laps)}</h2>${top5(t)}${ideal(t)}${medals(t)}</div>`;
 
   const label = (it: Item, i: number) => {
     if (typeof it === 'object' && 'track' in it) { // with the Medal its #1 earns at this lap count
       const t = tracks[it.track], m = medalFor(best(t), pilotTime(t));
-      return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${medalTag(m)}${swatch(t)}`;
+      return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${shardTag(t)}${medalTag(m)}${swatch(t)}`;
     }
     if (typeof it === 'object') {
       const name = it.reset === 'all' ? 'all Tracks' : esc(tracks[it.reset].name);
