@@ -108,7 +108,8 @@ export function addTunnels(scene: Scene, T: Track) {
         for (let s = t.s; s < t.s + t.len; s += 4) pts.push(at(s, x, y), at(Math.min(s + 4, t.s + t.len), x, y));
       }
       thick(pts, mixHex(primary, 0.6), 2);
-      for (let s = t.s; s <= t.s + t.len; s += 24) rings.push(...arch(s, 6.5, 1.5));
+      const n = Math.max(1, Math.round(t.len / 24));
+      for (let r = 0; r <= n; r++) rings.push(...arch(t.s + (t.len * r) / n, 6.5, 1.5));
       thick(rings, secondary, 3);
     } else {
       const pts: Vector3[] = [];
