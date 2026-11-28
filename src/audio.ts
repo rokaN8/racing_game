@@ -158,6 +158,8 @@ addEventListener('keydown', e => {
 });
 addEventListener('pointerdown', start);
 
+export const audioNodes = () => (ctx ? { ctx, master, noise } : null); // PROTOTYPE #86
+
 // Each frame. Glides with setTargetAtTime so the engine never clicks or zippers.
 // A deep triangle hum: narrow pitch range (35-65 Hz) and a dark filter, so speed and Boost never make it whine.
 export function updateEngine(speed: number, airborne: boolean) {

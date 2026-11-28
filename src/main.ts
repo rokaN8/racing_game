@@ -1,4 +1,5 @@
-import { WebGLRenderer } from 'three';
+import { Vector3, WebGLRenderer } from 'three';
+import { mountSwitcher, windProto } from './audio/prototype-wind'; // PROTOTYPE #86
 import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
 import { bar, beat, setMusic, sfx, updateEngine } from './audio';
@@ -57,6 +58,8 @@ addEventListener('pagehide', () => bankRun(false));
 const speedFeel = createSpeedFeel();
 let hit: Hit | null = null; // this frame's Sketchy landing or crash, for the shake
 const msgEl = document.getElementById('msg')!;
+mountSwitcher(); // PROTOTYPE #86
+const pv = new Vector3(), pf = new Vector3(), pr = new Vector3(); // PROTOTYPE #86
 
 const renderer = new WebGLRenderer({ antialias: true });
 // ponytail: pixel ratio capped at 2 since bloom runs at full resolution; drop to 1 or render bloom at half size if a dense screen misses 60 fps.
@@ -206,6 +209,13 @@ renderer.setAnimationLoop(now => {
   const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
   setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');
   updateEngine(phase === 'racing' && !frozen && !wrecked ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
+  { // PROTOTYPE #86: Wind and Ghost whoosh
+    pv.copy(w.ghostBike.position).sub(st.pos); camera.getWorldDirection(pf); pr.setFromMatrixColumn(camera.matrixWorld, 0);
+    const dist = pv.length();
+    windProto({ dt: frame, racing: phase === 'racing' && !frozen && !wrecked, speed: st.mode === 'track' ? Math.abs(st.speed) : st.vel.length(),
+      air: st.mode === 'air', edge: st.mode === 'track' ? w.T.halfWidth - Math.abs(st.d) : null,
+      ghost: w.ghostBike.visible ? { ahead: pv.dot(pf), side: pv.dot(pr) / Math.max(dist, 1), dist } : null });
+  }
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
   const sinceKick = reducedMotion.matches ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
