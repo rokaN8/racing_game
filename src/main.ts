@@ -3,6 +3,8 @@ import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
 import { bar, beat, setMusic, sfx, updateEngine, updateWind } from './audio';
 import { MENU_SONG } from './audio/songs';
+import { setReact } from './audio';
+import { debug as reactDebug, layerOn, mountSwitcher as mountReact } from './audio/prototype-react'; // PROTOTYPE #87
 import { ghostPass } from './audio/wind';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
@@ -58,6 +60,7 @@ addEventListener('pagehide', () => bankRun(false));
 const speedFeel = createSpeedFeel();
 let hit: Hit | null = null; // this frame's Sketchy landing or crash, for the shake
 const msgEl = document.getElementById('msg')!;
+mountReact(); // PROTOTYPE #87
 
 const renderer = new WebGLRenderer({ antialias: true });
 // ponytail: pixel ratio capped at 2 since bloom runs at full resolution; drop to 1 or render bloom at half size if a dense screen misses 60 fps.
@@ -219,6 +222,11 @@ renderer.setAnimationLoop(now => {
     if (ghostPass(ghostAhead, ahead, dist)) sfx.whoosh(toGhost.dot(camRight) / Math.max(dist, 1));
     ghostAhead = ahead;
   } else ghostAhead = null;
+  { // PROTOTYPE #87: Reactive music
+    const layer = layerOn(laps, ghost().run.length, st.lastCP, w.T.cpS.length), r = { racing, air: st.mode === 'air', airT: st.airT, boost: st.boostT > 0, layer };
+    setReact(r);
+    reactDebug.ride = `${r.air ? `air ${r.airT.toFixed(1)} s` : 'track'} · ${r.boost ? 'BOOST' : 'no boost'} · layer ${layer ? 'ON' : 'off'} · Lap ${ghost().run.length + 1}/${laps}`;
+  }
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
   const sinceKick = reducedMotion.matches ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));

@@ -3,6 +3,7 @@
 // Plus music: the current Song (see setMusic). M mutes everything; the choice is kept in localStorage when storage works.
 import { barPhase, sinceKick, stepEvents, type Note, type Song } from './audio/songs';
 import { edgeNear, gust, rumbleOn } from './audio/wind';
+import { key as reactKey, layerEvents, mixFor, type LayerNote, type Mix, type Ride } from './audio/prototype-react'; // PROTOTYPE #87
 
 const MUTE_KEY = 'neon-racer.muted';
 const VOLUME = 0.35; // master; leaves headroom for music later
@@ -36,14 +37,16 @@ function start() {
 // The chain: player bus → muffle (low-pass) → music gain → master. Pause muffles: low-pass and half volume.
 const MUSIC = 0.35, CROSSFADE = 1.5, MUFFLE_HZ = 700, OPEN_HZ = 20000;
 const hz = (m: number) => 440 * 2 ** ((m - 69) / 12);
-interface Player { song: Song; step: number; bus: GainNode; echo: GainNode; n: number; nextT: number; stopAt: number }
+interface Player { song: Song; step: number; bus: GainNode; echo: GainNode; n: number; nextT: number; stopAt: number; v: Record<'drums' | 'bass' | 'pad' | 'arp' | 'layer', GainNode> }
 let music: GainNode, muffle: BiquadFilterNode, players: Player[] = [];
+let airF: BiquadFilterNode, mix: Mix = mixFor({ racing: false, air: false, airT: 0, boost: false, layer: false }); // PROTOTYPE #87
 let wantSong: Song | null = null, wantMuffled = false; // what the game asked for, kept until the AudioContext starts
 
 function startMusic() {
   if (!ctx) return;
   music = ctx.createGain(); music.gain.value = MUSIC; music.connect(master);
-  muffle = ctx.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = OPEN_HZ; muffle.connect(music);
+  airF = ctx.createBiquadFilter(); airF.type = mix.filter; airF.frequency.value = mix.hz; airF.connect(music); // PROTOTYPE #87
+  muffle = ctx.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = OPEN_HZ; muffle.connect(airF);
   if (wantSong) play(wantSong, 0);
   setMuffle(wantMuffled);
   // ponytail: setInterval lookahead scheduler; a hidden tab throttles it, so a returning tab skips ahead rather than catch up.
@@ -58,7 +61,9 @@ function play(song: Song, fadeIn: number) {
   // Echo for the arp: a dotted-8th feedback delay, the 80s staple.
   dl.delayTime.value = step * 3; fb.gain.value = song.echo;
   echo.connect(dl).connect(fb).connect(dl); dl.connect(bus); echo.connect(bus); bus.connect(muffle);
-  players.push({ song, step, bus, echo, n: 0, nextT: t, stopAt: Infinity });
+  const g = (dest: AudioNode, v = 1) => { const x = c.createGain(); x.gain.value = v; x.connect(dest); return x; }; // PROTOTYPE #87: per-voice gains
+  const v = { drums: g(bus), bass: g(bus), pad: g(bus), arp: g(echo), layer: g(bus, 0) };
+  players.push({ song, step, bus, echo, n: 0, nextT: t, stopAt: Infinity, v });
 }
 
 function fadeOut(p: Player, secs: number) {
@@ -81,6 +86,7 @@ function schedule() {
     if (p.nextT < now) p.nextT = now + 0.05;
     while (p.nextT < now + 0.12 && p.nextT < p.stopAt) {
       for (const note of stepEvents(p.song, p.n)) sound(p, note, p.nextT);
+      if (reactKey) for (const note of layerEvents(p.song, p.n)) layerSound(p, note, p.nextT); // PROTOTYPE #87
       p.nextT += p.step; p.n++;
     }
   }
@@ -119,13 +125,32 @@ export function bar(): number | null {
 function sound(p: Player, note: Note, t: number) {
   const { song, step } = p, dv = song.drums.vol;
   switch (note.voice) {
-    case 'bass': { const v = song.bass; return voice(hz(note.midi), t, step * v.len, v.wave, v.vol, v.cutoff, 0.005, p.bus); }
-    case 'pad': { const v = song.pad; return voice(hz(note.midi), t, step * 16, v.wave, v.vol, v.cutoff, v.attack, p.bus); }
-    case 'arp': { const v = song.arp; return voice(hz(note.midi), t, step * v.len, v.wave, v.vol, v.cutoff, 0.003, p.echo); }
-    case 'kick': return kick(t, 0.6 * dv, p.bus);
-    case 'snare': return hit(t, 0.18, 1500, 0.35 * dv, p.bus);
-    case 'hat': return hit(t, 0.04, 7000, 0.12 * dv, p.bus);
+    case 'bass': { const v = song.bass; return voice(hz(note.midi), t, step * v.len, v.wave, v.vol, v.cutoff, 0.005, p.v.bass); }
+    case 'pad': { const v = song.pad; return voice(hz(note.midi), t, step * 16, v.wave, v.vol, v.cutoff, v.attack, p.v.pad); }
+    case 'arp': { const v = song.arp; return voice(hz(note.midi), t, step * v.len, v.wave, v.vol, Math.min(18000, v.cutoff * mix.arpOpen), 0.003, p.v.arp); }
+    case 'kick': return kick(t, 0.6 * dv, p.v.drums);
+    case 'snare': return hit(t, 0.18, 1500, 0.35 * dv, p.v.drums);
+    case 'hat': return hit(t, 0.04, 7000, 0.12 * dv, p.v.drums);
   }
+}
+
+// PROTOTYPE #87: the final-Lap layer's notes, and the reactions set each frame.
+function layerSound(p: Player, note: LayerNote, t: number) {
+  const { song, step } = p;
+  if (note.kind === 'hat') return hit(t, 0.03, 8000, 0.08 * song.drums.vol, p.v.layer);
+  if (note.kind === 'arp') return voice(hz(note.midi), t, step * song.arp.len, song.arp.wave, song.arp.vol * 0.5, Math.min(18000, song.arp.cutoff * mix.arpOpen), 0.003, p.v.layer);
+  return voice(hz(note.midi), t, step * 16, 'sawtooth', 0.035, 2500, 0.4, p.v.layer);
+}
+export function setReact(r: Ride) {
+  if (!reactKey || !ctx || !airF) return;
+  mix = mixFor(r);
+  const t = ctx.currentTime;
+  for (const p of players) {
+    p.v.drums.gain.setTargetAtTime(mix.drums, t, mix.tau); p.v.bass.gain.setTargetAtTime(mix.bass, t, mix.tau);
+    p.v.arp.gain.setTargetAtTime(mix.arp, t, 0.08); p.v.layer.gain.setTargetAtTime(mix.layer, t, 0.6); // the layer fades in over ~2 s
+  }
+  if (airF.type !== mix.filter) airF.type = mix.filter;
+  airF.frequency.setTargetAtTime(mix.hz, t, mix.hzTau);
 }
 
 // A synth note: osc → low-pass → envelope (attack, then fade out by the end).
