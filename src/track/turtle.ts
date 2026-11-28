@@ -1,11 +1,12 @@
 // Turtle builder (docs/game-spec.md → Building Tracks 2 and 3): lays a Track out as straights and arcs from a heading,
 // so turn radii are exact, instead of hand-placed control points. Two straights are marked free; their lengths are
-// solved so the Lap closes on the start line (the end position is linear in them). The Lap must turn 0° (a figure-8)
-// or ±360° in total. Also Kickers, Gaps onto Landing decks, Loops and Corkscrews (docs/game-spec.md → Design rules).
+// solved so the Lap closes on the start line (the end position is linear in them). The Lap must turn a multiple of 360°
+// in total (0° is a figure-8). Also Kickers, Gaps onto Landing decks, Loops and Corkscrews (docs/game-spec.md → Design rules).
 // Output is the usual control points, Gap segments and Checkpoint indices for bakeTrack.
 import type { ControlPoint } from './bake';
 
-// + turn = right (bank +), − turn = left (bank −). rise = height change over the piece, in m.
+// + turn = right (bank +), − turn = left (bank −). rise = height change over the piece, in m. A turn past 360° with a
+// rise is a Helix (docs/game-spec.md → Design rules → Helixes).
 // checkpoint: a Checkpoint where the piece starts. free: this straight's length is solved (len is ignored).
 // ground: this straight's rise brings the Track back to the start line's height.
 export type Piece =

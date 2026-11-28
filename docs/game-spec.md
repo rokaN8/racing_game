@@ -107,8 +107,8 @@ The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigai
 ### Building Tracks 2 and 3: the turtle builder
 
 `src/track/turtle.ts` lays a Track out from a heading instead of hand-placed points, so turn radii are exact:
-- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change), Kicker, Gap, Loop, Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52)), and Boost pad (a strip length, starting where the next piece starts; [Boost pads](https://github.com/rokaN8/racing_game/issues/53))
-- **closing:** two straights are marked *free*. Their lengths are solved (a 2×2 linear solve) so the Lap closes on the start line. A figure-8 turns 0° in total.
+- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change; past 360° with a height change it is a Helix, [Helix piece](https://github.com/rokaN8/racing_game/issues/75)), Kicker, Gap, Loop, Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52)), and Boost pad (a strip length, starting where the next piece starts; [Boost pads](https://github.com/rokaN8/racing_game/issues/53))
+- **closing:** two straights are marked *free*. Their lengths are solved (a 2×2 linear solve) so the Lap closes on the start line. Only the position is solved, so the Lap's total turn must be a multiple of 360°: 0° for a figure-8, ±360° for a single loop, and a Helix adds whole turns. The shared seam check catches a heading that doesn't close.
 - **output:** the usual `ControlPoint[]` plus Gap segments and Checkpoint indices, for `bakeTrack`
 
 Overdrive keeps its hand-written control points.
@@ -126,6 +126,12 @@ Overdrive keeps its hand-written control points.
 - **Boost:** no Gap needs Boost.
 
 **Corkscrews.** A flat straight that rolls 360° around its centre line, eased in and out. The bake steps bank the short way between control points, so a roll ending at 360° carries on at 0° instead of unwinding (any step between two points stays under 180°). Riding upside down needs no handling change: below `stickSpeed` (18 m/s) the Bike drops off, as on a Loop, so a respawn at 20 m/s must still clear it.
+
+**Helixes.** A plain arc past 360° with a height change, at a steady grade (the spline softens the step at its foot and top). `TUNING` is unchanged.
+- **Climbing is free:** at full throttle accel (25) beats slopeGravity (20) plus drag on any grade, so a Helix doesn't slow the Bike. Its radius, bank and headroom are the limits.
+- **Holding it:** the Turns rule above. The Tight tower shape (900° at R30, bank 35°, +60 m) holds at top speed but not at Boost top speed (pull ~126 m/s²), so Boosting in it slides the Bike off. A layout that wants Boost through its Helix opens the radius or the bank.
+- **Headroom:** coils stack, so they need the 8 m of the self-crossing check; 24 m a turn leaves 18 m.
+- **Checkpoints:** split a Helix into two arcs to put a Checkpoint inside it. A 20 m/s respawn there rides clean.
 
 **Boost pads.** A strip `len` m long, drawn as forward chevrons every 6 m in the secondary colour. `TUNING` is unchanged.
 - **Riding onto one:** +`boostKick` speed, the rising pad chime plus the Boost whoosh, and a Boost sized as the strip's length at Boost top speed plus `BOOST_PAD_TAIL` (0.3 s), so the HUD meter drains across it.

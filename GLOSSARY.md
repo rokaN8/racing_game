@@ -10,6 +10,8 @@
 
 **Corkscrew** — A straight stretch of Track that rolls a full 360° around its centre line, carrying the Bike upside down and back upright. Built with the turtle's Corkscrew piece; each Track picks its length, roll direction and how long it holds upside down.
 
+**Helix** — A turn that carries on past a full circle while climbing or falling steadily, so its coils stack one above another: a spiral climb or descent. Each Track picks its radius, bank, how many times round and how high.
+
 **Gap** — A break in the Track the Bike must jump across while Airborne.
 
 **Kicker** — The ramp before a Gap that lifts the Bike into the air at the lip.
