@@ -8,6 +8,7 @@ import { hangTime } from './bigair';
 import { afterglow } from './flight';
 import { slipstream } from './flow';
 import { switchback } from './technical';
+import { prototypeHelix } from './prototype-helix';
 
 export interface TrackDef {
   id: string;      // stable: storage keys use it, so never rename one
@@ -24,4 +25,4 @@ export interface TrackDef {
   pilotTimes: Record<1 | 3 | 5, number>; // the Pilot's run time at each of LAP_OPTIONS, which the Medals are set from (test/track.test.ts checks them)
 }
 
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow];
+export const TRACKS: TrackDef[] = [...(prototypeHelix ? [prototypeHelix] : []), overdrive, switchback, hangTime, slipstream, afterglow]; // PROTOTYPE: ?helix=
