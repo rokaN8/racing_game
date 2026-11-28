@@ -39,6 +39,20 @@ export const knot: TrackDef = {
   id: 'crossings', name: 'Knot', kind: 'Crossings',
   cps, gapSegments, checkpointCps, tunnels, halfWidth: 4,
   pilot: { boostStraights: true }, pilotTimes: { 1: 53.48, 3: 160.03, 5: 266.6 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 69.0, d: 1.5, h: 1.0 },
+    { s: 129.0, d: 0.0, h: 1.0 }, // hard: top of the Loop
+    { s: 267.0, d: 2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 366.0, d: 0.0, h: 1.0 },
+    { s: 966.0, d: 1.5, h: 1.0 },
+    { s: 1286.0, d: -2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 1567.0, d: -1.5, h: 1.0 },
+    { s: 1672.0, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 2168.0, d: 0.0, h: 1.0 },
+    { s: 2769.0, d: -1.5, h: 1.0 },
+  ],
   palette: { primary: 0xc6ff00, secondary: 0xff3ea5, sky: 0x050a00 }, // lime / hot pink
   // Tangled acid, C minor i–VI–VII–V: a three-note sawtooth arp against the four-on-the-floor.
   song: {

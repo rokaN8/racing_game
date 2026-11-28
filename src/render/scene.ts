@@ -24,7 +24,7 @@ import { color, css, derive, type Palette } from './palette';
 const TUNNEL_R = 6.5, TUNNEL_H = 1.5, TUNNEL_STRANDS = 8;
 
 // Every colour comes from the Track's palette (render/palette.ts); the Bike, Ghost and Light trail stay fixed.
-export function createScene(T: Track, palette: Palette, name: string) {
+export function createScene(T: Track, palette: Palette, name: string, shardAt: readonly Vector3[] = []) {
   const c = derive(palette);
   const scene = new Scene();
   scene.background = color(c.sky);
@@ -101,6 +101,8 @@ export function createScene(T: Track, palette: Palette, name: string) {
   const horizon = createHorizon(c, Math.atan2(T.tan[0].x, T.tan[0].z));
   scene.add(horizon);
 
+  const shards = createShards(scene, shardAt, c.accent);
+
   const bikeModels = createBikeModels(m => lineMats.push(m));
   const { bike, ghostBike } = bikeModels;
   ghostBike.visible = false; // hidden until there is a best Lap to replay
@@ -108,7 +110,35 @@ export function createScene(T: Track, palette: Palette, name: string) {
 
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
-  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, ripple, horizon };
+  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, ripple, horizon, updateShards: shards };
+}
+
+// Data shards (docs/game-spec.md → Data shards): a spinning outline diamond (an octahedron, with a smaller one inside)
+// at each shard, in the secondary colour, so it blooms; a found one at 15 %. All of a Track's shards in one draw call,
+// their vertices rewritten each frame (24 edges a shard).
+const SHARD_R = [0.6, 0.35], SHARD_SPIN = 1.5, SHARD_FOUND = 0.15;
+const OCTA = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+const OCTA_EDGES = [[0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 4], [1, 5], [2, 4], [4, 3], [3, 5], [5, 2]];
+function createShards(scene: Scene, at: readonly Vector3[], accent: number) {
+  const per = SHARD_R.length * OCTA_EDGES.length * 2, pos = new Float32Array(at.length * per * 3), col = new Float32Array(pos.length);
+  const g = new BufferGeometry(), posAttr = new BufferAttribute(pos, 3), colAttr = new BufferAttribute(col, 3);
+  g.setAttribute('position', posAttr); g.setAttribute('color', colAttr);
+  const mesh = new LineSegments(g, new LineBasicMaterial({ vertexColors: true }));
+  mesh.frustumCulled = false; if (at.length) scene.add(mesh);
+  const lit = new Color(accent), dim = lit.clone().multiplyScalar(SHARD_FOUND);
+  // t: seconds, for the spin; found: the shard indices already found
+  return (t: number, found: ReadonlySet<number>) => {
+    let k = 0;
+    at.forEach((p, i) => {
+      const a = t * SHARD_SPIN + i, ca = Math.cos(a), sa = Math.sin(a), tint = found.has(i) ? dim : lit;
+      for (const r of SHARD_R) for (const e of OCTA_EDGES) for (const v of e) {
+        const [x, y, z] = OCTA[v];
+        pos[3 * k] = p.x + r * (x * ca + z * sa); pos[3 * k + 1] = p.y + r * y * 1.4; pos[3 * k + 2] = p.z + r * (z * ca - x * sa);
+        tint.toArray(col, 3 * k); k++;
+      }
+    });
+    posAttr.needsUpdate = colAttr.needsUpdate = true;
+  };
 }
 
 // Synthwave horizon (docs/game-spec.md → Palettes): a striped sun where the start straight looks (`heading`, about +y

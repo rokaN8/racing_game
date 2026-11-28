@@ -130,7 +130,7 @@ The turtle builder and the shared Track tests make a new Track mostly data (plus
 ## I. Wild ideas
 
 - [ ] ~~**I1. Derezz wave** (M). Survival: a wall of light rides the Track behind you, faster each Lap. It catches you, the run is over; score = Laps survived. Placed with `sampleAt`, so it follows you through the Loops.~~ Cut in wave 2.
-- [ ] **I2. Data shards** [#88] (M). Glowing pickups along each Track, some in risky spots (top of the Wall-ride, high over a Gap's arc). A score-attack mode, or "12/15 found" per Track.
+- [x] **I2. Data shards** [#88] (M). Glowing pickups along each Track, some in risky spots (top of the Wall-ride, high over a Gap's arc). A score-attack mode, or "12/15 found" per Track. Built as the collection: 10 per Track, placed by hand, no new mode.
 - [ ] ~~**I3. Style score** (M). Points for airtime, tricks (B1), upside-down time, Wall-ride and riding within 0.5 m of the edge, chained into a combo a respawn breaks.~~ Cut in wave 2: needs Air tricks.
 - [ ] ~~**I4. Drafting** (S). Tuck in behind the Ghost for a small speed pull. Only in a mode, since it makes times depend on the Ghost.~~ Cut in wave 2.
 - [ ] ~~**I5. Light-cycle duel** (L). Light trails turn solid; touch one and you derezz. 🔒 POC says no solid Light trail.~~ 🔒 not unlocked in wave 2.

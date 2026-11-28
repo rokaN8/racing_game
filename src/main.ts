@@ -18,6 +18,7 @@ import { createSpeedFeel, type Hit } from './render/speedFeel';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
 import { bank, createRunStats, loadTotals, saveTotals } from './stats';
+import { loadFound, saveFound, shardPositions, touchedShard } from './shards';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -37,9 +38,14 @@ const worlds = TRACKS.map(track => {
     colors: [css(track.palette.primary), css(track.palette.secondary)] as [string, string],
     outline: T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: T.gap[i] })), checkpoints: T.cpS.map(s => Math.round(s / T.ds)),
   };
-  return { track, T, ...createScene(T, track.palette, track.name), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
+  const shardAt = shardPositions(T, track.shards);
+  return { track, T, shardAt, ...createScene(T, track.palette, track.name, shardAt), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
 });
 let w = worlds[0], laps = DEFAULT_LAPS;
+// Data shards (docs/game-spec.md → Data shards): found per Track id, saved the moment one is touched.
+const found = loadFound(storage);
+const foundOn = (id: string) => (found[id] ??= new Set());
+let shardMsg = '', shardMsgT = 0;
 const ghost = () => w.ghosts[laps];
 const ghostLine = createGhostLine(); // docs/game-spec.md → Ghost line
 onGhostLine(toggleGhostLine);
@@ -117,6 +123,7 @@ function finish() {
 const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   name: x.track.name, kind: x.track.kind, ...x.outline, pilotTimes: x.track.pilotTimes,
   scores: n => x.ghosts[n].scores, ideal: n => x.ghosts[n].idealTime,
+  shards: () => ({ found: foundOn(x.track.id).size, total: x.shardAt.length }),
 })), effect => {
   if (effect === 'resume') return;
   if (effect === 'restart' || effect === 'endRun') return retry();
@@ -170,6 +177,13 @@ renderer.setAnimationLoop(now => {
   if (phase !== 'racing' || frozen || wreckT > 0) acc = 0; // nothing piles up to catch up on at GO, on Resume or after a crash
   while (acc >= DT) {
     step(st, inp, TUNING, w.T, DT); acc -= DT; runStats.step(st, DT);
+    const got = touchedShard(st.pos, w.shardAt, foundOn(w.track.id));
+    if (got !== null) {
+      foundOn(w.track.id).add(got); saveFound(storage, found);
+      shardMsg = `Shard ${foundOn(w.track.id).size}/${w.shardAt.length}`; shardMsgT = 1.5;
+      sfx.shard(); rumble(0, 0.3, 60);
+      msgEl.classList.remove('pop'); void msgEl.offsetWidth; msgEl.classList.add('pop');
+    }
     const s = ghost().record(st);
     if (s !== null) { split = s; splitT = 2; }
     const done = ghost().run.length; // a closed Lap that isn't the last: announce the next one
@@ -227,8 +241,11 @@ renderer.setAnimationLoop(now => {
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
   w.ripple(st.s, reducedMotion.matches ? null : bar()); // the Rung ripple chases ahead of the Bike each bar
 
-  msgEl.textContent = st.msgT > 0 ? st.msg : '';
-  msgEl.dataset.grade = st.msgKind;
+  shardMsgT -= frame;
+  const showShard = shardMsgT > 0 && !(st.msgT > 0 && st.msgT > shardMsgT); // the newer message wins
+  msgEl.textContent = showShard ? shardMsg : st.msgT > 0 ? st.msg : '';
+  msgEl.dataset.grade = showShard ? 'shard' : st.msgKind;
+  w.updateShards(now / 1000, foundOn(w.track.id));
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
     : bannerT > 0 ? banner : '');

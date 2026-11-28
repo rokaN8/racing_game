@@ -41,6 +41,20 @@ export const slipstream: TrackDef = {
   id: 'flow', name: 'Slipstream', kind: 'Flow',
   cps, gapSegments, checkpointCps, boostPads, halfWidth: 4,
   pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 52.14, 3: 157.38, 5: 262.72 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 282.0, d: 0.0, h: 1.0 },
+    { s: 369.0, d: 2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 891.1, d: 1.5, h: 1.0 },
+    { s: 1500.1, d: -1.5, h: 1.0 },
+    { s: 1703.2, d: -2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 2054.2, d: 3.0, h: 1.0 }, // off the line: high edge of the Wall-ride
+    { s: 2153.2, d: 0.0, h: 1.0 },
+    { s: 2321.2, d: 0.0, h: 3.6 }, // hard: the top of the Pilot's flight over the Gap
+    { s: 2761.3, d: -1.5, h: 1.0 },
+    { s: 3370.3, d: 1.5, h: 1.0 },
+  ],
   palette: { primary: 0x00ffa3, secondary: 0xc400ff, sky: 0x000a06 }, // mint / ultraviolet
   // Dreamy and wide, C major I–vi–IV–V with sevenths: half-time beat, slow pads, echoing arp.
   song: {

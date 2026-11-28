@@ -2,6 +2,7 @@
 import type { Song } from '../../audio/songs';
 import type { Pilot } from '../../pilot';
 import type { Palette } from '../../render/palette';
+import type { Shard } from '../../shards';
 import type { ControlPoint } from '../bake';
 import { overdrive } from './allround';
 import { hangTime } from './bigair';
@@ -24,6 +25,7 @@ export interface TrackDef {
   boostPads?: { cp: number; len: number }[]; // Boost pads: a strip len m long from control point cp
   tunnels?: { cp: number; len: number }[];   // Tunnels: len m long from control point cp; looks only
   pilot: Pilot;    // how the Pilot rides its fastest clean run: the Pilot Ghost
+  shards: Shard[]; // Data shards: 10, placed by hand; stored by index, so never reorder them
   pilotTimes: Record<1 | 3 | 5, number>; // the Pilot's run time at each of LAP_OPTIONS, which the Medals are set from (test/track.test.ts checks them)
 }
 

@@ -19,6 +19,7 @@
       #msg[data-grade=perfect], #msg[data-grade=rocket] { font-size: 30px; font-weight: 800; letter-spacing: .24em; }
       #msg[data-grade=perfect].pop, #msg[data-grade=rocket].pop { animation: perfect .45s var(--out-expo); }
       @keyframes perfect { from { transform: translateX(-50%) scale(1.6); opacity: 0; filter: blur(4px); } }
+      #msg[data-grade=shard] { color: var(--cyan); text-shadow: 0 0 12px var(--cyan); }
       #msg[data-grade=clean] { color: var(--ahead); text-shadow: 0 0 10px var(--ahead); }
       #msg[data-grade=sketchy], #msg[data-grade=stall] { color: var(--sketchy); text-shadow: 0 0 10px var(--sketchy); }
 
@@ -184,6 +185,10 @@
       #ui table.ctl { margin-top: 18px; }
       #ui table.ctl td:first-child { padding-right: 28px; font-size: 14px; color: var(--ink); text-shadow: none; }
       #ui .note { margin-top: 10px; }
+      /* Data shards: the count under the Track outline, and the rail's tag once a Track has every one */
+      #ui .shards { margin: 6px 4px 0; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; }
+      #ui .shards span { opacity: .6; } #ui .shards b { color: var(--b); text-shadow: 0 0 8px var(--b); }
+      #ui .shardtag { flex: none; font-style: normal; font-size: 13px; color: var(--magenta); text-shadow: 0 0 8px var(--magenta); }
       /* Finish: the Run stats, a 3 × 2 grid under the Laps */
       #ui dl.runstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; margin: 6px 8px 0; }
       #ui dl.runstats dt { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; }

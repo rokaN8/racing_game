@@ -38,6 +38,20 @@ export const afterglow: TrackDef = {
   id: 'flight', name: 'Afterglow', kind: 'Flight',
   cps, gapSegments, checkpointCps, boostPads, halfWidth: 4,
   pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 50.75, 3: 149.89, 5: 249.03 },
+  // Data shards (docs/game-spec.md → Data shards): 6 on the line, 3 off it, 1 hard. Never reorder: found
+  // shards are stored by index.
+  shards: [
+    { s: 277.0, d: 0.0, h: 1.0 },
+    { s: 688.0, d: 2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 806.0, d: 0.0, h: -2.5 }, // hard: the top of the Pilot's flight over the Gap
+    { s: 960.0, d: 1.5, h: 1.0 },
+    { s: 1473.9, d: -1.5, h: 1.0 },
+    { s: 1664.9, d: 3.0, h: 1.0 }, // off the line: hugging the edge
+    { s: 1858.9, d: -2.5, h: 1.0 }, // off the line: top of a Loop, near its edge
+    { s: 2071.9, d: 0.0, h: 1.0 },
+    { s: 2669.9, d: -1.5, h: 1.0 },
+    { s: 3267.8, d: 1.5, h: 1.0 },
+  ],
   palette: { primary: 0xff3d7f, secondary: 0xffd000, sky: 0x12020a }, // rose / gold
   // Big and anthemic, A♭ major I–V–vi–IV: half-time drums, long bass, echoing arp.
   song: {
