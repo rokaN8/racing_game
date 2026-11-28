@@ -1,9 +1,9 @@
 // The Menu, Pause and Finish screens as a pure state machine (docs/game-spec.md → Screens). No DOM: ui/menu.ts draws it
 // and feeds it input; main.ts carries out the effects it returns.
 
-export type Screen = 'menu' | 'select' | 'reset' | 'controls' | 'pause' | 'finish';
+export type Screen = 'menu' | 'select' | 'reset' | 'controls' | 'stats' | 'pause' | 'finish';
 export type Item =
-  | 'play' | 'controls'                                    // Menu
+  | 'play' | 'stats' | 'controls'                         // Menu
   | { track: number } | 'reset'                            // Track select (← → set the lap count)
   | { reset: number | 'all' }                              // Reset times
   | 'resume' | 'restart' | 'quit'                          // Pause
@@ -36,12 +36,12 @@ export const initialMenu = (): MenuState => ({
 export function itemsFor(screen: Screen | null, trackCount: number): Item[] {
   const tracks = Array.from({ length: trackCount }, (_, i) => i);
   switch (screen) {
-    case 'menu': return ['play', 'controls'];
+    case 'menu': return ['play', 'stats', 'controls'];
     case 'select': return [...tracks.map(track => ({ track })), 'reset'];
     case 'reset': return [...tracks.map(reset => ({ reset })), { reset: 'all' }];
     case 'pause': return ['resume', 'restart', 'quit'];
     case 'finish': return ['retry', 'select', 'menu'];
-    default: return []; // Controls has nothing to pick
+    default: return []; // Controls and Stats have nothing to pick
   }
 }
 
@@ -76,7 +76,7 @@ export function reduce(s: MenuState, a: Action, trackCount: number): [MenuState,
     case 'back':
       if (s.screen === 'pause') return [close(s), 'resume'];
       if (s.screen === 'reset') return [{ ...open(s, 'select'), focus: trackCount }, null]; // back onto "Reset times"
-      if (s.screen === 'select' || s.screen === 'controls') return [open(s, 'menu'), null];
+      if (s.screen === 'select' || s.screen === 'controls' || s.screen === 'stats') return [open(s, 'menu'), null];
       return [s, null]; // Menu and Finish have nowhere to go back to
     case 'pick': {
       const it = itemsFor(s.screen, trackCount)[s.focus];
@@ -88,7 +88,7 @@ export function reduce(s: MenuState, a: Action, trackCount: number): [MenuState,
       }
       switch (it) {
         case 'play': return [open(s, 'select'), null];
-        case 'controls': case 'reset': return [open(s, it), null];
+        case 'controls': case 'stats': case 'reset': return [open(s, it), null];
         case 'resume': return [close(s), 'resume'];
         case 'restart': case 'retry': return [close(s), 'restart'];
         case 'quit': case 'menu': return [open(s, 'menu'), 'endRun'];

@@ -15,6 +15,7 @@ import { createBloom, createScene } from './render/scene';
 import { createSpeedFeel, type Hit } from './render/speedFeel';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
+import { bank, createRunStats, loadTotals, saveTotals } from './stats';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -43,6 +44,16 @@ onGhostLine(toggleGhostLine);
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 const st = newState(w.T);
 const { camera, update: updateCamera, orbit: finishCam } = createChaseCamera();
+// Run stats and Lifetime stats (docs/game-spec.md → Run stats): the run is banked into the totals when it ends
+// (Finish, Restart, Quit, a new Track) or the page goes, then counts on from zero.
+const runStats = createRunStats(st);
+let totals = loadTotals(storage);
+function bankRun(finished: boolean) {
+  const r = { ...runStats.stats };
+  totals = bank(totals, r, finished); saveTotals(storage, totals); runStats.reset(st);
+  return r;
+}
+addEventListener('pagehide', () => bankRun(false));
 const speedFeel = createSpeedFeel();
 let hit: Hit | null = null; // this frame's Sketchy landing or crash, for the shake
 const msgEl = document.getElementById('msg')!;
@@ -72,7 +83,8 @@ let liveGap: number | null = null, liveGapT = 0; // the live gap to the Ghost, r
 let banner = '', bannerT = 0, lapsShown = 0; // the Lap banner, and how many of the run's Laps it has announced
 
 function retry() {
-  Object.assign(st, newState(w.T));
+  bankRun(false);
+  Object.assign(st, newState(w.T)); runStats.reset(st);
   ghost().restart();
   w.trail.update(st.pos, st.quat, true, false);
   phase = 'countdown'; countT = COUNTDOWN; heldFor = null; split = null; liveGap = null; liveGapT = 0; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
@@ -97,7 +109,7 @@ function selectTrack(i: number, n: number) {
 function finish() {
   phase = 'finished';
   const lapTimes = ghost().lastRun!, time = sum(lapTimes);
-  menu.open('finish', { time, lapTimes, delta: prevBest === null ? null : time - prevBest, rank: ghost().lastRank });
+  menu.open('finish', { time, lapTimes, delta: prevBest === null ? null : time - prevBest, rank: ghost().lastRank, stats: bankRun(true) });
 }
 
 const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
@@ -108,7 +120,7 @@ const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   if (effect === 'restart' || effect === 'endRun') return retry();
   if ('start' in effect) return selectTrack(effect.start, effect.laps);
   for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) for (const g of Object.values(x.ghosts)) g.clear();
-}, pause);
+}, pause, () => totals);
 menu.open('menu');
 // Pause (Esc / Start), and leaving the game mid-run: a hidden tab or the window losing focus (docs/game-spec.md →
 // Screens). Already on a screen, nothing changes. Stops any rumble, as no frame may come to do it while hidden.
@@ -153,7 +165,7 @@ renderer.setAnimationLoop(now => {
   if (!frozen) buildPilot(phase === 'racing' ? Infinity : 4); // done by GO on any sane machine; if not, finished outright
   if (phase !== 'racing' || frozen || wreckT > 0) acc = 0; // nothing piles up to catch up on at GO, on Resume or after a crash
   while (acc >= DT) {
-    step(st, inp, TUNING, w.T, DT); acc -= DT;
+    step(st, inp, TUNING, w.T, DT); acc -= DT; runStats.step(st, DT);
     const s = ghost().record(st);
     if (s !== null) { split = s; splitT = 2; }
     const done = ghost().run.length; // a closed Lap that isn't the last: announce the next one

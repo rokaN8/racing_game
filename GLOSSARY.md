@@ -58,6 +58,10 @@
 
 **Finish cam** — After the finish line, the camera's slow circle round the stopped Bike behind the Finish screen.
 
+**Run stats** — The numbers from one run, shown on the Finish screen: airtime, top speed, crashes (every respawn, the R key's too), Boosts fired, Boost pad hits and Perfect landings.
+
+**Lifetime stats** — Your totals across every Track and run, on the Stats screen: distance, Laps, time played, runs finished and crashes. They never reset.
+
 **Trackside scenery** — The neon landmarks round a Track, off the deck: light towers by the Loops and Corkscrews, a beacon tower by each Checkpoint, a holo-board with the Track's name by the start. Looks only.
 
 **Rung ripple** — The rungs lighting up block by block ahead of the Bike in time with the Song, once a bar.
