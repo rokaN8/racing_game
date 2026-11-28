@@ -53,7 +53,7 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 
 - [x] **D1. Live Ghost gap** [#63] (S/M). A running ± gap to the Ghost, not just at Checkpoints. Store the Ghost's distance at 10 Hz beside its poses (built as an optional `dist`, no new storage version; old Ghosts keep Checkpoint splits only), then gap = when the Ghost was where you are now. *Touches:* `ghost.ts`, `hud.ts`.
 - [x] **D2. Minimap** [#64] (S). The top-down outline from Track select, small in a corner, with Bike and Ghost dots and Checkpoint ticks. *Touches:* outline code in `ui/menu.ts`, `hud.ts`.
-- [ ] **D3. Progress bar** (S). Instead of D2: a thin bar along the top with Checkpoint ticks and Bike and Ghost markers. Pick one.
+- [ ] ~~**D3. Progress bar** (S). Instead of D2: a thin bar along the top with Checkpoint ticks and Bike and Ghost markers. Pick one.~~ D2 (the minimap) was picked.
 - [ ] **D4. Landing grades** (S). Perfect / Clean / Sketchy, coloured, instead of only `Landed · 12° off`. Pairs with B2. *Touches:* `physics.ts` message, `index.html` styles.
 - [ ] **D5. Run stats** (S). On Finish: airtime, top speed, crashes, Boosts used, Boost pad hits. Lifetime totals (distance, Laps, time played) on a Stats screen. *Touches:* `main.ts` counters, `ui/menu.ts`, one storage key.
 - [ ] **D6. Progress history** (M). Every finished run's time per Track, not just the top 5, as a sparkline on Track select: are you getting faster? *Touches:* storage, `ui/menu.ts`.

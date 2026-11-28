@@ -111,7 +111,7 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
   function finishHead() {
     const t = tracks[s.track], best = info.rank === 1, P = t.pilotTimes[s.laps];
     const got = medalFor(info.time, P), had = info.delta === null ? null : medalFor(info.time - info.delta, P), next = MEDALS[rankOf(got) - 1]?.[0];
-    const medal = `<div class="medalline">${got ? medalTag(got, rankOf(got) < rankOf(had)) : '<span>No medal</span>'}`
+    const medal = `<div class="medalline">${got ? medalTag(got, rankOf(got) < rankOf(had)) : '<span>No Medal</span>'}`
       + `${next ? `<span>· ${(info.time - medalTime(next, P)).toFixed(2)} to ${next}</span>` : ''}</div>`;
     const verdict = best ? `<span class="newbest">New best</span>${info.delta === null ? '' : `<span><span class="ahead">${signed(info.delta)}</span> on your old best</span>`}`
       : info.delta === null ? '' : `<span><span class="behind">${signed(info.delta)}</span> to your best</span>`;

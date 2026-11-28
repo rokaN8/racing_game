@@ -308,8 +308,9 @@ describe('Ghost', () => {
     });
   });
 
+  const TWO_CPS = { id: ID, L: 100, cpS: [0, 50] }; // a 100 m Track with a Checkpoint halfway
+
   describe('live gap', () => {
-    const TWO_CPS = { id: ID, L: 100, cpS: [0, 50] };
     // One Lap of TWO_CPS at 0.5 m a step (60 m/s), crashing at `crashAt` m: a respawn at the last Checkpoint, +3 s.
     // `at` sees the Bike and the split record() returned after every step but the last.
     function ride(ghost: ReturnType<typeof createGhost>, crashAt = Infinity, at: (b: Bike, split: number | null) => void = () => {}) {
@@ -388,8 +389,7 @@ describe('Ghost', () => {
   });
 
   describe('Ideal time', () => {
-    const TWO_CPS = { id: ID, L: 100, cpS: [0, 50] };
-    // A 1-Lap run on TWO_CPS whose two sectors take a and b steps; `penalty` s lands in sector `inSector`.
+    // A 1-Lap run on TWO_CPS whose two Sectors take a and b steps; `penalty` s lands in Sector `inSector`.
     function run(ghost: ReturnType<typeof createGhost>, a: number, b: number, penalty = 0, inSector = 1) {
       const bike = bikeAt();
       for (let i = 1; i <= a + b; i++) {
@@ -401,7 +401,7 @@ describe('Ghost', () => {
       }
     }
 
-    it("is the sum of the best time ridden in each sector, penalties included", () => {
+    it('is the sum of the best time ridden in each Sector, penalties included', () => {
       const ghost = createGhost(memoryStorage(), TWO_CPS);
       expect(ghost.idealTime).toBeNull();
       run(ghost, 100, 100);
@@ -414,7 +414,7 @@ describe('Ghost', () => {
       expect(ghost.idealTime).toBeCloseTo(170 * DT, 9);
     });
 
-    it('keeps a best sector from a run outside the top 5, and survives a reload', () => {
+    it('keeps a best Sector from a run outside the top 5, and survives a reload', () => {
       const storage = memoryStorage(), ghost = createGhost(storage, TWO_CPS);
       for (let k = 0; k < 5; k++) run(ghost, 100, 100);
       run(ghost, 50, 400); // 6th: outside the top 5

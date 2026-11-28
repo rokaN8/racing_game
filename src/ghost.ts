@@ -23,8 +23,8 @@ export interface Score { time: number; date: number | null; lapTimes: number[] }
 // dist: [run distance, run time] pairs at 10 Hz, for the live gap; the time, since the run clock carries the penalties.
 // Null for a Ghost saved before there were distances.
 export interface Recording { poses: Float32Array; splits: number[]; dist: Float32Array | null }
-// poses, dist: base64 Float32Array. sectors: the best time ridden in each sector (Checkpoint pass to the next, the
-// last to the finish) by any finished run; missing on a record from before sectors.
+// poses, dist: base64 Float32Array. sectors: the best time ridden in each Sector (Checkpoint pass to the next, the
+// last to the finish) by any finished run; missing on a record from before Sectors.
 interface Saved { scores: Score[]; ghost: { poses: string; splits: number[]; dist?: string } | null; sectors?: number[] }
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -57,7 +57,7 @@ function encode(floats: Float32Array) {
 }
 const cleanSplits = (splits: unknown) => (Array.isArray(splits) && splits.every(finite) ? splits : []);
 
-// A Track's saved record, or empty when missing or garbage. A Ghost or sectors that don't decode are dropped; the
+// A Track's saved record, or empty when missing or garbage. A Ghost or Sectors that don't decode are dropped; the
 // times stay.
 function load(storage: Storage | null, track: GhostTrack, laps: number): { scores: Score[]; ghost: Recording | null; sectors: number[] } {
   const none = { scores: [], ghost: null, sectors: [] };
@@ -111,7 +111,7 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
   const sum = (xs: readonly number[], from = 0) => xs.reduce((a, b) => a + b, from);
 
   // A finished run: slot it into the top 5 (an equal time ranks below), a new #1 becomes the Ghost, and keep each
-  // sector's best (from the splits, so a respawn's penalty counts in its sector). One write.
+  // Sector's best (from the splits, so a respawn's penalty counts in its Sector). One write.
   function finishRun() {
     const time = sum(lapTimes);
     lastRun = lapTimes;
@@ -125,7 +125,7 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
     if (rank >= MAX_SCORES && !faster) return;
     if (rank < MAX_SCORES) scores = [...scores.slice(0, rank), { time, date: now(), lapTimes }, ...scores.slice(rank)].slice(0, MAX_SCORES);
     if (rank === 0) { ghost = { poses: Float32Array.from(recording), splits, dist: Float32Array.from([...dist, laps * track.L, time]) }; saved = storage && save(ghost); }
-    if (!storage) return; // memory only (the Pilot's run): don't encode ~1 MB for nowhere
+    if (!storage) return; // no storage (blocked, or the Pilot's run): don't encode ~1 MB for nowhere
     // ponytail: a 5-lap Ghost is ~1.2 MB of base64 and every Track × lap count keeps one, which can pass the ~5 MB quota.
     // Then the times are saved without it and the Ghost lives in memory only. Record at 60 Hz if that bites.
     const rec: Saved = { scores, ghost: saved, sectors };
@@ -136,7 +136,7 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
     // The top 5, fastest first. The HUD's best is scores[0].
     get scores(): readonly Score[] { return scores; },
     get bestTime(): number | null { return scores[0]?.time ?? null; },
-    // Ideal time: the best sectors added up. Null with none, or while above the #1 time (scores from before sectors).
+    // Ideal time: the best Sectors added up. Null with none, or while above the #1 time (scores from before Sectors).
     get idealTime(): number | null {
       const ideal = sum(sectors);
       return sectors.length && scores.length && ideal <= scores[0].time + 1e-9 ? ideal : null;
@@ -209,13 +209,15 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
 
 // The Pilot Ghost's run: the Pilot rides `laps` Laps of the Track its own way (TrackDef.pilot), recorded through
 // record() like any run. It's computed, never stored: physics is pure and fixed-step, so it comes out the same every
-// time. A generator, so main.ts can spread a run's ~30,000 steps over frames: it pauses every 60 steps.
+// time. A generator, so main.ts can spread a run's ~30,000 steps over frames: it pauses every 60 steps. A Pilot that
+// hasn't finished in 5 minutes a Lap gives up with an empty run (no Ghost) rather than hang the game at GO; the
+// shared Track checks keep every Pilot finishing clean.
 export function* pilotRun(T: Track, profile: Pilot, laps: number): Generator<void, Recording> {
   const rec = createGhost(null, { id: 'pilot', L: T.L, cpS: T.cpS }, laps), st = newState(T), { pilot } = createPilot(T);
-  for (let i = 1; !rec.recording; i++) {
+  for (let i = 1; !rec.recording && i < (laps * 300) / DT; i++) {
     step(st, pilot(st, profile), TUNING, T, DT);
     rec.record(st);
     if (i % 60 === 0) yield;
   }
-  return rec.recording;
+  return rec.recording ?? { poses: new Float32Array(), splits: [], dist: null };
 }

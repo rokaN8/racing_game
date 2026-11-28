@@ -82,6 +82,7 @@ export function drawMap(t: Outline, bike: Vector3, ghost: Vector3 | null) {
     project = drawOutline(mapBg, t, map.width / 160);
   }
   mapCtx.clearRect(0, 0, map.width, map.height);
+  mapCtx.shadowBlur = 0; // the dots' glow, not the outline's copy
   mapCtx.drawImage(mapBg, 0, 0);
   const R = map.width / 160 * 3.5;
   for (const [p, color] of [[ghost, '#fff'], [bike, '#0ff']] as const) {

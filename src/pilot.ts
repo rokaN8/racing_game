@@ -34,8 +34,8 @@ export function createPilot(T: Track) {
 
   // The fastest the Bike may go here: every turn in the next 200 m stays reachable, braking at 85% of brake, and is
   // taken at 85% of the speed full steer can hold (speed² × pull per speed² ≤ steerRate × steerResponse).
-  // Cached per sample, read at the sample just ahead (the turns a little closer, so on the safe side): the 200 m scan
-  // every step made a 5-Lap run cost over a second, too slow to build the Pilot Ghost in the game.
+  // ponytail: cached per sample, read at the sample just ahead (the turns up to a sample closer, so on the safe side):
+  // the 200 m scan every step made a 5-Lap run cost over a second, too slow to build the Pilot Ghost in the game.
   const HOLD = TUNING.steerRate * TUNING.steerResponse, safe: number[] = [];
   function safeSpeed(s: number) {
     const i = Math.ceil(s / T.ds) % T.N;
@@ -62,10 +62,10 @@ export function createPilot(T: Track) {
     return { ...NONE, throttle: over ? 0 : 1, brake: over ? 1 : 0, steer: steerToCentre(st), boost };
   }
 
-  // Ride until `done` (or `secs`), logging every launch, landing and respawn.
-  function ride(st: BikeState, o: Pilot, done: (st: BikeState) => boolean, secs = 90) {
+  // Ride until `done` (or 90 s), logging every launch, landing and respawn.
+  function ride(st: BikeState, o: Pilot, done: (st: BikeState) => boolean) {
     const events: RideEvent[] = [];
-    for (let i = 0; i < secs / DT && !done(st); i++) {
+    for (let i = 0; i < 120 * 90 && !done(st); i++) {
       const mode = st.mode, respawns = st.respawns, lapTime = st.lapTime;
       step(st, pilot(st, o), TUNING, T, DT);
       const e = { s: st.s, msg: st.msg, lapTimeJump: st.lapTime - lapTime };
