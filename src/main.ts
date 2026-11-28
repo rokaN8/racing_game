@@ -13,6 +13,7 @@ import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
+import { shown, updateGhostLine } from './render/prototype-ghostline';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -197,6 +198,7 @@ renderer.setAnimationLoop(now => {
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
     : bannerT > 0 ? banner : '');
+  updateGhostLine(w.scene, phase === 'racing' ? ghost().lineAhead(st) : null, shown); // PROTOTYPE
   w.bike.visible = !wrecked;
   if (!wrecked) {
     if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));
