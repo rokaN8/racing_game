@@ -10,6 +10,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -217,9 +219,11 @@ export function createBloom(renderer: WebGLRenderer, scene: Scene, camera: Camer
   const composer = new EffectComposer(renderer, new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType }));
   const bloom = new UnrealBloomPass(new Vector2(1, 1), 0.8, 0.4, 0.15); // strength, radius, threshold
   const scenePass = new RenderPass(scene, camera);
-  composer.addPass(scenePass); composer.addPass(bloom); composer.addPass(new OutputPass());
+  const shift = new ShaderPass(RGBShiftShader); shift.uniforms.amount.value = 0; shift.enabled = false; // PROTOTYPE #83: colour split
+  composer.addPass(scenePass); composer.addPass(bloom); composer.addPass(shift); composer.addPass(new OutputPass());
   return {
     render: () => composer.render(),
+    setSplit(k: number) { shift.uniforms.amount.value = k; shift.enabled = k > 0; }, // PROTOTYPE #83
     setScene(s: Scene) { scenePass.scene = s; }, // each Track has its own scene, built at boot
     resize(w: number, h: number) {
       composer.setPixelRatio(renderer.getPixelRatio());

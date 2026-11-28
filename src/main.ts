@@ -14,6 +14,7 @@ import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
+import { finishCam, speedFeel } from './render/prototype-speedfeel';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -130,6 +131,7 @@ let acc = 0, last = performance.now(), snap = true, seenRespawns = 0;
 // costs no race time); then the camera snaps to the respawn as before.
 const boom = createExplosion();
 let wreckT = 0;
+let feelHit: 'sketchy' | 'crash' | null = null; // PROTOTYPE #83: this frame's hard hit, for the shake
 // Last frame's state, to spot sound and rumble events.
 let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -179,11 +181,11 @@ renderer.setAnimationLoop(now => {
   if (st.laps > was.laps) { sfx.lap(); buzz(0, 0.4, 50); buzz(0, 0.4, 50, 120); }
   if (st.boostT > was.boostT) { sfx.boost(); buzz(0.15, 0.3, 150); }
   if (st.padHits > was.padHits) { sfx.pad(); buzz(0, 0.5, 200); }
-  if (st.respawns > was.respawns) { sfx.crash(); buzz(1, 1, 400); }
+  if (st.respawns > was.respawns) { sfx.crash(); buzz(1, 1, 400); feelHit = 'crash'; }
   else if (was.mode === 'air' && st.mode === 'track') { // landing grades (docs/game-spec.md → Landing grades)
     sfx.land();
     if (st.landGrade === 'perfect') { sfx.perfect(); buzz(0, 0.6, 40); buzz(0, 0.6, 40, 90); }
-    else { if (st.landGrade === 'sketchy') sfx.sketchy(); buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
+    else { if (st.landGrade === 'sketchy') { sfx.sketchy(); feelHit = 'sketchy'; } buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
     msgEl.classList.remove('pop'); void msgEl.offsetWidth; msgEl.classList.add('pop'); // replay the pop
   }
   was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
@@ -210,7 +212,11 @@ renderer.setAnimationLoop(now => {
   drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime, liveGap });
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
   if (!frozen) drawMap(w.outline, st.pos, w.ghostBike.visible ? w.ghostBike.position : null);
-  if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
+  if (!finishCam(camera, st, phase === 'finished', frame)) { // PROTOTYPE #83
+    if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
+    speedFeel(w.scene, camera, st, frame, feelHit, k => bloom.setSplit(k));
+  }
+  feelHit = null;
   w.horizon.position.copy(camera.position); // at infinity: it moves with the camera, never nearer
   bloom.render();
 });
