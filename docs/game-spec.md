@@ -33,6 +33,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Slipstream | 3.4 km figure-8, no braking: Loop, Rollercoaster, a Corkscrew upside down over the start straight, curving Wall-ride, one Gap, two Boost pads. 6 Checkpoints, ~53 s. | [All-rounder Track 4 layout](https://github.com/rokaN8/racing_game/issues/55) |
 | Afterglow | 3.3 km single loop, no braking: launch Gap, lift hill, a Corkscrew on the ridge straight into a drop Gap, step-up Gap, big drop, Loop, double. Two Boost pads. 7 Checkpoints, ~54 s. | [Big air Track 5 layout](https://github.com/rokaN8/racing_game/issues/56) |
 | Vertigo | 3.2 km single loop, no braking: a Helix up a 150 m tower, a 108 m Gap off the top (50–76 m/s), a Helix back down. 5 Checkpoints, ~54 s. Bank is measured from level, so no Track carries frame drift. | [Vertigo layout](https://github.com/rokaN8/racing_game/issues/77) |
+| Knot | 3.3 km pentagram (720° right), no braking: crosses itself 5 times, alternating over (14 m) and under (in a Tunnel), a Double Loop and a Corkscrew upside down over one crossing. 5 Checkpoints, ~54 s. | [Knot layout](https://github.com/rokaN8/racing_game/issues/79) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
 
@@ -42,27 +43,27 @@ Still no art or audio files: everything is drawn and synthesised in code.
 
 ```ts
 interface TrackDef {
-  id: 'allround' | 'technical' | 'bigair' | 'flow' | 'flight' | 'climb'; // stable: used in storage keys, never renamed
+  id: 'allround' | 'technical' | 'bigair' | 'flow' | 'flight' | 'climb' | 'crossings'; // stable: used in storage keys, never renamed
   name: string;                            // display name
-  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow', 'Flight', 'Climb'
+  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow', 'Flight', 'Climb', 'Crossings'
   cps: ControlPoint[]; gapSegments: number[]; checkpointCps: number[]; halfWidth: number;
   boostPads?: { cp: number; len: number }[]; // see Design rules → Boost pads
   tunnels?: { cp: number; len: number }[];   // see Design rules → Tunnels (looks only)
   palette: Palette;                        // see Palettes
   song: Song;                              // see Songs
 }
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow, vertigo]; // this order everywhere
+export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow, vertigo, knot]; // this order everywhere
 ```
 
 One module per Track in `src/track/tracks/<id>.ts`. Physics already takes the baked Track as a parameter, so it doesn't change.
 
-| | Overdrive | Switchback | Hang Time | Slipstream | Afterglow | Vertigo |
-|---|---|---|---|---|---|---|
-| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow | `flight` · Flight | `climb` · Climb |
-| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m | 3,329 m | 3,160 m |
-| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s | ~54 s | ~54 s |
-| Checkpoints | 4 | 7 | 7 | 6 | 7 | 5 |
-| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` | `src/track/tracks/flight.ts` | `src/track/tracks/climb.ts` |
+| | Overdrive | Switchback | Hang Time | Slipstream | Afterglow | Vertigo | Knot |
+|---|---|---|---|---|---|---|---|
+| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow | `flight` · Flight | `climb` · Climb | `crossings` · Crossings |
+| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m | 3,329 m | 3,160 m | 3,344 m |
+| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s | ~54 s | ~54 s | ~54 s |
+| Checkpoints | 4 | 7 | 7 | 6 | 7 | 5 | 5 |
+| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` | `src/track/tracks/flight.ts` | `src/track/tracks/climb.ts` | `src/track/tracks/crossings.ts` |
 
 **Overdrive.** Today's Track as it is: Loop → right turn → Rollercoaster → left turn → Wall-ride → Gap B → right turn.
 
@@ -111,7 +112,14 @@ Checkpoints: start line, at the foot of the lift hill, on the ridge before the C
 
 Its Gap's window starts at 50 m/s, not 40 (see Design rules → Gaps). Checkpoints: start line, the foot of the climb, halfway up, the top (80 m before the Kicker), halfway down.
 
-The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts`, `src/track/tracks/flow.ts`, `src/track/tracks/flight.ts` and `src/track/tracks/climb.ts`.
+**Knot** (a pentagram drawn in one stroke, 720° right, no braking: the tips hold even Boosted; [Knot layout](https://github.com/rokaN8/racing_game/issues/79)):
+- five legs, each joined by a right **tip** (144° at R60, bank 30°); every leg crosses two others, so the Track crosses itself **five times**
+- it alternates like a real knot: every leg goes **over** its first crossing (deck 14 m up, clearing a Tunnel's rings by 6 m), drops ~15 %, goes **under** its second crossing on the ground inside a 100 m **Tunnel**, then climbs ~5 % into the next tip
+- start straight → **Double Loop** (back to back, R22) → tip → four legs (the second leg's over-pass is a 100 m **Corkscrew**, upside down right over the leg below) → the first leg's over-pass and Tunnel, out of the fifth Tunnel onto the start line
+
+Checkpoints: start line (60 m before the Double Loop), then the start of each of the other four legs, just out of a tip and 78 m before its over-pass.
+
+The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts`, `src/track/tracks/flow.ts`, `src/track/tracks/flight.ts`, `src/track/tracks/climb.ts` and `src/track/tracks/crossings.ts`.
 
 ### Building Tracks 2 and 3: the turtle builder
 
@@ -246,6 +254,7 @@ Built in M11: `src/render/palette.ts`.
 | Slipstream | `#00ffa3` | `#c400ff` | `#000a06` |
 | Afterglow | `#ff3d7f` | `#ffd000` | `#12020a` |
 | Vertigo | `#2979ff` | `#ff3ea5` | `#00040f` |
+| Knot | `#c6ff00` | `#ff3ea5` | `#050a00` |
 
 ## Songs
 
@@ -277,6 +286,7 @@ Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turn
 | Slipstream | 96 | Cmaj7 Am7 Fmaj7 G | Dreamwave: half-time beat, slow wide pads, echoing triangle arp ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/54)) |
 | Afterglow | 140 | A♭ E♭ Fm D♭ | Anthemic: half-time drums, long bass notes, big echoing arp |
 | Vertigo (Ascent) | 112 | Dm B♭ F C | Climbing: four-on-the-floor, a staircase arp that climbs each bar ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/76)) |
+| Knot (Acid knot) | 130 | Cm A♭ B♭ G | Tangled acid: a three-note sawtooth arp against the four-on-the-floor ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/76)) |
 
 **When each plays.** The Menu Song covers the Menu, Track select, Reset times and Controls. A Track's Song covers its countdown, race, Pause and Finish.
 
