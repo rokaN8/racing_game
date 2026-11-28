@@ -71,7 +71,7 @@ Everything else below is struck through: cut while charting wave 2, or 🔒 and 
 - [ ] **C2b. Rung ripple** [#84] (S). On top of C2: the rungs ripple forward along the Track each bar. Split out of #67 as a later step. *Touches:* `scene.ts`.
 - [ ] **C3. Speed feel** [#83] (S). Streaks past the camera while Boosting, a short shake on hard landings, a slight colour split at Boost top speed. Render and camera only. *Touches:* `camera.ts`, a small particles module.
 - [ ] **C4. Trackside scenery** [#84] (M). Neon pylons, arches over Checkpoints, holo-boards with the Track name, light towers by the Loops. Outline-only, so the look holds. *Touches:* `scene.ts`.
-- [ ] **C5. Ghost line** [#82] (S). The Ghost's line drawn faintly on the Track ahead, from its recorded poses. Teaches the racing line. Toggle. *Touches:* `scene.ts`, `ghost.ts`.
+- [x] **C5. Ghost line** [#82] (S). The Ghost's line drawn faintly on the Track ahead, from its recorded poses. Teaches the racing line. Toggle. *Touches:* `scene.ts`, `ghost.ts`.
 - [ ] **C6. Finish cam** [#83] (S). After the line the camera swings into a slow orbit of the Bike behind the Finish screen. *Touches:* `camera.ts`, `main.ts`.
 - [ ] ~~**C7. Camera modes** (S). C cycles Chase (today, the default) / Close / High (the original isometric idea) / Cockpit. *Touches:* `camera.ts`, `input.ts`, Controls screen. 🔒 camera is locked; Chase stays the default.~~ 🔒 not unlocked in wave 2.
 

@@ -22,7 +22,7 @@ interface RunInfo { raceTime: number; lap: number; time: number; lapTimes: reado
 const CONTROLS: [string, string, string][] = [
   ['Throttle · nose down', 'W  ↑', 'RT · stick up'], ['Brake · nose up', 'S  ↓', 'LT · stick down'],
   ['Steer · yaw', 'A D  ← →', 'Left stick'], ['Boost', 'Space  Shift', 'A'], ['Respawn', 'R', 'Y'],
-  ['Pause', 'Esc', 'Start'], ['Mute', 'M', ''],
+  ['Pause', 'Esc', 'Start'], ['Ghost line', 'G', 'Select'], ['Mute', 'M', ''],
 ];
 const TITLE: Partial<Record<Screen, string>> = { select: 'Track select', reset: 'Reset times', controls: 'Controls', pause: 'Paused' };
 const fmt = (t: number) => clock(t);

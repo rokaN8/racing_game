@@ -4,7 +4,7 @@ import { createGhost, migrateOldGhost, pilotRun } from '../src/ghost';
 import { launchAtGo, newState, step } from '../src/bike/physics';
 import { ROCKET_WINDOW, TUNING } from '../src/bike/tuning';
 import { createPilot, DT, type Pilot } from '../src/pilot';
-import { bakeTrack } from '../src/track/bake';
+import { bakeTrack, sampleAt } from '../src/track/bake';
 import { overdrive } from '../src/track/tracks/allround';
 
 // Stand-in for the Bike's state: only what the Ghost reads.
@@ -374,6 +374,18 @@ describe('Ghost', () => {
       expect(splits).toEqual(T.cpS.slice(1).map(() => 0));
       expect(Math.max(...apart)).toBeLessThan(1e-3); // poses are stored as 32-bit floats
       expect(ghost.scores).toHaveLength(1); // only your run
+    });
+
+    it("the Ghost line: none for the Pilot Ghost; your own Ghost's starts where it got as far round as you", () => {
+      const ghost = createGhost(memoryStorage(), OVERDRIVE);
+      ghost.setPilot(drain(1));
+      const at = { s: 500, lapTime: 12 };
+      expect(ghost.lineAhead(at)).toBeNull(); // the Pilot's line isn't shown
+      race(ghost, FAST); // your first run: now your own Ghost
+      const line = ghost.lineAhead(at)!;
+      const p = line.poses, i = line.from, there = sampleAt(T, 500).p;
+      expect(Math.hypot(p[i] - there.x, p[i + 1] - there.y, p[i + 2] - there.z)).toBeLessThan(8); // within a dot or two
+      expect(ghost.lineAhead({ s: T.L - 1, lapTime: 99 })).not.toBeNull();
     });
 
     it('your first run replaces it; Reset times brings it back', () => {
