@@ -5,6 +5,7 @@ import { beat, setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
+import { openGhostStore } from './ghostStore';
 import { drawCenter, drawHud, drawMap, lapBanner } from './hud';
 import { onRespawn, readInput, rumble, stopRumble } from './input';
 import { css } from './render/palette';
@@ -15,15 +16,18 @@ import { TRACKS } from './track/tracks';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
-let storage: Storage | null = null;
-try { storage = localStorage; } catch { /* blocked: High scores and Ghosts live in memory only */ }
+let storage: Storage | null = null, idb: IDBFactory | null = null;
+try { storage = localStorage; } catch { /* blocked: High scores live in memory only */ }
+try { idb = indexedDB; } catch { /* Firefox before 127 throws here when blocked: Ghosts live in memory only */ }
+const ghostStore = openGhostStore(idb);
 migrateOldGhost(storage, TRACKS[0].id); // the best Lap from before Tracks belongs to Overdrive
 
 // Every Track's world is built at boot, with High scores and a Ghost per lap count; picking a Track swaps which one
-// is drawn and ridden. The Pilot Ghost's runs are only built once a run needs one (pilots, per lap count).
+// is drawn and ridden. Its Ghosts load from the Ghost store when a run on it first starts (selectTrack). The Pilot
+// Ghost's runs are only built once a run needs one (pilots, per lap count).
 const worlds = TRACKS.map(track => {
   const T = bakeTrack(track);
-  const ghosts = Object.fromEntries(LAP_OPTIONS.map(n => [n, createGhost(storage, { id: track.id, L: T.L, cpS: T.cpS }, n)]));
+  const ghosts = Object.fromEntries(LAP_OPTIONS.map(n => [n, createGhost(storage, { id: track.id, L: T.L, cpS: T.cpS }, n, Date.now, ghostStore)]));
   const outline = { // the top-down outline, for Track select and the minimap
     colors: [css(track.palette.primary), css(track.palette.secondary)] as [string, string],
     outline: T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: T.gap[i] })), checkpoints: T.cpS.map(s => Math.round(s / T.ds)),
@@ -79,6 +83,7 @@ function buildPilot(ms: number) {
 }
 function selectTrack(i: number, n: number) {
   w = worlds[i]; laps = n;
+  for (const g of Object.values(w.ghosts)) void g.load(); // once a session; the countdown covers the read
   bloom.setScene(w.scene);
   retry();
 }

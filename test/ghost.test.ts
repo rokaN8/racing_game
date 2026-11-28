@@ -42,6 +42,19 @@ function memoryStorage(): Storage {
 
 const blocked = new Proxy({} as Storage, { get() { throw new Error('SecurityError: storage is blocked'); } });
 
+// An in-memory Ghost store, the shape openGhostStore gives over IndexedDB.
+function memoryGhostStore() {
+  const m = new Map<string, unknown>();
+  return { m, get: async (k: string) => m.get(k), put: async (k: string, v: unknown) => { m.set(k, v); return true; }, delete: (k: string) => void m.delete(k) };
+}
+type Store = ReturnType<typeof memoryGhostStore>;
+// A page reload: the times straight from storage, the Ghost once the Track has loaded.
+async function reload(storage: Storage, store: Store, track = TRACK, laps = 1) {
+  const g = createGhost(storage, track, laps, Date.now, store);
+  await g.load();
+  return g;
+}
+
 // Every step of the next run, the Ghost's pose must be the best Lap's pose at the same step.
 function expectTraces(ghost: ReturnType<typeof createGhost>, b: Bike, best: number[][]) {
   const p = new Vector3(), q = new Quaternion();
@@ -110,19 +123,21 @@ describe('Ghost', () => {
     }
   });
 
-  it('survives a page reload', () => {
-    const storage = memoryStorage(), b = bikeAt();
-    const ghost = createGhost(storage, TRACK);
+  it('survives a page reload: the times in storage, the Ghost in the Ghost store once the Track loads', async () => {
+    const storage = memoryStorage(), store = memoryGhostStore(), b = bikeAt();
+    const ghost = createGhost(storage, TRACK, 1, Date.now, store);
     const first = lap(ghost, b, 4800, 40, 1); // a full 40 s Lap of 120 Hz samples
     ghost.record(b);                            // first step past the line saves it
-    const reloaded = createGhost(storage, TRACK);
-    expect(reloaded.bestTime).toBe(40);
+    expect(JSON.parse(storage.getItem(KEY)!).ghost).toBeUndefined(); // the times only: no Ghost in localStorage
+    const reloaded = createGhost(storage, TRACK, 1, Date.now, store);
+    expect(reloaded.bestTime).toBe(40);         // the times straight away
+    await reloaded.load();
     expectTraces(reloaded, bikeAt(), first);
   });
 
-  it('keeps the top 5, fastest first, dated; an equal time ranks below; the Ghost is #1', () => {
+  it('keeps the top 5, fastest first, dated; an equal time ranks below; the Ghost is #1', async () => {
     let t = 1000;
-    const storage = memoryStorage(), ghost = createGhost(storage, TRACK, 1, () => t++), b = bikeAt();
+    const storage = memoryStorage(), store = memoryGhostStore(), ghost = createGhost(storage, TRACK, 1, () => t++, store), b = bikeAt();
     lap(ghost, b, 100, 45, 1);
     for (const time of [47, 44, 46, 45, 50, 43.5]) lap(ghost, b, 100, time, 2); // 44 takes the Ghost, 43.5 takes it again
     const fastest = lap(ghost, b, 100, 43, 3);
@@ -131,28 +146,67 @@ describe('Ghost', () => {
     expect(ghost.lastRank).toBeNull();                          // the 60 s Lap missed the top 5
     expect(ghost.scores.map(s => s.time)).toEqual([43, 43.5, 44, 45, 45]);
     expect(ghost.scores[3].date).toBeLessThan(ghost.scores[4].date!); // the first 45 stays above the later, equal one
-    const reloaded = createGhost(storage, TRACK);                 // survives a reload: times, dates and Ghost
+    const reloaded = await reload(storage, store);               // survives a reload: times, dates and Ghost
     expect(reloaded.scores).toEqual(ghost.scores);
     expectTraces(reloaded, bikeAt(), fastest);
   });
 
-  it('a Lap outside #1 joins the top 5 without replacing the Ghost', () => {
-    const storage = memoryStorage(), ghost = createGhost(storage, TRACK), b = bikeAt();
+  it('a Lap outside #1 joins the top 5 without replacing the Ghost', async () => {
+    const storage = memoryStorage(), store = memoryGhostStore(), ghost = createGhost(storage, TRACK, 1, Date.now, store), b = bikeAt();
     const first = lap(ghost, b, 200, 40, 1);
     lap(ghost, b, 220, 42, 2);
     ghost.record(b);
     expect(ghost.scores.map(s => s.time)).toEqual([40, 42]);
     expect(ghost.lastRank).toBe(2);
-    expectTraces(createGhost(storage, TRACK), bikeAt(), first);
+    expectTraces(await reload(storage, store), bikeAt(), first);
   });
 
-  it('clear() resets the Track: times and Ghost gone, in memory and storage', () => {
-    const storage = memoryStorage(), ghost = createGhost(storage, TRACK), b = bikeAt();
+  it('a Ghost that arrives after the run has started waits for the next run', async () => {
+    const storage = memoryStorage(), store = memoryGhostStore(), b = bikeAt();
+    const g0 = createGhost(storage, TRACK, 1, Date.now, store), first = lap(g0, b, 100, 40, 1);
+    g0.record(b);                                                // closes the Lap: the stored Ghost
+    let release = () => {};
+    const slow = { ...store, get: (k: string) => new Promise<unknown>(r => { release = () => r(store.m.get(k)); }) };
+    const g = createGhost(storage, TRACK, 1, Date.now, slow), r = bikeAt(), loaded = g.load();
+    poseAt(r, 0, 9); g.record(r);                               // the run is under way, no Ghost yet
+    release(); await loaded;
+    poseAt(r, 1, 9); g.record(r);
+    expect(g.pose(new Vector3(), new Quaternion())).toBe(false); // never swaps in mid-run
+    g.restart();
+    expectTraces(g, bikeAt(), first);                           // the next run races it
+  });
+
+  it("drops a stored Ghost that isn't the #1's (another time or date): the Pilot stands in", async () => {
+    const storage = memoryStorage(), store = memoryGhostStore(), b = bikeAt();
+    const ghost = createGhost(storage, TRACK, 1, () => 7, store);
+    lap(ghost, b, 100, 40, 1); ghost.record(b);
+    const stored = store.m.get(KEY) as object;
+    for (const other of [{ time: 41 }, { date: 8 }, { date: null }]) {
+      store.m.set(KEY, { ...stored, ...other });
+      const reloaded = await reload(storage, store);
+      reloaded.record(bikeAt());
+      expect(reloaded.pose(new Vector3(), new Quaternion())).toBe(false);
+      expect(reloaded.needsPilot).toBe(true);
+    }
+  });
+
+  it('stops recording at 5 min a Lap: a run past it still ranks, but keeps no Ghost', () => {
+    const storage = memoryStorage(), store = memoryGhostStore(), ghost = createGhost(storage, TRACK, 1, Date.now, store), b = bikeAt();
+    lap(ghost, b, 5 * 60 * 120 + 10, 300.1, 1); ghost.record(b); // a 5 min Lap and a bit
+    expect(ghost.scores.map(s => s.time)).toEqual([300.1]);
+    expect(ghost.recording).toBeNull();
+    expect(ghost.needsPilot).toBe(true);                          // the Pilot stands in
+    expect(store.m.has(KEY)).toBe(false);
+  });
+
+  it('clear() resets the Track: times and Ghost gone, in memory, storage and the Ghost store', () => {
+    const storage = memoryStorage(), store = memoryGhostStore(), ghost = createGhost(storage, TRACK, 1, Date.now, store), b = bikeAt();
     lap(ghost, b, 100, 40, 1); ghost.record(b);
     ghost.clear();
     expect(ghost.scores).toEqual([]);
     expect(ghost.bestTime).toBeNull();
     expect(storage.getItem(KEY)).toBeNull();
+    expect(store.m.has(KEY)).toBe(false);
     expect(createGhost(storage, TRACK).scores).toEqual([]);
     ghost.restart(); ghost.record(b);
     expect(ghost.pose(new Vector3(), new Quaternion())).toBe(false);
@@ -166,15 +220,15 @@ describe('Ghost', () => {
   });
 
   describe('runs of several Laps', () => {
-    it('ranks the run total once its last Lap closes, with each Lap time; the Ghost is the whole run', () => {
-      const storage = memoryStorage(), ghost = createGhost(storage, TRACK, 3), b = bikeAt();
+    it('ranks the run total once its last Lap closes, with each Lap time; the Ghost is the whole run', async () => {
+      const storage = memoryStorage(), store = memoryGhostStore(), ghost = createGhost(storage, TRACK, 3, Date.now, store), b = bikeAt();
       const poses = [...lap(ghost, b, 100, 20, 1), ...lap(ghost, b, 100, 19, 1), ...lap(ghost, b, 100, 18, 1)];
       expect(ghost.run).toEqual([20, 19]); // the last Lap closes on the next step
       expect(ghost.scores).toEqual([]);
       expectTraces(ghost, b, poses);
       expect(ghost.lastRun).toEqual([20, 19, 18]);
       expect(ghost.scores).toEqual([{ time: 57, date: expect.any(Number), lapTimes: [20, 19, 18] }]);
-      const reloaded = createGhost(storage, TRACK, 3);
+      const reloaded = await reload(storage, store, TRACK, 3);
       expect(reloaded.scores).toEqual(ghost.scores);
       expectTraces(reloaded, bikeAt(), poses);
     });
@@ -202,16 +256,46 @@ describe('Ghost', () => {
       expect(ghost.record(b)).toBeCloseTo(-1);            // onto Lap 2 at 19 s, against the Ghost's 20 s
     });
 
-    it('saves the times without the Ghost when the Ghost would overflow storage', () => {
-      const storage = memoryStorage(), tight = { ...storage, getItem: storage.getItem, removeItem: storage.removeItem,
-        setItem: (k: string, v: string) => { if (v.length > 1000) throw new Error('QuotaExceededError'); storage.setItem(k, v); } } as Storage;
-      const ghost = createGhost(tight, TRACK, 3), b = bikeAt();
+    it("saves the times when the Ghost store can't keep the Ghost, which is still raced this session", async () => {
+      const storage = memoryStorage(), full = { ...memoryGhostStore(), put: async () => false }; // e.g. a QuotaExceededError abort
+      const ghost = createGhost(storage, TRACK, 3, Date.now, full), b = bikeAt();
       lap(ghost, b, 100, 20, 1); lap(ghost, b, 100, 20, 1); lap(ghost, b, 100, 20, 1); ghost.record(b);
-      const reloaded = createGhost(tight, TRACK, 3);
+      const reloaded = await reload(storage, full, TRACK, 3);
       expect(reloaded.bestTime).toBe(60);
       reloaded.record(bikeAt());
       expect(reloaded.pose(new Vector3(), new Quaternion())).toBe(false);
       expect(ghost.pose(new Vector3(), new Quaternion())).toBe(true); // still raced against this session
+    });
+  });
+
+  describe('migration from before the Ghost store', () => {
+    // A record as saved before: the Ghost inline, as base64.
+    const b64 = (xs: number[]) => btoa(String.fromCharCode(...new Uint8Array(Float32Array.from(xs).buffer)));
+    const inlineRecord = (storage: Storage) => {
+      const g = createGhost(memoryStorage(), track('tmp')), b = bikeAt(), poses = lap(g, b, 50, 40, 1);
+      storage.setItem(KEY, JSON.stringify({ scores: [{ time: 40, date: 1, lapTimes: [40] }], ghost: { poses: b64(poses.flat()), splits: [0] } }));
+      return poses;
+    };
+
+    it('races the inline Ghost straight away, and the Track load moves it to the Ghost store', async () => {
+      const storage = memoryStorage(), store = memoryGhostStore(), poses = inlineRecord(storage);
+      const g = createGhost(storage, TRACK, 1, Date.now, store);
+      await g.load();
+      expect(store.m.get(KEY)).toMatchObject({ time: 40, date: 1, splits: [0] });
+      const saved = JSON.parse(storage.getItem(KEY)!);
+      expect(saved.ghost).toBeUndefined();                    // out of localStorage
+      expect(saved.scores).toEqual([{ time: 40, date: 1, lapTimes: [40] }]);
+      expectTraces(g, bikeAt(), poses);
+      expectTraces(await reload(storage, store), bikeAt(), poses);
+    });
+
+    it("keeps the inline Ghost when the Ghost store can't take it, also through a slower finish", async () => {
+      const storage = memoryStorage(), full = { ...memoryGhostStore(), put: async () => false }, poses = inlineRecord(storage);
+      const g = createGhost(storage, TRACK, 1, Date.now, full), b = bikeAt();
+      await g.load();
+      lap(g, b, 60, 45, 2); g.record(b);                     // a #2: rewrites the record
+      expect(g.scores.map(s => s.time)).toEqual([40, 45]);
+      expectTraces(createGhost(storage, TRACK), bikeAt(), poses);
     });
   });
 
@@ -358,13 +442,13 @@ describe('Ghost', () => {
       expect(vs[80]).toBeCloseTo(-crash(10), 6); // and here only after it
     });
 
-    it('a Ghost saved without distances still plays and splits, with no live gap; a garbage one is dropped alone', () => {
-      const storage = memoryStorage(), ghost = createGhost(storage, TWO_CPS);
+    it('a Ghost saved without distances still plays and splits, with no live gap; a garbage one is dropped alone', async () => {
+      const storage = memoryStorage(), store = memoryGhostStore(), ghost = createGhost(storage, TWO_CPS, 1, Date.now, store);
       ride(ghost);
-      const saved = JSON.parse(storage.getItem(KEY)!);
-      for (const dist of [undefined, 'not base64!', btoa('abc'), 42]) {
-        storage.setItem(KEY, JSON.stringify({ ...saved, ghost: { ...saved.ghost, dist } }));
-        const old = createGhost(storage, TWO_CPS), splits: number[] = [];
+      const saved = store.m.get(KEY) as object;
+      for (const dist of [null, undefined, 'x', 42, new Float32Array(3)]) { // none; missing; not floats; an odd count
+        store.m.set(KEY, { ...saved, dist });
+        const old = await reload(storage, store, TWO_CPS), splits: number[] = [];
         let posed = true, gaps = 0;
         ride(old, Infinity, (b, split) => {
           if (split !== null) splits.push(split);
@@ -377,14 +461,12 @@ describe('Ghost', () => {
       }
     });
 
-    it("adds under 5 % to a 5-Lap Ghost's saved size", () => {
-      const storage = memoryStorage(), ghost = createGhost(storage, TRACK, 5), b = bikeAt();
+    it("adds under 5 % to a 5-Lap Ghost's stored size", () => {
+      const store = memoryGhostStore(), ghost = createGhost(memoryStorage(), TRACK, 5, Date.now, store), b = bikeAt();
       for (let k = 0; k < 5; k++) lap(ghost, b, 4800, 40, 1);
       ghost.record(b);
-      const saved = storage.getItem('neon-racer.track.allround.5laps.v1')!, parsed = JSON.parse(saved);
-      expect(parsed.ghost.dist).toEqual(expect.any(String));
-      const without = JSON.stringify({ ...parsed, ghost: { ...parsed.ghost, dist: undefined } });
-      expect(saved.length / without.length).toBeLessThan(1.05);
+      const { poses, dist } = store.m.get('neon-racer.track.allround.5laps.v1') as { poses: Float32Array; dist: Float32Array };
+      expect(dist.byteLength / poses.byteLength).toBeLessThan(0.05);
     });
   });
 
