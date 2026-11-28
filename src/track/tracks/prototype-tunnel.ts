@@ -16,7 +16,7 @@ export const VARIANTS = {
   A: 'Rings: dense dim arcs every 6 m (below bloom), a bright secondary ring every 24 m',
   B: 'Frames: square portals every 20 m, bright secondary, follow the bank',
   C: 'Light tube: 8 bright primary strands along an arch, no rings',
-  D: 'Picked: C strands dimmed below bloom, plus A bright secondary ring every 24 m',
+  D: 'Picked: C strands at 60 % (a softer glow), plus A bright secondary ring every 24 m',
 } as const;
 export type Key = keyof typeof VARIANTS;
 const KEYS = Object.keys(VARIANTS) as Key[];
@@ -107,7 +107,7 @@ export function addTunnels(scene: Scene, T: Track) {
         const a = (Math.PI * (k + 0.5)) / 8, x = 6.5 * Math.cos(a), y = 1.5 + 6.5 * Math.sin(a) * 0.9;
         for (let s = t.s; s < t.s + t.len; s += 4) pts.push(at(s, x, y), at(Math.min(s + 4, t.s + t.len), x, y));
       }
-      thick(pts, mixHex(primary, 0.3), 2);
+      thick(pts, mixHex(primary, 0.6), 2);
       for (let s = t.s; s <= t.s + t.len; s += 24) rings.push(...arch(s, 6.5, 1.5));
       thick(rings, secondary, 3);
     } else {
