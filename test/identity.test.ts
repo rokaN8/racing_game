@@ -44,7 +44,7 @@ describe('Palettes', () => {
   it("derives Overdrive's darks in sRGB", () => {
     expect(derive(overdrive.palette)).toEqual({
       edge: 0xff2bd6, accent: 0xffe600, sky: 0x000000,
-      fill: 0x0f030d, rungs: 0x4d0d40, gridMajor: 0x38092f, gridMinor: 0x1a0415,
+      fill: 0x0f030d, rungs: 0x4d0d40, tunnel: 0x991a80, gridMajor: 0x38092f, gridMinor: 0x1a0415,
       sunTop: 0x998a00, sunBottom: 0x991a80, mountain: 0x590f4b, mountainFill: 0x080106, star: 0x666666,
     });
   });

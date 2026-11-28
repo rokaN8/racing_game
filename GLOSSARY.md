@@ -10,6 +10,8 @@
 
 **Corkscrew** — A straight stretch of Track that rolls a full 360° around its centre line, carrying the Bike upside down and back upright. Built with the turtle's Corkscrew piece; each Track picks its length, roll direction and how long it holds upside down.
 
+**Double Loop** — Two Loops one after the other, the second offset sideways from the first, either back to back or with a short straight between.
+
 **Helix** — A turn that carries on past a full circle while climbing or falling steadily, so its coils stack one above another: a spiral climb or descent. Each Track picks its radius, bank, how many times round and how high.
 
 **Gap** — A break in the Track the Bike must jump across while Airborne.
@@ -29,6 +31,8 @@
 **Checkpoint** — Fixed point on the Track. Leaving the Track (e.g. missing a Gap) respawns the Bike at the last Checkpoint passed, with a time penalty.
 
 **Boost** — Player-triggered burst of speed. The camera's view widens while it lasts.
+
+**Tunnel** — A stretch of Track enclosed by glowing strands and rings arching over it, for a rush of speed. Purely visual; it changes nothing about how the Bike rides.
 
 **Boost pad** — A strip on the Track, marked with chevrons in the Track's secondary colour. Riding onto it gives a speed kick and a Boost that lasts until the strip ends (plus a short tail), without using up the player's own Boost. Each Track sets its strips' lengths to suit its layout.
 
