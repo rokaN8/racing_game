@@ -13,6 +13,7 @@ import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
+import { addTunnels, prototypeTunnel, tunnelTick } from './track/tracks/prototype-tunnel';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -32,7 +33,9 @@ const worlds = TRACKS.map(track => {
     colors: [css(track.palette.primary), css(track.palette.secondary)] as [string, string],
     outline: T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: T.gap[i] })), checkpoints: T.cpS.map(s => Math.round(s / T.ds)),
   };
-  return { track, T, ...createScene(T, track.palette), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
+  const sc = createScene(T, track.palette);
+  if (track === prototypeTunnel) addTunnels(sc.scene, T); // PROTOTYPE
+  return { track, T, ...sc, ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
 });
 let w = worlds[0], laps = DEFAULT_LAPS;
 const ghost = () => w.ghosts[laps];
@@ -178,6 +181,7 @@ renderer.setAnimationLoop(now => {
   const sinceKick = reducedMotion.matches ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
 
+  tunnelTick(st, w.T); // PROTOTYPE readout
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
