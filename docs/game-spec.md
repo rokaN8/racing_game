@@ -280,6 +280,16 @@ Render only, with no physics ([Trackside scenery and Rung ripple](https://github
 
 **Rung ripple:** on top of the beat pulse, the rungs light towards the secondary in a stepped chase: each 16th of the Song's bar lights the next 10 m block ahead of the Bike (16 blocks, 160 m), each block fading over four steps and dimmer further out. Off the bar clock in `audio.ts` (`bar()`), so it keeps time when muted; off under reduced motion and before audio starts.
 
+## Reactive music
+
+The Song follows the ride ([Reactive music](https://github.com/rokaN8/racing_game/issues/87), `audio/react.ts`, applied in `audio.ts`). Picked from three on the prototype branch [`prototype/reactive-music`](https://github.com/rokaN8/racing_game/tree/prototype/reactive-music) (`?music=A|B|C`): C, Underwater. Only during a run (not the countdown, screens or Finish); the same for every Song, so no Song data changes.
+
+- **Airborne:** the drums sink to 30 % (glide 0.1 s), and a low-pass on the whole Song drops to 600 Hz at take-off, then opens back to 20 kHz over 1.5 s of flight (exponential, even to the ear). Landing opens it at once (0.1 s glide).
+- **Boost:** the arp's own filter opens ×3 (to 18 kHz at most), read as its notes are scheduled.
+- **Final-Lap layer:** a sawtooth lead (0.035, 2.5 kHz low-pass, 0.4 s attack) holding each bar's chord root an octave up and the fifth above it. It fades in over ~2 s on the final Lap; in a 1-Lap run, once the last Checkpoint is passed (a Track with only the start line: never).
+- **Gains:** each sounding Song has its own drums and layer gain under its bus, so a crossfade carries them; the Song's per-voice `vol` stays its own mix. Everything glides with `setTargetAtTime`, so nothing clicks.
+- **The chain:** player bus → Pause muffle → react low-pass → music gain → master.
+
 ## Wind and Ghost whoosh
 
 Sound only, synth only, no files ([Wind and Ghost whoosh](https://github.com/rokaN8/racing_game/issues/86), `audio.ts` with its rules in `audio/wind.ts`). Picked from three on the prototype branch [`prototype/wind`](https://github.com/rokaN8/racing_game/tree/prototype/wind) (`?sound=A|B|C`): C, Arcade, as heard there. Under the master, so M mutes it; silent outside a run (countdown, screens, Pause, Finish, a crash's explosion).
@@ -431,6 +441,7 @@ src/
   render/scenery.ts          # Trackside scenery placement and the Rung ripple's glow
   audio.ts                   # engine, Wind, sfx, sequencer playing a Song; crossfade, muffle
   audio/wind.ts              # Wind and Ghost whoosh rules: rumble strip, gust, what a pass is
+  audio/react.ts             # Reactive music: the mix for the ride, when the final-Lap layer plays, its notes
   audio/songs.ts             # the Menu Song (Track Songs live on their TrackDef)
   ghost.ts                   # per Track: top 5 + Ghost + best Sectors in one key, migration; the Pilot Ghost's run
   stats.ts                   # Run stats counted per physics step; Lifetime stats, banked into one key
