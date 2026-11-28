@@ -36,6 +36,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Knot | 3.3 km pentagram (720° right), no braking: crosses itself 5 times, alternating over (14 m) and under (in a Tunnel), a Double Loop and a Corkscrew upside down over one crossing. 5 Checkpoints, ~54 s. | [Knot layout](https://github.com/rokaN8/racing_game/issues/79) |
 | Rocket start | Throttle press begun in the last 0.25 s before GO launches at 15 m/s; held from earlier Stalls for 0.5 s. The Pilot always gets one. `TUNING` unchanged. | [Rocket start](https://github.com/rokaN8/racing_game/issues/81) |
 | Landing grades | Perfect ≤5° / Clean ≤20° / Sketchy ≤35°, coloured. A Perfect landing from a Gap Boosts 0.5 s. `TUNING` unchanged. | [Perfect landing and Landing grades](https://github.com/rokaN8/racing_game/issues/80) |
+| Grand tour | Every Track in order, one Lap each, one total: each leg a 1-Lap run (its Ghost, its top 5), a banner and the next countdown between legs. Its own top 5 in one key; Medals from the Pilot's 1-Lap times added up. | [Grand tour](https://github.com/rokaN8/racing_game/issues/91) |
 | Settings | One Settings screen, from the Menu and Pause: Music and Sound volume, Reduce motion (Auto / On / Off), Field of view, Quality, FPS counter, Ghost line. Changes apply at once; one guarded key. M still mutes on top. | [Settings](https://github.com/rokaN8/racing_game/issues/89) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
@@ -222,15 +223,16 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
 - **Layout.** A left rail over a dark gradient on the left third: title, items, then key hints for that screen as key chips. The focused item is a slanted magenta bar with dark text. A detail panel on the right shows whatever the focused item is about; it shares the rail's top line, never runs under the rail, and scrolls inside itself rather than off screen. The game stays visible behind.
 - **Menu.** Logo, then Play · Stats · Settings · Controls. Coming back to it restores the last focus.
 - **Track select** (also where the High scores live).
-  - **Rail:** the lap count under the title (`‹ 3 Laps ›`, set with ← →, stopping at 1 and 5; 3 at boot), then name, kind and palette swatch per Track, then a smaller Reset times. Focus starts on the last-raced Track.
+  - **Rail:** the lap count under the title (`‹ 3 Laps ›`, set with ← →, stopping at 1 and 5; 3 at boot), then name, kind and palette swatch per Track, then **Grand tour** (its Medal tag; the lap count doesn't apply), then a smaller Reset times. Focus starts on the last-raced Track (or the Grand tour).
+  - **Grand tour panel:** the seven legs in order with their swatches and your 1-Lap best on each, the Data shards found across them, the tour's top 5 (#1's leg times under it) and its four Medal targets.
   - **Rail Medal:** the Medal each Track's #1 earns at the current lap count, as a small tag before its swatch. A Track with every Data shard found also gets a magenta ◆ before it.
   - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track (centred, scaled to the window height), the Data shards found ("Shards 7/10"), its top 5 at the current lap count, the Ideal time ("Ideal 1:58.40", while it isn't above #1), then the four Medal target times, the ones #1 has earned lit (Neon marked "beat the Pilot"). With no times yet: "No times yet. Beat the Pilot: your fastest run becomes your Ghost."
   - **Outline** (`ui/outline.ts`, shared with the HUD's minimap): drawn from the baked Track's x/z, with Gaps left open, the start line marked and a tick across each other Checkpoint, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
-- **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then All Tracks; the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
+- **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then Grand tour (its top 5 only; each Track keeps its own), then All Tracks (the tour's top 5 too); the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
 - **Controls.** The Keyboard | Gamepad table sits in the rail.
 - **Stats.** The Lifetime stats as a table in the rail (see Run stats). Esc / B back to the Menu. Not opened from Pause.
 - **Settings.** From the Menu or Pause (the run stays frozen); Esc / B back to whichever opened it. See Settings.
-- **Pause** (Esc / Start, or leaving the game mid-run: a hidden tab or the window losing focus during the countdown, a run or a crash, [#69](https://github.com/rokaN8/racing_game/issues/69); already on a screen, nothing changes). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Settings · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
+- **Pause** (Esc / Start, or leaving the game mid-run: a hidden tab or the window losing focus during the countdown, a run or a crash, [#69](https://github.com/rokaN8/racing_game/issues/69); already on a screen, nothing changes). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far (on a Grand tour: "Grand tour · Leg 3/7" and the tour's time so far), then Resume · Settings · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
 - **Finish.**
   - **Rail head:** the Track and lap count in its palette colour, the run time, then the rank as a big numeral. A new #1 adds a slanted magenta NEW BEST tag that pops in, with the gain on the old best; otherwise the gap to the best. Outside the top 5 it says so instead of a rank. Under it, the Medal this run earned and the gap to the next one ("Gold · 0.41 to Neon", or "No Medal · 1.20 to Bronze"); a Medal better than the old #1's pops in like NEW BEST. Then Retry · Track select · Menu.
   - **Panel:** the Track's top 5 at this lap count with this run highlighted; outside the top 5, a dashed "You" row with the gap to #5. Then the Ideal time and how far #1 is off it ("Ideal 1:58.40 · best 1.10 off"), then each Lap's time, the first fastest tagged, then the run's Run stats (see Run stats). R / Y still retry.
@@ -305,6 +307,17 @@ Sound only, synth only, no files ([Wind and Ghost whoosh](https://github.com/rok
 
 **Ghost whoosh:** when the Ghost (yours or the Pilot's) crosses the camera's side-to-side line within 12 m, either way: you passing it or it passing you. A sawtooth swoops 1400 → 350 Hz over 0.5 s at 0.12, panning from 0.3 to 1.5 × the Ghost's side (its offset to the camera's right over its distance, clamped to ±1). A respawn or Retry starts the check over, so a jump never fires one.
 
+## Grand tour
+
+Every Track back to back, one Lap each, one total ([Grand tour](https://github.com/rokaN8/racing_game/issues/91), `src/tour.ts`, run by `main.ts`). A Time trial run across all the Tracks, not a new race mode.
+
+- **A leg is a 1-Lap run** of its Track in `TRACKS` order, from its own 3-2-1 countdown (Rocket start included). It races that Track's 1-Lap Ghost (or the Pilot Ghost), and its time goes into that Track's 1-Lap top 5, so a leg can set your 1-Lap best and Ghost. Data shards are collected as on any run.
+- **Between legs:** the clock stops, and a banner shows "Leg 2/7" with the leg's time, the total so far and the next Track for 2 s. Then a cut to the next Track's start line and its countdown; the Songs crossfade. Pause is not taken during the banner.
+- **The HUD:** the run time is the tour's total so far; the Lap counter reads "Leg 3/7" ("Final leg" on the last). The final-Lap layer of Reactive music plays on leg 7 only.
+- **Respawn, Pause, Retry, Quit:** respawns as on any run. Restart (Pause) and Retry (Finish, R / Y) start the whole tour again from leg 1. Quit to Menu or Track select throws the tour away: nothing goes to its top 5, while legs already finished stay in their Tracks' 1-Lap top 5.
+- **Finish** (after leg 7 only): "Grand tour · 7 Tracks", the total, its rank in the tour's top 5 or NEW BEST, the Medal, then the seven leg times (each Track's swatch, the fastest tagged) and the Run stats for the whole tour. The tour counts as one run finished in the Lifetime stats.
+- **Top 5 and Medals:** one localStorage key, `neon-racer.tour.v1`: `[{ time, date, legs }]`, fastest first, an equal time below. No tour Ghost: each leg already races its Track's. The Medals are set as a Track's (see Medals) from `P` = the Pilot's 1-Lap times added up (`tourPilotTime`). Guarded like every key: garbage, a score with another number of legs, or blocked storage reads as none.
+
 ## Settings
 
 One screen of settings ([Settings](https://github.com/rokaN8/racing_game/issues/89), `src/settings.ts`), opened from the Menu (Play · Stats · Settings · Controls) or Pause (Resume · Settings · Restart · Quit to Menu). Back returns to whichever opened it.
@@ -354,7 +367,7 @@ Counted, not ridden on: nothing here touches physics ([Run stats](https://github
 
 ## Medals
 
-Bronze, Silver, Gold and Neon target times per Track and lap count, set against the Pilot's run time `P` there ([#62](https://github.com/rokaN8/racing_game/issues/62)): **Neon** faster than `P` (you beat the Pilot), **Gold** ≤ `P` × 1.05, **Silver** ≤ `P` × 1.12, **Bronze** ≤ `P` × 1.25. A starting point, to tune by play-testing. Targets and times are compared to the hundredth, as they are shown: a time equal to Gold's, Silver's or Bronze's target earns it, while Neon takes beating `P`. `P` is baked into each `TrackDef` (`pilotTimes`), and a shared Track check holds it within 0.05 s of the live Pilot, so Track select never rides the Pilot. Your Medal is the one your #1 earns: nothing is stored, and Reset times clears it with the scores. `medalFor(time, P)` sits beside the menu state.
+Bronze, Silver, Gold and Neon target times per Track and lap count, set against the Pilot's run time `P` there ([#62](https://github.com/rokaN8/racing_game/issues/62)): **Neon** faster than `P` (you beat the Pilot), **Gold** ≤ `P` × 1.05, **Silver** ≤ `P` × 1.12, **Bronze** ≤ `P` × 1.25. A starting point, to tune by play-testing. Targets and times are compared to the hundredth, as they are shown: a time equal to Gold's, Silver's or Bronze's target earns it, while Neon takes beating `P`. `P` is baked into each `TrackDef` (`pilotTimes`), and a shared Track check holds it within 0.05 s of the live Pilot, so Track select never rides the Pilot. Your Medal is the one your #1 earns: nothing is stored, and Reset times clears it with the scores. `medalFor(time, P)` sits beside the menu state. The Grand tour's `P` is every Track's 1-Lap `P` added up.
 
 ## Pilot Ghost
 
@@ -381,6 +394,7 @@ Every Track has a rival from the first run ([#61](https://github.com/rokaN8/raci
 - **Lifetime stats:** `neon-racer.stats.v1`, see Run stats.
 - **Data shards:** `neon-racer.shards.v1`, see Data shards.
 - **Settings:** `neon-racer.settings.v1`, see Settings.
+- **Grand tour:** `neon-racer.tour.v1`, see Grand tour.
 - **Guarding.** Every read and write is guarded. Garbage loads as empty, and the game runs with storage blocked: blocked or missing localStorage keeps the times in memory, and a blocked, missing, failing or hung IndexedDB (it fails in several ways, by browser) keeps the Ghosts in memory.
 - **Ghost module.** `createGhost(storage, { id, L, cpS }, laps, now, ghostStore)`, one instance per Track and lap count, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `load()` to fetch its Ghost (once), `clear()` for resets, `restart()`, which is today's `reset()` (retry) renamed, `liveGap(bike)` for the live gap (a binary search over the running max of the Ghost's distances), `idealTime` (the best Sectors added up; null with none, or while above #1), and `needsPilot` / `setPilot()` for the Pilot Ghost.
 
@@ -481,6 +495,7 @@ src/
   stats.ts                   # Run stats counted per physics step; Lifetime stats, banked into one key
   shards.ts                  # Data shards: positions, the pickup check, found shards in one key
   settings.ts                # Settings: rows, stepping, their key
+  tour.ts                    # Grand tour: its top 5, its key, the Pilot's tour time
   pilot.ts                   # headless pilots: steer to centre, brake for turns, Air control onto the flight path
   ui/menu.ts                 # the side-rail overlay: Menu, Track select (+ High scores, Reset times), Controls, Pause, Finish
   ui/outline.ts              # the top-down Track outline, for Track select and the minimap

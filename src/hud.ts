@@ -20,7 +20,7 @@ const $ = (id: string) => document.getElementById(id)!;
 const hud = $('hud'), center = $('center');
 const f = {
   time: $('h-time'), split: $('h-split'), lapTime: $('h-laptime'), best: $('h-best'),
-  lap: $('h-lap'), laps: $('h-laps'), speed: $('h-speed'), meter: $('h-meter'), boost: $('h-boost'), fps: $('h-fps'),
+  lap: $('h-lap'), laps: $('h-laps'), lapUnit: $('h-lapk'), final: $('h-final'), speed: $('h-speed'), meter: $('h-meter'), boost: $('h-boost'), fps: $('h-fps'),
 };
 const shown = new Map<HTMLElement, string>();
 const put = (el: HTMLElement, text: string, html = false) => {
@@ -45,7 +45,7 @@ function countFrame() {
 }
 
 // liveGap: the live gap to the Ghost, or null without one (or one saved before live gaps)
-export interface RunHud { time: number; lap: number; laps: number; best: number | null; liveGap: number | null }
+export interface RunHud { time: number; lap: number; laps: number; best: number | null; liveGap: number | null; unit?: 'Lap' | 'Leg' } // Leg: the Grand tour
 // split: a Checkpoint's split against the Ghost, while it shows
 export function drawHud(st: BikeState, q: Quaternion, split: number | null, run: RunHud) {
   countFrame();
@@ -58,6 +58,7 @@ export function drawHud(st: BikeState, q: Quaternion, split: number | null, run:
   put(f.best, run.best === null ? '—' : clock(run.best));
   put(f.lap, String(Math.min(run.lap, run.laps)));
   put(f.laps, `/${run.laps}`);
+  put(f.lapUnit, run.unit ?? 'Lap'); put(f.final, `Final ${(run.unit ?? 'Lap').toLowerCase()}`);
   put(f.speed, String(Math.round(st.mode === 'track' ? Math.abs(st.speed) : st.vel.length())));
 
   // Boost meter: drains while Boosting, refills over the cooldown, full when ready.
@@ -98,6 +99,11 @@ let shownCenter = '';
 export function drawCenter(html: string) { if (html !== shownCenter) center.innerHTML = shownCenter = html; }
 
 // Crossing the line onto `lap` of `laps`: the Lap just finished and the run's time against the Ghost there.
+// Between two Grand tour legs: the leg just ridden, its time and the tour's total so far, then the next Track.
+export const legBanner = (leg: number, legs: number, legTime: number, total: number, next: string) =>
+  `<div class="banner"><div class="title">Leg ${leg}<span>/${legs}</span></div>`
+  + `<div class="sub">${clock(legTime)} · total ${clock(total)} · next: ${next}</div></div>`;
+
 export const lapBanner = (lap: number, laps: number, lapTime: number, split: number | null) =>
   `<div class="banner${lap === laps ? ' final' : ''}"><div class="title">${lap === laps ? 'Final lap' : `Lap ${lap}<span>/${laps}</span>`}</div>`
   + `<div class="sub">${clock(lapTime)}${split === null ? '' : ` ${delta(split)}`}</div></div>`;

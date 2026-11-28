@@ -8,7 +8,7 @@ import { ghostPass } from './audio/wind';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
 import { openGhostStore } from './ghostStore';
-import { drawCenter, drawHud, drawMap, lapBanner } from './hud';
+import { drawCenter, drawHud, drawMap, lapBanner, legBanner } from './hud';
 import { onGhostLine, onRespawn, readInput, rumble, stopRumble } from './input';
 import { createGhostLine, ghostLineOn, toggleGhostLine } from './render/ghostLine';
 import { css } from './render/palette';
@@ -19,6 +19,7 @@ import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
 import { bank, createRunStats, loadTotals, saveTotals } from './stats';
 import { loadFound, saveFound, shardPositions, touchedShard } from './shards';
+import { loadTour, rankTour, saveTour, tourPilotTime } from './tour';
 import {
   DEFAULT_SETTINGS, FOV_DEG, gainOf, loadSettings, motionReduced, saveSettings, stepSetting, type SettingRow,
 } from './settings';
@@ -119,9 +120,20 @@ let split: number | null = null, splitT = 0;
 let liveGap: number | null = null, liveGapT = 0; // the live gap to the Ghost, read 10x a second
 let banner = '', bannerT = 0, lapsShown = 0; // the Lap banner, and how many of the run's Laps it has announced
 
-function retry() {
-  bankRun(false);
-  Object.assign(st, newState(w.T)); runStats.reset(st);
+// Grand tour (docs/game-spec.md → Grand tour): every Track in order, one Lap each, one total. Each leg is a 1-Lap run
+// of its Track (its Ghost, its top 5); between legs the clock stops, a banner shows, then the next Track's countdown.
+// tour: the legs ridden so far, null when not touring. legT: seconds left of the banner between two legs.
+const LEG_BANNER = 2, TOUR_PILOT = tourPilotTime(TRACKS);
+let tour: { leg: number; legs: number[] } | null = null, legT = 0, tourScores = loadTour(storage, TRACKS.length);
+const touring = () => menu.track === worlds.length; // the Grand tour was the last thing picked on Track select
+const tourSoFar = () => (tour ? sum(tour.legs) : 0);
+function startTour() { tour = { leg: 0, legs: [] }; legT = 0; selectTrack(0, 1); }
+const again = () => (touring() ? startTour() : retry()); // Retry and Restart: a tour starts over from leg 1
+
+// keep: the Grand tour's next leg, so the run's stats carry on rather than being banked.
+function retry(keep = false) {
+  if (!keep) bankRun(false);
+  Object.assign(st, newState(w.T)); runStats.reset(st, keep);
   ghost().restart();
   w.trail.update(st.pos, st.quat, true, false);
   phase = 'countdown'; countT = COUNTDOWN; heldFor = null; split = null; liveGap = null; liveGapT = 0; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
@@ -137,15 +149,25 @@ function buildPilot(ms: number) {
     if (performance.now() >= end) return;
   }
 }
-function selectTrack(i: number, n: number) {
+function selectTrack(i: number, n: number, keep = false) {
   w = worlds[i]; laps = n;
   for (const g of Object.values(w.ghosts)) void g.load(); // once a session; the countdown covers the read
   bloom.setScene(w.scene);
-  retry();
+  retry(keep);
 }
 function finish() {
   phase = 'finished';
   const lapTimes = ghost().lastRun!, time = sum(lapTimes);
+  if (tour) {
+    tour.legs.push(time);
+    if (tour.leg < worlds.length - 1) { // a leg: the banner, then the next Track
+      banner = legBanner(tour.leg + 1, worlds.length, time, sum(tour.legs), worlds[tour.leg + 1].track.name); bannerT = legT = LEG_BANNER;
+      return;
+    }
+    const prev = tourScores[0]?.time ?? null, r = rankTour(tourScores, tour.legs, Date.now()), legs = tour.legs;
+    tourScores = r.scores; saveTour(storage, tourScores); tour = null;
+    return menu.open('finish', { time: r.time, lapTimes: legs, delta: prev === null ? null : r.time - prev, rank: r.rank, stats: bankRun(true) });
+  }
   menu.open('finish', { time, lapTimes, delta: prevBest === null ? null : time - prevBest, rank: ghost().lastRank, stats: bankRun(true) });
 }
 
@@ -156,24 +178,27 @@ const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
 })), effect => {
   if (effect === 'resume') return;
   if (effect === 'resetSettings') return changeSetting('reset');
-  if (effect === 'restart' || effect === 'endRun') return retry();
+  if (effect === 'restart') return again();
+  if (effect === 'endRun') { tour = null; return retry(); } // quitting a tour throws it away
   if ('setting' in effect) return changeSetting(effect.setting, effect.dir);
-  if ('start' in effect) return selectTrack(effect.start, effect.laps);
+  if ('start' in effect) { tour = null; return effect.start === 'tour' ? startTour() : selectTrack(effect.start, effect.laps); }
+  if (effect.reset === 'tour' || effect.reset === 'all') { tourScores = []; saveTour(storage, tourScores); }
+  if (effect.reset === 'tour') return;
   for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) for (const g of Object.values(x.ghosts)) g.clear();
-}, pause, () => totals, row => SETTING_TEXT[row]());
+}, pause, () => totals, row => SETTING_TEXT[row](), { scores: () => tourScores, pilotTime: TOUR_PILOT });
 menu.open('menu');
 // Pause (Esc / Start), and leaving the game mid-run: a hidden tab or the window losing focus (docs/game-spec.md →
 // Screens). Already on a screen, nothing changes. Stops any rumble, as no frame may come to do it while hidden.
 function pause() {
   if (menu.screen || phase === 'finished') return;
-  menu.open('pause', { raceTime: sum(ghost().run) + st.lapTime, lap: ghost().run.length + 1 });
+  menu.open('pause', { raceTime: tourSoFar() + sum(ghost().run) + st.lapTime, lap: tour ? tour.leg + 1 : ghost().run.length + 1 });
   stopRumble();
 }
 addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 addEventListener('blur', pause);
 
 onRespawn(() => {
-  if (menu.screen === 'finish') { retry(); menu.close(); }
+  if (menu.screen === 'finish') { again(); menu.close(); }
   else if (!menu.screen && phase === 'racing') respawn(st, w.T, TUNING, 'Respawn');
 });
 
@@ -203,6 +228,7 @@ renderer.setAnimationLoop(now => {
     if (go === 'stall') { sfx.stall(); rumble(0.6, 0, 200); }
     if (go) { msgEl.classList.remove('pop'); void msgEl.offsetWidth; msgEl.classList.add('pop'); }
   }
+  if (tour && legT > 0 && !frozen && (legT -= frame) <= 0) { tour.leg++; selectTrack(tour.leg, 1, true); } // on to the next leg
   if (!frozen) buildPilot(phase === 'racing' ? Infinity : 4); // done by GO on any sane machine; if not, finished outright
   if (phase !== 'racing' || frozen || wreckT > 0) acc = 0; // nothing piles up to catch up on at GO, on Resume or after a crash
   while (acc >= DT) {
@@ -265,7 +291,7 @@ renderer.setAnimationLoop(now => {
     ghostAhead = ahead;
   } else ghostAhead = null;
   // Reactive music (docs/game-spec.md → Reactive music): the Song follows the ride
-  setReact({ racing, air: st.mode === 'air', airT: st.airT, boost: st.boostT > 0, layer: layerOn(laps, ghost().run.length, st.lastCP, w.T.cpS.length) });
+  setReact({ racing, air: st.mode === 'air', airT: st.airT, boost: st.boostT > 0, layer: tour ? layerOn(worlds.length, tour.leg, st.lastCP, w.T.cpS.length) : layerOn(laps, ghost().run.length, st.lastCP, w.T.cpS.length) });
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
   const sinceKick = reduced() ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
@@ -286,7 +312,9 @@ renderer.setAnimationLoop(now => {
     w.bike.position.copy(st.pos); w.bike.quaternion.copy(shownQuat); w.updateBike(st, frame);
   }
   const run = ghost().run;
-  drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime, liveGap });
+  drawHud(st, shownQuat, splitT > 0 ? split : null, tour
+    ? { time: tourSoFar() + sum(run) + st.lapTime, lap: tour.leg + 1, laps: worlds.length, best: ghost().bestTime, liveGap, unit: 'Leg' }
+    : { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime, liveGap });
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
   if (!frozen) drawMap(w.outline, st.pos, w.ghostBike.visible ? w.ghostBike.position : null);
   if (phase === 'finished') finishCam(st, frame, reduced()); // docs/game-spec.md → Finish cam

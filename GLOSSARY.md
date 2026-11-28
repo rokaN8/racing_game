@@ -48,7 +48,9 @@
 
 **Air control** — Player rotation of the Bike while Airborne, to line up a landing.
 
-**Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is 1, 3 or 5 Laps, picked on Track select; 3 by default.
+**Time trial** — The only race mode: one Bike against the clock or a ghost of a previous run. A run is 1, 3 or 5 Laps of one Track, picked on Track select (3 by default), or a Grand tour.
+
+**Grand tour** — A run of every Track back to back, one Lap each, for one total time. Each Track is a **leg**, started from its own countdown and raced against that Track's Ghost; a leg counts as a 1-Lap run there too.
 
 **Ghost** — A replay of the fastest run on a Track at the current lap count, ridden alongside the current run.
 
