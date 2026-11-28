@@ -58,11 +58,25 @@ describe('Menu state', () => {
     expect(run(initialMenu(), open('pause'), left).s.focus).toBe(3);
   });
 
-  it('Reset times sits under the Tracks; back returns to it', () => {
+  it('Reset times sits under the Tracks and the Grand tour; back returns to it', () => {
     const r = run(select(), up, pick).s; // the last item
     expect(r.screen).toBe('reset');
     const b = run(r, back).s;
-    expect(b).toMatchObject({ screen: 'select', focus: N });
+    expect(b).toMatchObject({ screen: 'select', focus: N + 1 });
+  });
+
+  it('the Grand tour sits after the Tracks: it starts a 1-Lap tour, and Track select comes back to it', () => {
+    const at = run(select(), up, up).s; // Reset times, then the Grand tour above it
+    const { s, effects } = run(at, right, pick); // the lap count doesn't apply
+    expect(effects).toEqual([{ start: 'tour', laps: 1 }]);
+    expect(s).toMatchObject({ screen: null, track: N });
+    expect(run(s, open('select')).s.focus).toBe(N);
+  });
+
+  it('Reset times has a Grand tour row; All Tracks comes last', () => {
+    const r = run(select(), up, pick).s;
+    expect(run(r, { type: 'move', dir: -1 }, pick, pick).effects).toEqual([{ reset: 'all' }]); // up from Track 1 wraps to All Tracks
+    expect(run({ ...r, focus: N }, pick, pick).effects).toEqual([{ reset: 'tour' }]);
   });
 
   it('a reset needs two presses within 3 s, then says it is done', () => {

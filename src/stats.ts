@@ -19,8 +19,9 @@ export function createRunStats(st: BikeState) {
   let r = zeroRun(), was = seen(st);
   return {
     get stats(): Readonly<RunStats> { return r; },
-    // A fresh run (or the rest of one, once banked): zeros, counting from the Bike's state now.
-    reset(now: BikeState) { r = zeroRun(); was = seen(now); },
+    // A fresh run (or the rest of one, once banked): zeros, counting from the Bike's state now. keep: carry on counting
+    // the same run from a new start (the Grand tour's next leg).
+    reset(now: BikeState, keep = false) { if (!keep) r = zeroRun(); was = seen(now); },
     step(now: BikeState, dt: number) {
       const speed = now.mode === 'track' ? Math.abs(now.speed) : now.vel.length(), crashed = now.respawns > was.respawns;
       r.time += dt; r.dist += speed * dt; r.top = Math.max(r.top, speed);

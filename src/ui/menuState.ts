@@ -6,12 +6,12 @@ export type Screen = 'menu' | 'select' | 'reset' | 'controls' | 'stats' | 'setti
 export type Item =
   | 'play' | 'stats' | 'settings' | 'controls'            // Menu (Settings also on Pause)
   | { setting: SettingRow } | 'resetSettings'            // Settings (← → step a row)
-  | { track: number } | 'reset'                            // Track select (← → set the lap count)
-  | { reset: number | 'all' }                              // Reset times
+  | { track: number } | 'tour' | 'reset'                   // Track select (← → set the lap count; the Grand tour is 1 Lap a leg)
+  | { reset: number | 'all' | 'tour' }                     // Reset times
   | 'resume' | 'restart' | 'quit'                          // Pause
   | 'retry' | 'select' | 'menu';                           // Finish
 // What the game must do. 'endRun' resets the run before another screen shows; the others close the overlay.
-export type Effect = { start: number; laps: number } | 'restart' | 'resume' | 'endRun' | { reset: number | 'all' }
+export type Effect = { start: number | 'tour'; laps: number } | 'restart' | 'resume' | 'endRun' | { reset: number | 'all' | 'tour' }
   | { setting: SettingRow; dir: -1 | 1 } | 'resetSettings';
 export type Action =
   | { type: 'open'; screen: Screen } | { type: 'move'; dir: -1 | 1 } | { type: 'adjust'; dir: -1 | 1 }
@@ -21,11 +21,11 @@ export interface MenuState {
   screen: Screen | null;  // null: closed, the run is showing
   focus: number;
   lastFocus: Partial<Record<Screen, number>>; // so coming back to a screen restores its focus
-  track: number;          // the last-raced Track: Track select starts on it
+  track: number;          // the last-raced Track (trackCount: the Grand tour): Track select starts on it
   laps: number;           // Laps per run, set with ← → on Track select
   armed: number;          // Reset times: the item waiting for its second press, or -1
   armedT: number;         // seconds left to press it again
-  cleared: number | 'all' | 'settings' | null; // the last reset carried out, shown for CLEARED_TIME
+  cleared: number | 'all' | 'tour' | 'settings' | null; // the last reset carried out, shown for CLEARED_TIME
   settingsFrom: 'menu' | 'pause'; // where Settings was opened from: back returns there
   clearedT: number;
   lockT: number;          // Finish: seconds before a pick counts, so a Boost tap at the line can't skip the result
@@ -41,8 +41,8 @@ export function itemsFor(screen: Screen | null, trackCount: number): Item[] {
   const tracks = Array.from({ length: trackCount }, (_, i) => i);
   switch (screen) {
     case 'menu': return ['play', 'stats', 'settings', 'controls'];
-    case 'select': return [...tracks.map(track => ({ track })), 'reset'];
-    case 'reset': return [...tracks.map(reset => ({ reset })), { reset: 'all' }];
+    case 'select': return [...tracks.map(track => ({ track })), 'tour', 'reset'];
+    case 'reset': return [...tracks.map(reset => ({ reset })), { reset: 'tour' }, { reset: 'all' }];
     case 'pause': return ['resume', 'settings', 'restart', 'quit'];
     case 'settings': return [...SETTING_ROWS.map(setting => ({ setting })), 'resetSettings'];
     case 'finish': return ['retry', 'select', 'menu'];
@@ -84,7 +84,7 @@ export function reduce(s: MenuState, a: Action, trackCount: number): [MenuState,
     }
     case 'back':
       if (s.screen === 'pause') return [close(s), 'resume'];
-      if (s.screen === 'reset') return [{ ...open(s, 'select'), focus: trackCount }, null]; // back onto "Reset times"
+      if (s.screen === 'reset') return [{ ...open(s, 'select'), focus: trackCount + 1 }, null]; // back onto "Reset times"
       if (s.screen === 'select' || s.screen === 'controls' || s.screen === 'stats') return [open(s, 'menu'), null];
       if (s.screen === 'settings') return [open(s, s.settingsFrom), null];
       return [s, null]; // Menu and Finish have nowhere to go back to
@@ -92,6 +92,7 @@ export function reduce(s: MenuState, a: Action, trackCount: number): [MenuState,
       const it = itemsFor(s.screen, trackCount)[s.focus];
       if (it === undefined || (s.screen === 'finish' && s.lockT > 0)) return [s, null];
       if (typeof it === 'object' && 'track' in it) return [{ ...close(s), track: it.track }, { start: it.track, laps: s.laps }];
+      if (it === 'tour') return [{ ...close(s), track: trackCount }, { start: 'tour', laps: 1 }];
       if (typeof it === 'object' && 'setting' in it) return [s, { setting: it.setting, dir: 1 }]; // Enter steps forward
       if (it === 'resetSettings') { // like a reset: the first press arms it, a second within ARM_TIME carries it out
         if (s.armed !== s.focus) return [{ ...s, armed: s.focus, armedT: ARM_TIME, cleared: null, clearedT: 0 }, null];
