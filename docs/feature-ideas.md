@@ -141,8 +141,8 @@ The turtle builder and the shared Track tests make a new Track mostly data (plus
 
 From the `ponytail:` comments in `src/`:
 
-- **Ghost size vs storage quota** (`ghost.ts`): a 5-Lap Ghost is ~1.2 MB of base64. Quantize to Int16 and record at 60 Hz (~4× smaller together), or move Ghosts to IndexedDB. IndexedDB picked: [#73] (research), [#74].
-- **Recording grows** in a run that never finishes (`ghost.ts`): cap it. In [#74].
+- **Ghost size vs storage quota** (`ghost.ts`): a 5-Lap Ghost is ~1.2 MB of base64. Quantize to Int16 and record at 60 Hz (~4× smaller together), or move Ghosts to IndexedDB. Done: Ghosts moved to IndexedDB in [#74] (research: [#73]).
+- **Recording grows** in a run that never finishes (`ghost.ts`): cap it. Done: capped at 5 min a Lap in [#74].
 - **Pixel ratio 2 with full-size bloom** (`main.ts`): half-size bloom if a dense screen misses 60 fps.
 - **Hidden-tab music** (`audio.ts`): covered by F2.
 - **Gamepad-only audio** (`audio.ts`): E5 (cut in wave 2).
