@@ -2,8 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { bakeTrack, sampleAt } from '../src/track/bake';
 import { TRACKS } from '../src/track/tracks';
-import { newState, respawn, step } from '../src/bike/physics';
-import { TUNING } from '../src/bike/tuning';
+import { launchAtGo, newState, respawn, step } from '../src/bike/physics';
+import { ROCKET_WINDOW, TUNING } from '../src/bike/tuning';
 import { BOOSTED, createPilot } from '../src/pilot';
 import { LAP_OPTIONS } from '../src/ui/menuState';
 
@@ -45,6 +45,7 @@ describe.each(TRACKS)('$name', track => {
   // The Pilot Ghost's run (docs/game-spec.md → Pilot Ghost), and the baked time the Medals are set from.
   it.each(LAP_OPTIONS)('the Pilot rides a %i-Lap run clean, in its baked time', n => {
     const st = newState(T);
+    launchAtGo(st, ROCKET_WINDOW / 2); // the Pilot's Rocket start, as pilotRun does
     let time = 0;
     for (let k = 1; k <= n; k++) {
       expect(ride(st, track.pilot, st => st.laps >= k).filter(e => e.kind === 'respawn')).toEqual([]);

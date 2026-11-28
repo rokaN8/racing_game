@@ -1,7 +1,7 @@
 // Pure Bike kinematics, ported from prototypes/bike-handling.html. No DOM, no rendering.
 import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 import { sampleAt, type Frame, type Track } from '../track/bake';
-import { BOOST_PAD_TAIL, CEILING_UP_Y, landingGrade, PERFECT_BOOST, type LandingGrade, type Tuning } from './tuning';
+import { BOOST_PAD_TAIL, CEILING_UP_Y, landingGrade, PERFECT_BOOST, ROCKET_SPEED, ROCKET_WINDOW, STALL_TIME, type LandingGrade, type Tuning } from './tuning';
 
 // throttle/brake 0..1, steer -1..1, pitch -1..1 (+ = nose down; Air control only)
 export interface Input { throttle: number; brake: number; steer: number; pitch: number; boost: boolean }
@@ -16,8 +16,10 @@ export interface BikeState {
   boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
   boostLen: number; padHits: number; // the running Boost's full length (HUD meter); Boost pads ridden onto (sound)
   lapTime: number; lastLap: number | null; laps: number;
-  msg: string; msgT: number; msgKind: LandingGrade | ''; // msgKind: a landing grade colours the message
+  msg: string; msgT: number; msgKind: LandingGrade | Launch | ''; // msgKind: a landing grade or the launch colours the message
+  stallT: number; // a Stall at GO: throttle does nothing until this runs out
 }
+export type Launch = 'rocket' | 'stall';
 
 export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
   new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(new Vector3().crossVectors(f.u, f.t), f.u, f.t));
@@ -25,7 +27,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, landOff: 0, landGrade: null, fromGap: false, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0, msgKind: '' };
+    airT: 0, lastCP: 0, respawns: 0, landOff: 0, landGrade: null, fromGap: false, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0, msgKind: '', stallT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -45,7 +47,15 @@ export function cornerPull(T: Track, s: number, speed: number, P: Tuning) {
   return -P.cornerPull * speed * speed * b.t.sub(a.t).dot(f.r) / 6 * Math.max(0, f.u.y);
 }
 
-const say = (st: BikeState, m: string, kind: LandingGrade | '' = '') => { st.msg = m; st.msgT = 1.5; st.msgKind = kind; };
+const say = (st: BikeState, m: string, kind: BikeState['msgKind'] = '') => { st.msg = m; st.msgT = 1.5; st.msgKind = kind; };
+
+// Rocket start (docs/game-spec.md → Rocket start), judged at GO from how long the current throttle press has been held
+// (null: not held). Began in the last ROCKET_WINDOW s: launch at ROCKET_SPEED. Held from earlier: Stall. Else nothing.
+export function launchAtGo(st: BikeState, heldFor: number | null): Launch | null {
+  if (heldFor === null) return null;
+  if (heldFor <= ROCKET_WINDOW) { st.speed = ROCKET_SPEED; say(st, 'ROCKET START', 'rocket'); return 'rocket'; }
+  st.stallT = STALL_TIME; say(st, 'STALLED', 'stall'); return 'stall';
+}
 
 function launch(st: BikeState, f: Frame, why?: string) {
   st.mode = 'air'; st.airT = 0; st.fromGap = !why;
@@ -62,6 +72,7 @@ export function respawn(st: BikeState, T: Track, P: Tuning, why: string) {
 
 export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number) {
   st.lapTime += dt; st.msgT -= dt; st.boostT -= dt; st.boostCD -= dt;
+  if (st.stallT > 0) { st.stallT -= dt; inp = { ...inp, throttle: 0 }; } // Stalled at GO
   if (inp.boost && st.boostCD <= 0) {
     st.boostT = Math.max(st.boostT, P.boostDuration); st.boostCD = P.boostDuration + P.boostCooldown; // never cuts a Boost pad's short
     st.boostLen = st.boostT;

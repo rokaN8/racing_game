@@ -42,7 +42,7 @@ const { cps, checkpointCps, gapSegments } = buildTrack([
 export const hangTime: TrackDef = {
   id: 'bigair', name: 'Hang Time', kind: 'Big air',
   cps, gapSegments, checkpointCps, halfWidth: 4,
-  pilot: { airControl: true, brakes: true, boostStraights: true }, pilotTimes: { 1: 51.09, 3: 150.78, 5: 249.89 },
+  pilot: { airControl: true, brakes: true, boostStraights: true }, pilotTimes: { 1: 50.33, 3: 149.43, 5: 248.53 },
   palette: { primary: 0xff8a00, secondary: 0xa64dff, sky: 0x0d0418 }, // orange / violet
   // Bright and euphoric, D major I–V–vi–IV: four-on-the-floor, offbeat bass, rising arp.
   song: {

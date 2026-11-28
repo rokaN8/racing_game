@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Quaternion, Vector3 } from 'three';
 import { createGhost, migrateOldGhost, pilotRun } from '../src/ghost';
-import { newState, step } from '../src/bike/physics';
-import { TUNING } from '../src/bike/tuning';
+import { launchAtGo, newState, step } from '../src/bike/physics';
+import { ROCKET_WINDOW, TUNING } from '../src/bike/tuning';
 import { createPilot, DT, type Pilot } from '../src/pilot';
 import { bakeTrack } from '../src/track/bake';
 import { overdrive } from '../src/track/tracks/allround';
@@ -353,6 +353,7 @@ describe('Ghost', () => {
     // Ride one real Lap with `o` against the Ghost: the splits it shows, and how far the Ghost is from the Bike each step.
     function race(ghost: ReturnType<typeof createGhost>, o: Pilot) {
       const st = newState(T), { pilot } = createPilot(T), p = new Vector3(), q = new Quaternion(), splits: number[] = [], apart: number[] = [];
+      launchAtGo(st, ROCKET_WINDOW / 2); // a Rocket start, as the Pilot gets
       ghost.restart();
       while (st.laps < 1) {
         step(st, pilot(st, o), TUNING, T, DT);

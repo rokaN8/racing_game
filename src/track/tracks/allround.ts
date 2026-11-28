@@ -50,7 +50,7 @@ export const overdrive: TrackDef = {
   gapSegments: [40, 41], // segments (cp i → i+1) with no geometry: Gap B
   checkpointCps: [0, 1, 17, 37],
   halfWidth: 4,
-  pilot: { airControl: true, boost: true }, pilotTimes: { 1: 40.97, 3: 120.65, 5: 200.33 },
+  pilot: { airControl: true, boost: true }, pilotTimes: { 1: 40.45, 3: 120.12, 5: 199.82 },
   palette: { primary: 0xff2bd6, secondary: 0xffe600, sky: 0x000000 }, // magenta / yellow
   // Mid-tempo synthwave in A minor, i–VI–III–VII: octave bass, rolling arp.
   song: {
