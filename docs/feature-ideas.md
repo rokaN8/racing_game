@@ -119,10 +119,10 @@ The turtle builder and the shared Track tests make a new Track mostly data (plus
 - [x] **H3. Double Loop** [#78] (S). Two Loops back to back, offset sideways. Existing Loop piece and its `drift`.
 - [ ] ~~**H4. Jump pad** (M). A pad that throws the Bike up without a Kicker, onto a Landing deck ahead. 🔒 new physics rule.~~ 🔒 not unlocked in wave 2.
 - [ ] ~~**H5. Split path** (L). Two routes, short and risky or long and safe. The Track is one closed curve and physics rides one `s`, so this is a big change.~~ Cut in wave 2: a one-`s` physics rewrite.
-- [ ] **H6. Track concepts** (L each):
+- [x] **H6. Track concepts** (L each):
   - [x] **Vertigo** [#77] (Climb): a helix up a 150 m tower, a long Gap off the top, a spiral back down.
   - ~~**Overclock** (Speed): a long, fast Track with three Boost pads chained, sweepers that hold flat out but not Boosted: Boost management.~~ Cut in wave 2.
-  - **Knot** [#79]: crosses itself five times, with tunnels and a Corkscrew round its own straight.
+  - [x] **Knot** [#79]: crosses itself five times, with tunnels and a Corkscrew round its own straight.
   - ~~**Sprint**: a 20 s Track for quick 5-Lap runs.~~ Cut in wave 2.
 - [ ] ~~**H7. Track editor** (L). A piece-list editor over the turtle builder with a live outline and a "Pilot test" button. 🔒 Out of scope.~~ 🔒 not unlocked in wave 2.
 - [ ] ~~**H8. Seeded Tracks** (L). Build a turtle piece list from a seed, keep only seeds the Pilot rides clean, name it from the seed. Pairs with A7. 🔒 Out of scope (procedural Tracks).~~ 🔒 not unlocked in wave 2.
