@@ -38,7 +38,7 @@ const { cps, checkpointCps, gapSegments, tunnels } = buildTrack([
 export const knot: TrackDef = {
   id: 'crossings', name: 'Knot', kind: 'Crossings',
   cps, gapSegments, checkpointCps, tunnels, halfWidth: 4,
-  pilot: { boostStraights: true }, pilotTimes: { 1: 53.73, 3: 160.3, 5: 266.85 },
+  pilot: { boostStraights: true }, pilotTimes: { 1: 53.48, 3: 160.03, 5: 266.6 },
   palette: { primary: 0xc6ff00, secondary: 0xff3ea5, sky: 0x050a00 }, // lime / hot pink
   // Tangled acid, C minor i–VI–VII–V: a three-note sawtooth arp against the four-on-the-floor.
   song: {

@@ -15,4 +15,7 @@ export const BOOST_PAD_TAIL = 0.3; // s of Boost past a Boost pad's end at the s
 export const PERFECT_ANGLE = 5, CLEAN_ANGLE = 20, PERFECT_BOOST = 0.5;
 export type LandingGrade = 'perfect' | 'clean' | 'sketchy';
 export const landingGrade = (off: number): LandingGrade => off <= PERFECT_ANGLE ? 'perfect' : off <= CLEAN_ANGLE ? 'clean' : 'sketchy';
+// Rocket start (game-spec → Rocket start; ticket #81), on top of the locked values: a throttle press that began in the
+// last ROCKET_WINDOW s before GO launches at ROCKET_SPEED; one held from earlier stalls, throttle dead for STALL_TIME s.
+export const ROCKET_WINDOW = 0.25, ROCKET_SPEED = 15, STALL_TIME = 0.5;
 export const CEILING_UP_Y = -0.3; // "upside down" = Track up points this far below horizontal

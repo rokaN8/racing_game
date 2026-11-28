@@ -16,11 +16,11 @@
       #msg { position: fixed; top: 30%; left: 50%; transform: translateX(-50%); font: 600 22px/1.2 var(--hud-font); letter-spacing: .06em;
              color: var(--magenta); text-shadow: 0 0 10px var(--magenta); pointer-events: none; white-space: nowrap; }
       /* Landing grades (docs/game-spec.md → Landing grades): Perfect pops in magenta, Clean green, Sketchy amber */
-      #msg[data-grade=perfect] { font-size: 30px; font-weight: 800; letter-spacing: .24em; }
-      #msg[data-grade=perfect].pop { animation: perfect .45s var(--out-expo); }
+      #msg[data-grade=perfect], #msg[data-grade=rocket] { font-size: 30px; font-weight: 800; letter-spacing: .24em; }
+      #msg[data-grade=perfect].pop, #msg[data-grade=rocket].pop { animation: perfect .45s var(--out-expo); }
       @keyframes perfect { from { transform: translateX(-50%) scale(1.6); opacity: 0; filter: blur(4px); } }
       #msg[data-grade=clean] { color: var(--ahead); text-shadow: 0 0 10px var(--ahead); }
-      #msg[data-grade=sketchy] { color: var(--sketchy); text-shadow: 0 0 10px var(--sketchy); }
+      #msg[data-grade=sketchy], #msg[data-grade=stall] { color: var(--sketchy); text-shadow: 0 0 10px var(--sketchy); }
 
       /* In-race HUD (src/hud.ts): clock top left, Lap counter and minimap top right, speed and Boost bottom left. */
       #hud { position: fixed; inset: 0; pointer-events: none; user-select: none; color: var(--cyan);

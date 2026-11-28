@@ -1,5 +1,5 @@
 import { WebGLRenderer } from 'three';
-import { newState, respawn, step } from './bike/physics';
+import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
 import { beat, setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
@@ -59,6 +59,7 @@ resize();
 // screen is open, so the clock and the Ghost both start on GO, and Pause freezes everything.
 const COUNTDOWN = 3;
 let phase: 'countdown' | 'racing' | 'finished' = 'countdown', countT = COUNTDOWN, goT = 0;
+let heldFor: number | null = null; // how long the current throttle press has been held in the countdown (Rocket start)
 let prevBest = ghost().bestTime;
 let split: number | null = null, splitT = 0;
 let liveGap: number | null = null, liveGapT = 0; // the live gap to the Ghost, read 10x a second
@@ -68,7 +69,7 @@ function retry() {
   Object.assign(st, newState(w.T));
   ghost().restart();
   w.trail.update(st.pos, st.quat, true, false);
-  phase = 'countdown'; countT = COUNTDOWN; split = null; liveGap = null; liveGapT = 0; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
+  phase = 'countdown'; countT = COUNTDOWN; heldFor = null; split = null; liveGap = null; liveGapT = 0; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
 }
 // The Pilot Ghost, while there's no Ghost of your own at this Track and lap count. Its run is built from the first run
 // that needs it, from its countdown, `ms` a frame (a 5-Lap run is ~30,000 physics steps), so it never drops a frame.
@@ -134,7 +135,15 @@ renderer.setAnimationLoop(now => {
   const inp = readInput();
   menu.tick(frame);
   const frozen = menu.screen !== null;
-  if (phase === 'countdown' && !frozen && (countT -= frame) <= 0) { phase = 'racing'; goT = 0.7; prevBest = ghost().bestTime; }
+  // Rocket start (docs/game-spec.md → Rocket start): time the current throttle press through the countdown, judge it at GO
+  if (phase === 'countdown' && !frozen) heldFor = inp.throttle > 0.5 ? (heldFor ?? 0) + frame : null;
+  if (phase === 'countdown' && !frozen && (countT -= frame) <= 0) {
+    phase = 'racing'; goT = 0.7; prevBest = ghost().bestTime;
+    const go = launchAtGo(st, heldFor);
+    if (go === 'rocket') { sfx.boost(); sfx.perfect(); rumble(1, 1, 120); }
+    if (go === 'stall') { sfx.stall(); rumble(0.6, 0, 200); }
+    if (go) { msgEl.classList.remove('pop'); void msgEl.offsetWidth; msgEl.classList.add('pop'); }
+  }
   if (!frozen) buildPilot(phase === 'racing' ? Infinity : 4); // done by GO on any sane machine; if not, finished outright
   if (phase !== 'racing' || frozen || wreckT > 0) acc = 0; // nothing piles up to catch up on at GO, on Resume or after a crash
   while (acc >= DT) {

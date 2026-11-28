@@ -30,7 +30,7 @@ const { cps, checkpointCps, gapSegments } = buildTrack([
 export const vertigo: TrackDef = {
   id: 'climb', name: 'Vertigo', kind: 'Climb',
   cps, gapSegments, checkpointCps, halfWidth: 4,
-  pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 53.6, 3: 159, 5: 264.4 },
+  pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 53.15, 3: 158.55, 5: 263.96 },
   palette: { primary: 0x2979ff, secondary: 0xff3ea5, sky: 0x00040f }, // electric blue / hot pink
   // Climbing, D minor i–VI–III–VII: four-on-the-floor, a staircase arp that climbs each bar.
   song: {

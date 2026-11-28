@@ -24,6 +24,10 @@
 
 **Perfect landing** — A landing square to the Track, the best Landing grade. After a Gap it gives a short Boost.
 
+**Rocket start** — Pressing the throttle just before GO, so the Bike launches off the line already moving.
+
+**Stall** — Holding the throttle too long before GO: the Bike bogs down and goes nowhere for a moment after GO.
+
 **Track-relative gravity** — While on the Track, gravity pulls the Bike into the Track surface beneath it, not world-down. This is what lets the Bike ride walls and Loops.
 
 **Cornering pull** — The sideways push towards a turn's outside edge while on the Track. The player steers against it; it grows with speed and is softened by banking.

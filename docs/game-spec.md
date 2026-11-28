@@ -34,6 +34,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Afterglow | 3.3 km single loop, no braking: launch Gap, lift hill, a Corkscrew on the ridge straight into a drop Gap, step-up Gap, big drop, Loop, double. Two Boost pads. 7 Checkpoints, ~54 s. | [Big air Track 5 layout](https://github.com/rokaN8/racing_game/issues/56) |
 | Vertigo | 3.2 km single loop, no braking: a Helix up a 150 m tower, a 108 m Gap off the top (50–76 m/s), a Helix back down. 5 Checkpoints, ~54 s. Bank is measured from level, so no Track carries frame drift. | [Vertigo layout](https://github.com/rokaN8/racing_game/issues/77) |
 | Knot | 3.3 km pentagram (720° right), no braking: crosses itself 5 times, alternating over (14 m) and under (in a Tunnel), a Double Loop and a Corkscrew upside down over one crossing. 5 Checkpoints, ~54 s. | [Knot layout](https://github.com/rokaN8/racing_game/issues/79) |
+| Rocket start | Throttle press begun in the last 0.25 s before GO launches at 15 m/s; held from earlier Stalls for 0.5 s. The Pilot always gets one. `TUNING` unchanged. | [Rocket start](https://github.com/rokaN8/racing_game/issues/81) |
 | Landing grades | Perfect ≤5° / Clean ≤20° / Sketchy ≤35°, coloured. A Perfect landing from a Gap Boosts 0.5 s. `TUNING` unchanged. | [Perfect landing and Landing grades](https://github.com/rokaN8/racing_game/issues/80) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
@@ -169,6 +170,22 @@ Overdrive keeps its hand-written control points.
 
 **Checkpoints.** Each sits ≥60 m before the hazard that follows it, and a respawn at 20 m/s clears that hazard.
 
+**Rocket start** ([Rocket start](https://github.com/rokaN8/racing_game/issues/81)). 🔒 A new rule on top of the locked handling: `TUNING` is unchanged, and the new values sit next to it in `bike/tuning.ts` (`ROCKET_WINDOW`, `ROCKET_SPEED`, `STALL_TIME`).
+- **Judged at GO**, from how long the current throttle press has been held through the countdown (gamepad RT counts past halfway):
+  - **began in the last 0.25 s before GO:** a **Rocket start**, launching at 15 m/s (saves ~0.5 s);
+  - **held from earlier:** a **Stall**, with throttle dead for 0.5 s after GO (costs ~0.5 s; brake and steer still work);
+  - **not held at GO:** a normal standing start, as is pressing after GO.
+- **When:** one chance per run, and Retry and Restart give a fresh one. There's no hint in the countdown: the timing is the skill.
+- **Where it lives:** the rule is the pure `launchAtGo(st, heldFor)` in `physics.ts`, which sets `speed` or `stallT` (physics ignores throttle while `stallT > 0`). `main.ts` only times the press.
+- **Feedback:**
+
+  | | Message | Sound | Rumble |
+  |---|---|---|---|
+  | Rocket start | `ROCKET START`, magenta, popping in like `PERFECT` | the Boost whoosh plus the Perfect chime | a strong short kick |
+  | Stall | `STALLED`, amber | a low sputter | one dull thump |
+
+- **The Pilot always gets a Rocket start**, so `pilotTimes` include it (they dropped 0.25–1.4 s), and so do the Medals.
+
 **Landing grades** ([Perfect landing and Landing grades](https://github.com/rokaN8/racing_game/issues/80)). 🔒 New rules on top of the locked handling: `TUNING` is unchanged, and the new values sit next to it in `bike/tuning.ts` (`PERFECT_ANGLE`, `CLEAN_ANGLE`, `PERFECT_BOOST`).
 - **Grades:** every landing is graded by its angle off the deck (the worse of nose and up, as today):
   - **Perfect:** ≤5°
@@ -229,7 +246,7 @@ Bronze, Silver, Gold and Neon target times per Track and lap count, set against 
 
 Every Track has a rival from the first run ([#61](https://github.com/rokaN8/racing_game/issues/61)). With no Ghost of your own at a Track and lap count, the Pilot's run is the Ghost, with its Checkpoint splits, so the split line, the live gap and the Lap banner work against it. Your first finished run replaces it; Reset times brings it back. It never enters the High scores, and the HUD best stays your own.
 
-- **The Pilot** (`src/pilot.ts`, physics-only imports) is the headless driver the Track tests ride. Each `TrackDef.pilot` holds the profile of its clean, fastest Lap: Overdrive Air control + Boost before the Gap; Switchback brakes + Boost on straights; Hang Time Air control + brakes + Boost on straights; Slipstream and Afterglow Air control + Boost on straights. A shared check rides it clean at every lap count.
+- **The Pilot** (`src/pilot.ts`, physics-only imports) is the headless driver the Track tests ride. Each `TrackDef.pilot` holds the profile of its clean, fastest Lap: Overdrive Air control + Boost before the Gap; Switchback brakes + Boost on straights; Hang Time Air control + brakes + Boost on straights; Slipstream and Afterglow Air control + Boost on straights. A shared check rides it clean at every lap count. It always gets a Rocket start (see Design rules → Rocket start).
 - **Computed, never stored.** Physics is pure and fixed-step, so the run comes out the same every time. `pilotRun` records it through the Ghost's own `record()`, so its poses, splits and distances are in the format the Ghost plays. It is built lazily, from the countdown of the first run with no Ghost, a few ms a frame while no screen is open (a 5-Lap Hang Time run is ~30,000 steps, ~0.6 s of the countdown at 120 fps) and finished outright at GO if it isn't done. The Pilot's turn look-ahead is cached per Track sample, which made that affordable.
 
 ## Storage

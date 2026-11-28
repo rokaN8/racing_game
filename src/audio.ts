@@ -187,6 +187,7 @@ export const sfx = {
   land: () => blip(140, 45, 0.18, 0, 'sine', 0.5),
   perfect: () => { blip(880, 1760, 0.14, 0.02, 'triangle', 0.22); blip(1320, 2640, 0.2, 0.1, 'triangle', 0.18); }, // bright rising chime
   sketchy: () => burst(2500, 300, 0.25, 0.01, 0.25), // a short scrape
+  stall: () => { blip(70, 40, 0.12, 0, 'sawtooth', 0.3); blip(70, 40, 0.12, 0.15, 'sawtooth', 0.25); blip(60, 35, 0.18, 0.3, 'sawtooth', 0.2); }, // low sputter
   crash: () => burst(4000, 120, 0.7, 0.01, 0.6),
   checkpoint: () => { blip(880, 880, 0.09); blip(1320, 1320, 0.14, 0.09); },
   lap: () => [660, 880, 1320].forEach((f, i) => blip(f, f, 0.18, i * 0.1, 'triangle', 0.25)),

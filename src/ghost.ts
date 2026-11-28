@@ -5,8 +5,8 @@
 // current run. Also keeps the Ghost's Checkpoint splits over the whole run, so each Checkpoint can show the time
 // against it. With no Ghost of your own, the Pilot Ghost stands in (docs/game-spec.md → Pilot Ghost). No rendering, no DOM.
 import type { Quaternion, Vector3 } from 'three';
-import { newState, step } from './bike/physics';
-import { TUNING } from './bike/tuning';
+import { launchAtGo, newState, step } from './bike/physics';
+import { ROCKET_WINDOW, TUNING } from './bike/tuning';
 import { createPilot, DT, type Pilot } from './pilot';
 import type { Track } from './track/bake';
 
@@ -258,6 +258,7 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
 // shared Track checks keep every Pilot finishing clean.
 export function* pilotRun(T: Track, profile: Pilot, laps: number): Generator<void, Recording> {
   const rec = createGhost(null, { id: 'pilot', L: T.L, cpS: T.cpS }, laps), st = newState(T), { pilot } = createPilot(T);
+  launchAtGo(st, ROCKET_WINDOW / 2); // the Pilot always gets its Rocket start
   for (let i = 1; !rec.recording && i < (laps * 300) / DT; i++) {
     step(st, pilot(st, profile), TUNING, T, DT);
     rec.record(st);
