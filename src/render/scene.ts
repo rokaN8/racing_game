@@ -45,7 +45,8 @@ export function createScene(T: Track, palette: Palette) {
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(verts, 3)); g.setIndex(idx);
   scene.add(new Mesh(g, new MeshBasicMaterial({ color: c.fill, side: DoubleSide })));
-  scene.add(new LineSegments(new BufferGeometry().setFromPoints(rungs), new LineBasicMaterial({ color: c.rungs })));
+  const rungLines = new LineSegments(new BufferGeometry().setFromPoints(rungs), new LineBasicMaterial({ color: c.rungs }));
+  scene.add(rungLines); // PROTOTYPE #84: exposed so the Rung ripple can swap it
   const thick = (pts: Vector3[], color: number, px: number) => {
     const mat = new LineMaterial({ color, linewidth: px }); // linewidth in pixels
     lineMats.push(mat);
@@ -92,7 +93,7 @@ export function createScene(T: Track, palette: Palette) {
 
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
-  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, horizon };
+  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, horizon, rungLines };
 }
 
 // Synthwave horizon (docs/game-spec.md → Palettes): a striped sun where the start straight looks (`heading`, about +y

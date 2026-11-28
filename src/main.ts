@@ -1,7 +1,7 @@
 import { WebGLRenderer } from 'three';
 import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { beat, setMusic, sfx, updateEngine } from './audio';
+import { barPhase, beat, setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
@@ -12,6 +12,7 @@ import { createGhostLine, toggleGhostLine } from './render/ghostLine';
 import { css } from './render/palette';
 import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
+import { createScenery, mountSwitcher, resizeScenery } from './render/prototype-scenery';
 import { createSpeedFeel, type Hit } from './render/speedFeel';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
@@ -34,9 +35,11 @@ const worlds = TRACKS.map(track => {
     colors: [css(track.palette.primary), css(track.palette.secondary)] as [string, string],
     outline: T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: T.gap[i] })), checkpoints: T.cpS.map(s => Math.round(s / T.ds)),
   };
-  return { track, T, ...createScene(T, track.palette), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
+  const sc = createScene(T, track.palette), scenery = createScenery(T, track.palette, track.name, sc.scene, sc.rungLines); // PROTOTYPE #84
+  return { track, T, ...sc, scenery, ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
 });
 let w = worlds[0], laps = DEFAULT_LAPS;
+mountSwitcher(() => w.scenery.stats); // PROTOTYPE #84
 const ghost = () => w.ghosts[laps];
 const ghostLine = createGhostLine(); // docs/game-spec.md → Ghost line
 onGhostLine(toggleGhostLine);
@@ -56,6 +59,7 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight);
   bloom.resize(innerWidth, innerHeight);
   for (const x of worlds) x.resizeLines(innerWidth, innerHeight);
+  resizeScenery(innerWidth, innerHeight); // PROTOTYPE #84
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
@@ -203,6 +207,7 @@ renderer.setAnimationLoop(now => {
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
     : bannerT > 0 ? banner : '');
+  w.scenery.ripple(st.s, reducedMotion.matches ? null : barPhase() ?? ((performance.now() / 2000) % 1)); // PROTOTYPE #84 (no audio: a 120 BPM bar)
   ghostLine.update(w.scene, phase === 'racing' && !frozen ? ghost().lineAhead(st) : null);
   w.bike.visible = !wrecked;
   if (!wrecked) {

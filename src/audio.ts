@@ -106,6 +106,15 @@ export function beat(): number | null {
   return p ? sinceKick(p.song, p.n, p.nextT, now) : null;
 }
 
+// PROTOTYPE #84: 0..1 through the heard Song's current bar (16 steps), for the Rung ripple. Null as beat().
+export function barPhase(): number | null {
+  if (ctx?.state !== 'running') return null;
+  const now = ctx.currentTime - (ctx.outputLatency || 0), p = players.find(p => now < p.stopAt - CROSSFADE / 2);
+  if (!p) return null;
+  const x = p.n - (p.nextT - now) / p.step; // steps elapsed, fractional
+  return x < 0 ? null : (x % 16) / 16;
+}
+
 function sound(p: Player, note: Note, t: number) {
   const { song, step } = p, dv = song.drums.vol;
   switch (note.voice) {
