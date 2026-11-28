@@ -54,6 +54,8 @@
 
 **Pilot** — The headless driver the Track tests ride: full throttle, steering to the centre line, and per Track its own braking, Boost and Air control. Each Track's fastest clean way round is its Pilot Ghost.
 
+**Ghost line** — Your Ghost's path drawn faintly as dots on the Track ahead of you, showing the line it took. Optional; only for a Ghost of your own.
+
 **Pilot Ghost** — The Ghost while you have no run of your own at a Track and lap count: the Pilot's run, computed when needed, never stored and never in the High scores. Your first finished run replaces it.
 
 **Medal** — Bronze, Silver, Gold or Neon: target times per Track and lap count, set against the Pilot Ghost's run time (Neon beats it). Your Medal is the one your #1 earns.

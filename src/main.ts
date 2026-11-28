@@ -7,7 +7,8 @@ import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
 import { openGhostStore } from './ghostStore';
 import { drawCenter, drawHud, drawMap, lapBanner } from './hud';
-import { onRespawn, readInput, rumble, stopRumble } from './input';
+import { onGhostLine, onRespawn, readInput, rumble, stopRumble } from './input';
+import { createGhostLine, toggleGhostLine } from './render/ghostLine';
 import { css } from './render/palette';
 import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
@@ -36,6 +37,8 @@ const worlds = TRACKS.map(track => {
 });
 let w = worlds[0], laps = DEFAULT_LAPS;
 const ghost = () => w.ghosts[laps];
+const ghostLine = createGhostLine(); // docs/game-spec.md → Ghost line
+onGhostLine(toggleGhostLine);
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 const st = newState(w.T);
 const { camera, update: updateCamera } = createChaseCamera();
@@ -197,6 +200,7 @@ renderer.setAnimationLoop(now => {
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
     : bannerT > 0 ? banner : '');
+  ghostLine.update(w.scene, phase === 'racing' && !frozen ? ghost().lineAhead(st) : null);
   w.bike.visible = !wrecked;
   if (!wrecked) {
     if (snap) shownQuat.copy(st.quat); else shownQuat.slerp(st.quat, 1 - Math.exp(-20 * frame));

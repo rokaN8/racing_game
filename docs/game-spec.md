@@ -238,6 +238,13 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
 
 The POC's controls, plus **gamepad rumble** ([#68](https://github.com/rokaN8/racing_game/issues/68), `rumble()` in `input.ts`, off the same state changes as the sound effects): a thump on landing that grows the further off the landing angle, a strong 0.4 s one on a crash, a light 0.2 s buzz on a Boost pad, a lighter 0.15 s one on Boost, a tick at each Checkpoint and a double tick on each Lap. Only during a run: Pause stops it, while the last Lap's double tick still plays as the Finish screen opens. A weaker rumble never cuts a stronger one short. M doesn't touch it; with no pad or no support (Firefox) it does nothing.
 
+**Ghost line** ([Ghost line](https://github.com/rokaN8/racing_game/issues/82), `render/ghostLine.ts`). Your own Ghost's line, drawn as dots on the Track ahead of the Bike, to teach the racing line.
+- **The look:** a dot every ~4 m for 120 m, the Ghost's white at most 13 % bright, fading out with distance. It's drawn additively, so the fade sinks into the Track and nothing reaches the bloom threshold.
+- **Where it starts:** from where the Ghost first got as far round as you (`ghost.lineAhead(bike)`, from its 10 Hz run distances). It stops where the Ghost respawned.
+- **When it shows:** only while racing with no screen open, and only for **your own Ghost**. The Pilot Ghost's line isn't shown.
+- **Toggle:** **off by default**. **G** (gamepad: Select / Back) toggles it. The choice is kept in localStorage (`neon-racer.ghostLine`) when storage works, and it's listed in Controls.
+- Picked from three looks (dots, a line, chevrons) on the prototype branch [`prototype/ghost-line`](https://github.com/rokaN8/racing_game/tree/prototype/ghost-line).
+
 ## Medals
 
 Bronze, Silver, Gold and Neon target times per Track and lap count, set against the Pilot's run time `P` there ([#62](https://github.com/rokaN8/racing_game/issues/62)): **Neon** faster than `P` (you beat the Pilot), **Gold** ≤ `P` × 1.05, **Silver** ≤ `P` × 1.12, **Bronze** ≤ `P` × 1.25. A starting point, to tune by play-testing. Targets and times are compared to the hundredth, as they are shown: a time equal to Gold's, Silver's or Bronze's target earns it, while Neon takes beating `P`. `P` is baked into each `TrackDef` (`pilotTimes`), and a shared Track check holds it within 0.05 s of the live Pilot, so Track select never rides the Pilot. Your Medal is the one your #1 earns: nothing is stored, and Reset times clears it with the scores. `medalFor(time, P)` sits beside the menu state.

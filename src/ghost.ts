@@ -240,6 +240,18 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
     // A failed delete is harmless: with no #1 a stored Ghost is never raced.
     clear() { scores = []; ghost = null; inline = null; sectors = []; remove(storage, key); store?.delete(key); },
 
+    // The Ghost line (docs/game-spec.md → Ghost line): your own Ghost's poses, and the pose index where it first got as
+    // far round as the Bike. Null for the Pilot Ghost (its line isn't shown), with no Ghost, or past where it ends.
+    // ponytail: dist sample k ≈ pose k × DIST_EVERY; each respawn in the Ghost's run adds one extra sample, so the start
+    // drifts ~0.1 s (~5 m) per respawn. Store pose indices with the samples if that ever shows.
+    lineAhead(bike: Pick<BikePose, 's' | 'lapTime'>) {
+      if (!ghost?.dist) return null;
+      const [x] = runAt(bike), reached = reach(ghost.dist);
+      let lo = 0, hi = reached.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (reached[mid] >= x) hi = mid; else lo = mid + 1; }
+      return lo === reached.length ? null : { poses: ghost.poses, from: lo * DIST_EVERY * STRIDE };
+    },
+
     // The Ghost's pose at the current run's step. False when there is no Ghost or it has finished.
     pose(pos: Vector3, quat: Quaternion) {
       const i = recording.length - STRIDE, r = rival();
