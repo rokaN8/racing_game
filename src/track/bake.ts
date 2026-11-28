@@ -35,9 +35,27 @@ export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, hal
   };
   const up = [new Vector3(0, 1, 0).addScaledVector(tan[0], -tan[0].y).normalize()];
   for (let i = 1; i < N; i++) up.push(rmf(i - 1, i, up[i - 1]));
-  // closed Track: spread the frame's twist mismatch at the seam evenly along its length
-  const end = rmf(N - 1, 0, up[N - 1]);
-  const err = Math.atan2(new Vector3().crossVectors(end, up[0]).dot(tan[0]), end.dot(up[0]));
+  // Bank is measured from level (world up, square to the tangent), not from the frame: the frame drifts on a climbing
+  // turn (by roughly sin(grade) × the angle turned, so a few turns of a Helix roll it upside down), and a Loop that
+  // drifts sideways twists it too. Near vertical (a Loop) level is
+  // undefined, so the correction is eased across that stretch from its value either side; each pass through vertical
+  // (over a Loop's top) flips level. Assumes the start line is level.
+  const Y = new Vector3(0, 1, 0), lvl = new Vector3(), corr: number[] = [];
+  let flip = 1, last = 0;
+  const wrap = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+  for (let i = 0; i < N; i++) {
+    const t = tan[i];
+    if (Math.abs(t.y) > 0.9) { corr.push(NaN); continue; }
+    if (i > 0 && Number.isNaN(corr[i - 1])) flip = -flip;
+    lvl.copy(Y).addScaledVector(t, -t.y).normalize().multiplyScalar(flip);
+    const c = Math.atan2(new Vector3().crossVectors(up[i], lvl).dot(t), up[i].dot(lvl));
+    if (i > 0 && Number.isNaN(corr[i - 1])) { // ease the vertical stretch from `last` to c, the short way round
+      let j = i - 1; while (Number.isNaN(corr[j])) j--;
+      const d = wrap(c - last);
+      for (let k = j + 1; k < i; k++) corr[k] = last + (d * (k - j)) / (i - j);
+    }
+    corr.push(c); last = c;
+  }
   const rgt: Vector3[] = [], gap: boolean[] = [];
   for (let i = 0; i < N; i++) {
     const a = seg[i], b = (a + 1) % n;
@@ -45,7 +63,7 @@ export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, hal
     // (or the Lap seam after one) carries on at 0° instead of unwinding. Any step between two points stays under 180°.
     const step = ((((cps[b][3] - cps[a][3]) % 360) + 540) % 360) - 180;
     const bank = MathUtils.degToRad(cps[a][3] + step * frac[i]);
-    up[i].applyAxisAngle(tan[i], err * i / N + bank).normalize();
+    up[i].applyAxisAngle(tan[i], corr[i] + bank).normalize();
     rgt.push(new Vector3().crossVectors(tan[i], up[i]));
     gap.push(gapSegs.includes(a));
   }
