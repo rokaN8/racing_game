@@ -168,7 +168,12 @@ renderer.setAnimationLoop(now => {
   if (st.boostT > was.boostT) { sfx.boost(); buzz(0.15, 0.3, 150); }
   if (st.padHits > was.padHits) { sfx.pad(); buzz(0, 0.5, 200); }
   if (st.respawns > was.respawns) { sfx.crash(); buzz(1, 1, 400); }
-  else if (was.mode === 'air' && st.mode === 'track') { sfx.land(); buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
+  else if (was.mode === 'air' && st.mode === 'track') { // landing grades (docs/game-spec.md → Landing grades)
+    sfx.land();
+    if (st.landGrade === 'perfect') { sfx.perfect(); buzz(0, 0.6, 40); buzz(0, 0.6, 40, 90); }
+    else { if (st.landGrade === 'sketchy') sfx.sketchy(); buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
+    msgEl.classList.remove('pop'); void msgEl.offsetWidth; msgEl.classList.add('pop'); // replay the pop
+  }
   was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
   // The Menu Song covers the Menu screens; the Track's Song its countdown, race, Pause and Finish. Pause muffles it.
   const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
@@ -179,6 +184,7 @@ renderer.setAnimationLoop(now => {
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
 
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
+  msgEl.dataset.grade = st.msgKind;
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
   drawCenter(phase === 'countdown' ? `<div class="count">${Math.ceil(countT)}</div>` : goT > 0 ? '<div class="count">GO</div>'
     : bannerT > 0 ? banner : '');

@@ -185,6 +185,8 @@ export const sfx = {
   boost: () => burst(300, 5000, 0.6, 0.25, 0.35),
   pad: () => { blip(440, 1760, 0.22, 0, 'sawtooth', 0.12); blip(660, 2640, 0.22, 0.06, 'square', 0.08); }, // rising chime
   land: () => blip(140, 45, 0.18, 0, 'sine', 0.5),
+  perfect: () => { blip(880, 1760, 0.14, 0.02, 'triangle', 0.22); blip(1320, 2640, 0.2, 0.1, 'triangle', 0.18); }, // bright rising chime
+  sketchy: () => burst(2500, 300, 0.25, 0.01, 0.25), // a short scrape
   crash: () => burst(4000, 120, 0.7, 0.01, 0.6),
   checkpoint: () => { blip(880, 880, 0.09); blip(1320, 1320, 0.14, 0.09); },
   lap: () => [660, 880, 1320].forEach((f, i) => blip(f, f, 0.18, i * 0.1, 'triangle', 0.25)),

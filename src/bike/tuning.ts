@@ -9,4 +9,10 @@ export const TUNING = {
 export type Tuning = typeof TUNING;
 
 export const BOOST_PAD_TAIL = 0.3; // s of Boost past a Boost pad's end at the speed it was ridden onto (game-spec → Boost pads)
+// Landing grades (game-spec → Landing grades; ticket #80), on top of the locked values: within PERFECT_ANGLE° of the
+// deck is Perfect, within CLEAN_ANGLE° Clean, up to landingTolerance Sketchy. A Perfect landing from a Gap flight
+// Boosts for PERFECT_BOOST s (the player's own Boost is left alone).
+export const PERFECT_ANGLE = 5, CLEAN_ANGLE = 20, PERFECT_BOOST = 0.5;
+export type LandingGrade = 'perfect' | 'clean' | 'sketchy';
+export const landingGrade = (off: number): LandingGrade => off <= PERFECT_ANGLE ? 'perfect' : off <= CLEAN_ANGLE ? 'clean' : 'sketchy';
 export const CEILING_UP_Y = -0.3; // "upside down" = Track up points this far below horizontal

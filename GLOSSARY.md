@@ -20,6 +20,10 @@
 
 **Landing deck** — The flat Track after a Gap, long enough that every speed which clears the Gap lands on it.
 
+**Landing grade** — How cleanly the Bike came down, judged by how far it was tilted from the Track it landed on: Perfect, Clean or Sketchy. Tilted further than Sketchy is a crash.
+
+**Perfect landing** — A landing square to the Track, the best Landing grade. After a Gap it gives a short Boost.
+
 **Track-relative gravity** — While on the Track, gravity pulls the Bike into the Track surface beneath it, not world-down. This is what lets the Bike ride walls and Loops.
 
 **Cornering pull** — The sideways push towards a turn's outside edge while on the Track. The player steers against it; it grows with speed and is softened by banking.

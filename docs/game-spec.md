@@ -34,6 +34,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Afterglow | 3.3 km single loop, no braking: launch Gap, lift hill, a Corkscrew on the ridge straight into a drop Gap, step-up Gap, big drop, Loop, double. Two Boost pads. 7 Checkpoints, ~54 s. | [Big air Track 5 layout](https://github.com/rokaN8/racing_game/issues/56) |
 | Vertigo | 3.2 km single loop, no braking: a Helix up a 150 m tower, a 108 m Gap off the top (50–76 m/s), a Helix back down. 5 Checkpoints, ~54 s. Bank is measured from level, so no Track carries frame drift. | [Vertigo layout](https://github.com/rokaN8/racing_game/issues/77) |
 | Knot | 3.3 km pentagram (720° right), no braking: crosses itself 5 times, alternating over (14 m) and under (in a Tunnel), a Double Loop and a Corkscrew upside down over one crossing. 5 Checkpoints, ~54 s. | [Knot layout](https://github.com/rokaN8/racing_game/issues/79) |
+| Landing grades | Perfect ≤5° / Clean ≤20° / Sketchy ≤35°, coloured. A Perfect landing from a Gap Boosts 0.5 s. `TUNING` unchanged. | [Perfect landing and Landing grades](https://github.com/rokaN8/racing_game/issues/80) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
 
@@ -167,6 +168,31 @@ Overdrive keeps its hand-written control points.
 - **Placing them:** the strip length is the layout's call, so a long straight gets a long strip. A pad isn't a Gap's way across: every Gap still clears without Boost.
 
 **Checkpoints.** Each sits ≥60 m before the hazard that follows it, and a respawn at 20 m/s clears that hazard.
+
+**Landing grades** ([Perfect landing and Landing grades](https://github.com/rokaN8/racing_game/issues/80)). 🔒 New rules on top of the locked handling: `TUNING` is unchanged, and the new values sit next to it in `bike/tuning.ts` (`PERFECT_ANGLE`, `CLEAN_ANGLE`, `PERFECT_BOOST`).
+- **Grades:** every landing is graded by its angle off the deck (the worse of nose and up, as today):
+  - **Perfect:** ≤5°
+  - **Clean:** ≤20°
+  - **Sketchy:** up to `landingTolerance` (35°)
+  - past that it is a crash, as before.
+- **Perfect landing reward:** a Perfect landing from a **Gap flight** Boosts for 0.5 s (cap +`boostSpeed`, double accel, on the HUD meter), worth ~0.1 s. Like a Boost pad it leaves the Boost button and its cooldown alone, and it never cuts a longer Boost short. A Perfect landing after dropping off an edge or a ceiling is graded but earns nothing, so it can't be farmed. A plain speed kick was ruled out: above the cap it bleeds off at `overspeedDecay`, ~0.02 s.
+- **The Pilot never lands Perfect:** it points its nose along the flight path, so it lands 15–28° off (Clean or Sketchy). The Pilot times and Medals don't move.
+- **Message:**
+
+  | Grade | Text | Colour |
+  |---|---|---|
+  | Perfect | `PERFECT` | magenta, larger, popping in |
+  | Clean | `Clean · 12°` | green (`--ahead`) |
+  | Sketchy | `Sketchy · 28°` | amber (`--sketchy`) |
+
+  Crash messages are unchanged.
+- **Sound and rumble:**
+
+  | Grade | Sound | Rumble |
+  |---|---|---|
+  | Perfect | the landing thud plus a bright rising two-note chime | a crisp double tick |
+  | Clean | the thud | scaled by the angle, as before |
+  | Sketchy | the thud plus a short scrape | scaled by the angle, as before |
 
 **Bake frames** ([Vertigo layout](https://github.com/rokaN8/racing_game/issues/77)). The bake carries a rotation-minimizing frame along the spline, then turns it so each sample's bank is measured from level (world up, square to the tangent). Without that, a climbing turn or a Loop that drifts sideways rolls the frame and the leftover was spread round the Lap: the five older Tracks leaned 6–10° off their banks on average, and their Pilot times moved by up to 2.2 s (5 Laps) when this was fixed. Near vertical (a Loop) level is undefined, so the correction is eased across that stretch, and each pass over a Loop's top flips which way level points. The start line must be level.
 

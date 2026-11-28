@@ -1,7 +1,7 @@
 // Pure Bike kinematics, ported from prototypes/bike-handling.html. No DOM, no rendering.
 import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 import { sampleAt, type Frame, type Track } from '../track/bake';
-import { BOOST_PAD_TAIL, CEILING_UP_Y, type Tuning } from './tuning';
+import { BOOST_PAD_TAIL, CEILING_UP_Y, landingGrade, PERFECT_BOOST, type LandingGrade, type Tuning } from './tuning';
 
 // throttle/brake 0..1, steer -1..1, pitch -1..1 (+ = nose down; Air control only)
 export interface Input { throttle: number; brake: number; steer: number; pitch: number; boost: boolean }
@@ -11,10 +11,12 @@ export interface BikeState {
   pos: Vector3; vel: Vector3; quat: Quaternion;
   airT: number; lastCP: number; respawns: number;
   landOff: number; // the last landing's angle off, in degrees (rumble)
+  landGrade: LandingGrade | null; // the last landing's grade (HUD colour, sound, rumble)
+  fromGap: boolean; // this flight left from a Gap's lip, so a Perfect landing earns its Boost
   boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
   boostLen: number; padHits: number; // the running Boost's full length (HUD meter); Boost pads ridden onto (sound)
   lapTime: number; lastLap: number | null; laps: number;
-  msg: string; msgT: number;
+  msg: string; msgT: number; msgKind: LandingGrade | ''; // msgKind: a landing grade colours the message
 }
 
 export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
@@ -23,7 +25,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, landOff: 0, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
+    airT: 0, lastCP: 0, respawns: 0, landOff: 0, landGrade: null, fromGap: false, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0, msgKind: '' };
   placeOnTrack(st, T);
   return st;
 }
@@ -43,10 +45,10 @@ export function cornerPull(T: Track, s: number, speed: number, P: Tuning) {
   return -P.cornerPull * speed * speed * b.t.sub(a.t).dot(f.r) / 6 * Math.max(0, f.u.y);
 }
 
-const say = (st: BikeState, m: string) => { st.msg = m; st.msgT = 1.5; };
+const say = (st: BikeState, m: string, kind: LandingGrade | '' = '') => { st.msg = m; st.msgT = 1.5; st.msgKind = kind; };
 
 function launch(st: BikeState, f: Frame, why?: string) {
-  st.mode = 'air'; st.airT = 0;
+  st.mode = 'air'; st.airT = 0; st.fromGap = !why;
   st.vel.copy(f.t).multiplyScalar(st.speed).addScaledVector(f.r, st.latVel);
   if (why) say(st, why);
 }
@@ -135,7 +137,10 @@ export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number)
     // wrap s: a landing just behind the start line must not go negative (lastCP would be -1)
     Object.assign(st, { mode: 'track', s: (i * T.ds + along + T.L) % T.L, d, latVel: 0, speed: st.vel.dot(T.tan[i]) });
     st.lastCP = T.cpS.findLastIndex(c => c <= st.s);
-    say(st, `Landed · ${off}° off`);
+    // Landing grade (game-spec → Landing grades): Perfect from a Gap flight Boosts like a short Boost pad
+    const grade = st.landGrade = landingGrade(off);
+    if (grade === 'perfect' && st.fromGap && st.boostT < PERFECT_BOOST) { st.boostT = st.boostLen = PERFECT_BOOST; }
+    say(st, grade === 'perfect' ? 'PERFECT' : grade === 'clean' ? `Clean · ${off}°` : `Sketchy · ${off}°`, grade);
     placeOnTrack(st, T);
     return;
   }
