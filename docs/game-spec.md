@@ -32,6 +32,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Hang Time | 3.2 km figure-8: lift hill, 5 Gaps onto Landing decks, two Loops. 7 Checkpoints, ~54 s. No handling change. | [Big air Track layout](https://github.com/rokaN8/racing_game/issues/38) |
 | Slipstream | 3.4 km figure-8, no braking: Loop, Rollercoaster, a Corkscrew upside down over the start straight, curving Wall-ride, one Gap, two Boost pads. 6 Checkpoints, ~53 s. | [All-rounder Track 4 layout](https://github.com/rokaN8/racing_game/issues/55) |
 | Afterglow | 3.3 km single loop, no braking: launch Gap, lift hill, a Corkscrew on the ridge straight into a drop Gap, step-up Gap, big drop, Loop, double. Two Boost pads. 7 Checkpoints, ~54 s. | [Big air Track 5 layout](https://github.com/rokaN8/racing_game/issues/56) |
+| Vertigo | 3.2 km single loop, no braking: a Helix up a 150 m tower, a 108 m Gap off the top (50–76 m/s), a Helix back down. 5 Checkpoints, ~54 s. Bank is measured from level, so no Track carries frame drift. | [Vertigo layout](https://github.com/rokaN8/racing_game/issues/77) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
 
@@ -41,26 +42,26 @@ Still no art or audio files: everything is drawn and synthesised in code.
 
 ```ts
 interface TrackDef {
-  id: 'allround' | 'technical' | 'bigair' | 'flow' | 'flight'; // stable: used in storage keys, never renamed
+  id: 'allround' | 'technical' | 'bigair' | 'flow' | 'flight' | 'climb'; // stable: used in storage keys, never renamed
   name: string;                            // display name
-  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow', 'Flight'
+  kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow', 'Flight', 'Climb'
   cps: ControlPoint[]; gapSegments: number[]; checkpointCps: number[]; halfWidth: number;
   boostPads?: { cp: number; len: number }[]; // see Design rules → Boost pads
   palette: Palette;                        // see Palettes
   song: Song;                              // see Songs
 }
-export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow]; // this order everywhere
+export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow, vertigo]; // this order everywhere
 ```
 
 One module per Track in `src/track/tracks/<id>.ts`. Physics already takes the baked Track as a parameter, so it doesn't change.
 
-| | Overdrive | Switchback | Hang Time | Slipstream | Afterglow |
-|---|---|---|---|---|---|
-| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow | `flight` · Flight |
-| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m | 3,329 m |
-| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s | ~54 s |
-| Checkpoints | 4 | 7 | 7 | 6 | 7 |
-| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` | `src/track/tracks/flight.ts` |
+| | Overdrive | Switchback | Hang Time | Slipstream | Afterglow | Vertigo |
+|---|---|---|---|---|---|---|
+| id · kind | `allround` · All-rounder | `technical` · Technical | `bigair` · Big air | `flow` · Flow | `flight` · Flight | `climb` · Climb |
+| Length | 2,251 m | 3,022 m | 3,240 m | 3,388 m | 3,329 m | 3,160 m |
+| Clean Lap (pilot, Boost) | ~40 s | ~54 s | ~54 s | ~53 s | ~54 s | ~54 s |
+| Checkpoints | 4 | 7 | 7 | 6 | 7 | 5 |
+| Code | `src/track/tracks/allround.ts` (the POC's layout) | `src/track/tracks/technical.ts` | `src/track/tracks/bigair.ts` | `src/track/tracks/flow.ts` | `src/track/tracks/flight.ts` | `src/track/tracks/climb.ts` |
 
 **Overdrive.** Today's Track as it is: Loop → right turn → Rollercoaster → left turn → Wall-ride → Gap B → right turn.
 
@@ -102,7 +103,14 @@ Every Boost pad ends ≥200 m before the next Kicker, so every lip is back under
 
 Checkpoints: start line, at the foot of the lift hill, on the ridge before the Corkscrew, at the start of the left sweeper before the step-up, before the Loop, before the double, on the first double deck.
 
-The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts`, `src/track/tracks/flow.ts` and `src/track/tracks/flight.ts`.
+**Vertigo** (single loop, 360° right, no braking: both Helixes hold even Boosted; [Vertigo layout](https://github.com/rokaN8/racing_game/issues/77)):
+- start straight → right sweeper → **climb Helix** (right, 1080° at R40, bank 35°, +150 m, ~20 % grade)
+- → top straight → **the Gap off the top** (8° Kicker, deck 12 m lower, 108 m across, 50–76 m/s)
+- → **descent Helix** (left, 1080° at R40, bank 35°, −138 m) → run-out → three right sweepers → home straight
+
+Its Gap's window starts at 50 m/s, not 40 (see Design rules → Gaps). Checkpoints: start line, the foot of the climb, halfway up, the top (80 m before the Kicker), halfway down.
+
+The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigair.ts`, `src/track/tracks/flow.ts`, `src/track/tracks/flight.ts` and `src/track/tracks/climb.ts`.
 
 ### Building Tracks 2 and 3: the turtle builder
 
@@ -121,6 +129,7 @@ Overdrive keeps its hand-written control points.
 - **Kicker:** a parabola from the current grade up to the lip angle (8°; 14° for a step-up).
 - **Landing deck:** flat, `d` m below the lip (negative for a step-up).
 - **Deck span:** it starts where a 40 m/s flight comes down and runs 20 m past where a 76 m/s flight does. On a flat deck the landing angle stays near the lip angle at every speed.
+- **Speed window:** 40–76 m/s. A Gap may raise its 40 to buy a longer Gap off a small drop (Vertigo's is 50, under top speed). The drop limits it: the slowest flight lands steepest, and a 30 m drop comes down 32–37° at 40–50 m/s against the 35° tolerance, so keep the slowest landing under ~25°.
 - **Why flat:** decks sloping downhill made fast Bikes fly for 3–5 s and overshoot (airGravity is only 12).
 - **Drops:** big drops go on the Track between jumps.
 - **Boost:** no Gap needs Boost.
@@ -129,9 +138,10 @@ Overdrive keeps its hand-written control points.
 
 **Helixes.** A plain arc past 360° with a height change, at a steady grade (the spline softens the step at its foot and top). `TUNING` is unchanged.
 - **Climbing is free:** at full throttle accel (25) beats slopeGravity (20) plus drag on any grade, so a Helix doesn't slow the Bike. Its radius, bank and headroom are the limits.
-- **Holding it:** the Turns rule above. The Tight tower shape (900° at R30, bank 35°, +60 m) holds at top speed but not at Boost top speed (pull ~126 m/s²), so Boosting in it slides the Bike off. A layout that wants Boost through its Helix opens the radius or the bank.
+- **Holding it:** the Turns rule above. Vertigo's 3 turns at R40, bank 35°, hold Boosted too (pull ~94 m/s²). The Tight tower shape (900° at R30, bank 35°, +60 m) holds at top speed but not at Boost top speed (pull ~126 m/s²), so Boosting in it slides the Bike off. A layout that wants Boost through its Helix opens the radius or the bank.
 - **Headroom:** coils stack, so they need the 8 m of the self-crossing check; 24 m a turn leaves 18 m.
 - **Checkpoints:** split a Helix into two arcs to put a Checkpoint inside it. A 20 m/s respawn there rides clean.
+- **Bank stays true:** the bake measures bank from level, not from its rotation-minimizing frame, which drifts on a climbing turn (~95° a turn on Vertigo's 20 % grade; it rolled the tower top upside down). See Design rules → Bake frames.
 
 **Boost pads.** A strip `len` m long, drawn as forward chevrons every 6 m in the secondary colour. `TUNING` is unchanged.
 - **Riding onto one:** +`boostKick` speed, the rising pad chime plus the Boost whoosh, and a Boost sized as the strip's length at Boost top speed plus `BOOST_PAD_TAIL` (0.3 s), so the HUD meter drains across it.
@@ -140,6 +150,8 @@ Overdrive keeps its hand-written control points.
 - **Placing them:** the strip length is the layout's call, so a long straight gets a long strip. A pad isn't a Gap's way across: every Gap still clears without Boost.
 
 **Checkpoints.** Each sits ≥60 m before the hazard that follows it, and a respawn at 20 m/s clears that hazard.
+
+**Bake frames** ([Vertigo layout](https://github.com/rokaN8/racing_game/issues/77)). The bake carries a rotation-minimizing frame along the spline, then turns it so each sample's bank is measured from level (world up, square to the tangent). Without that, a climbing turn or a Loop that drifts sideways rolls the frame and the leftover was spread round the Lap: the five older Tracks leaned 6–10° off their banks on average, and their Pilot times moved by up to 2.2 s (5 Laps) when this was fixed. Near vertical (a Loop) level is undefined, so the correction is eased across that stretch, and each pass over a Loop's top flips which way level points. The start line must be level.
 
 ## Screens
 
@@ -223,6 +235,7 @@ Built in M11: `src/render/palette.ts`.
 | Hang Time | `#ff8a00` | `#a64dff` | `#0d0418` |
 | Slipstream | `#00ffa3` | `#c400ff` | `#000a06` |
 | Afterglow | `#ff3d7f` | `#ffd000` | `#12020a` |
+| Vertigo | `#2979ff` | `#ff3ea5` | `#00040f` |
 
 ## Songs
 
@@ -253,6 +266,7 @@ Patterns are 16 characters, one per 16th note. A pure `stepEvents(song, n)` turn
 | Hang Time | 128 | D A Bm G | Bright: four-on-the-floor, offbeat bass, rising arp |
 | Slipstream | 96 | Cmaj7 Am7 Fmaj7 G | Dreamwave: half-time beat, slow wide pads, echoing triangle arp ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/54)) |
 | Afterglow | 140 | A♭ E♭ Fm D♭ | Anthemic: half-time drums, long bass notes, big echoing arp |
+| Vertigo (Ascent) | 112 | Dm B♭ F C | Climbing: four-on-the-floor, a staircase arp that climbs each bar ([palettes and Songs](https://github.com/rokaN8/racing_game/issues/76)) |
 
 **When each plays.** The Menu Song covers the Menu, Track select, Reset times and Controls. A Track's Song covers its countdown, race, Pause and Finish.
 

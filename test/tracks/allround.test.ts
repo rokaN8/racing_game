@@ -124,7 +124,7 @@ describe('Cornering pull', () => {
 
   it("doesn't pull on the Loop's walls and ceiling", () => {
     for (let s = loopStart; s < loopExit; s++)
-      if (sampleAt(T, s).u.y <= 0) expect(cornerPull(T, s, TUNING.topSpeed, TUNING)).toBe(0);
+      if (sampleAt(T, s).u.y <= 0) expect(Math.abs(cornerPull(T, s, TUNING.topSpeed, TUNING))).toBe(0);
   });
 });
 

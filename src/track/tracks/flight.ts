@@ -37,7 +37,7 @@ const { cps, checkpointCps, gapSegments, boostPads } = buildTrack([
 export const afterglow: TrackDef = {
   id: 'flight', name: 'Afterglow', kind: 'Flight',
   cps, gapSegments, checkpointCps, boostPads, halfWidth: 4,
-  pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 51.68, 3: 149.93, 5: 248.08 },
+  pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 51.68, 3: 150.84, 5: 249.98 },
   palette: { primary: 0xff3d7f, secondary: 0xffd000, sky: 0x12020a }, // rose / gold
   // Big and anthemic, A♭ major I–V–vi–IV: half-time drums, long bass, echoing arp.
   song: {
