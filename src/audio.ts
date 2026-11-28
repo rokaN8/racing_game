@@ -1,7 +1,8 @@
-// Synth sound, Web Audio only: no files. An engine hum that follows speed, plus one-shot sounds for events.
+// Synth sound, Web Audio only: no files. An engine hum that follows speed, Wind, plus one-shot sounds for events.
 // Browsers keep audio off until the player interacts, so the AudioContext starts on the first key or click.
 // Plus music: the current Song (see setMusic). M mutes everything; the choice is kept in localStorage when storage works.
 import { barPhase, sinceKick, stepEvents, type Note, type Song } from './audio/songs';
+import { edgeNear, gust, rumbleOn } from './audio/wind';
 
 const MUTE_KEY = 'neon-racer.muted';
 const VOLUME = 0.35; // master; leaves headroom for music later
@@ -11,6 +12,7 @@ try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* storage block
 
 let ctx: AudioContext | null = null;
 let master: GainNode, engGain: GainNode, engFilter: BiquadFilterNode, engine: OscillatorNode, noise: AudioBuffer;
+let windGain: GainNode, windFilter: BiquadFilterNode, airGain: GainNode, rumbleGain: GainNode;
 
 function start() {
   if (ctx) { if (ctx.state === 'suspended') void ctx.resume(); return; }
@@ -25,6 +27,7 @@ function start() {
   noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); // 1 s of white noise, reused by every burst
   const d = noise.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  startWind();
   startMusic();
 }
 
@@ -158,6 +161,37 @@ addEventListener('keydown', e => {
 });
 addEventListener('pointerdown', start);
 
+// Wind (docs/game-spec.md → Wind and Ghost whoosh): three always-running voices whose gains follow the ride.
+// Wind: band-passed noise, rising with speed and gusting. Air tone: a 110 Hz triangle with a 6 Hz tremolo, only while
+// Airborne. Rumble strip: high-passed noise pulsed once per 4 m ridden, from 2 m short of the Track edge.
+function startWind() {
+  const loop = (dest: AudioNode) => { const s = ctx!.createBufferSource(); s.buffer = noise; s.loop = true; s.connect(dest); s.start(); };
+  const gain = (dest: AudioNode) => { const g = ctx!.createGain(); g.gain.value = 0; g.connect(dest); return g; };
+  windGain = gain(master); windFilter = ctx!.createBiquadFilter(); windFilter.type = 'bandpass'; windFilter.Q.value = 0.7;
+  windFilter.connect(windGain); loop(windFilter);
+  rumbleGain = gain(master); const hp = ctx!.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
+  hp.connect(rumbleGain); loop(hp);
+  airGain = gain(master);
+  const tone = ctx!.createOscillator(), trem = ctx!.createGain(), lfo = ctx!.createOscillator(), depth = ctx!.createGain();
+  tone.type = 'triangle'; tone.frequency.value = 110; trem.gain.value = 0.6; // 0.6 ± 0.4
+  lfo.frequency.value = 6; depth.gain.value = 0.4; lfo.connect(depth).connect(trem.gain);
+  tone.connect(trem).connect(airGain); tone.start(); lfo.start();
+}
+
+let ridden = 0; // metres ridden, for the rumble strip's pulses
+// Each frame. racing: false silences it all (countdown, screens, a crash). edge: metres to the Track edge, null in
+// the air. ponytail: the rumble pulses are set per frame (a 4 m pulse is ~1.5 frames at 60 m/s); schedule them on
+// the audio clock if they stutter at low frame rates.
+export function updateWind(speed: number, airborne: boolean, edge: number | null, dt: number, racing: boolean) {
+  if (!ctx) return;
+  const t = ctx.currentTime, v = Math.min(1, Math.abs(speed) / 75), on = racing ? 1 : 0, g = gust(t);
+  ridden += Math.abs(speed) * dt;
+  windGain.gain.setTargetAtTime(on * 0.1 * v * v * g * (airborne ? 0.5 : 1), t, 0.05);
+  windFilter.frequency.setTargetAtTime(600 + 900 * v * g, t, 0.05);
+  airGain.gain.setTargetAtTime(on * (airborne ? 0.06 : 0), t, 0.05);
+  rumbleGain.gain.setTargetAtTime(on * 0.14 * edgeNear(edge) * (rumbleOn(ridden) ? 1 : 0), t, 0.005);
+}
+
 // Each frame. Glides with setTargetAtTime so the engine never clicks or zippers.
 // A deep triangle hum: narrow pitch range (35-65 Hz) and a dark filter, so speed and Boost never make it whine.
 export function updateEngine(speed: number, airborne: boolean) {
@@ -198,4 +232,17 @@ export const sfx = {
   crash: () => burst(4000, 120, 0.7, 0.01, 0.6),
   checkpoint: () => { blip(880, 880, 0.09); blip(1320, 1320, 0.14, 0.09); },
   lap: () => [660, 880, 1320].forEach((f, i) => blip(f, f, 0.18, i * 0.1, 'triangle', 0.25)),
+  whoosh: (side: number) => swoop(side),
 };
+
+// The Ghost whoosh: a sawtooth swooping 1400 → 350 Hz over 0.5 s, panning out from near the middle to the Ghost's
+// side (side: −1 left … +1 right of the camera).
+function swoop(side: number) {
+  if (!ctx) return;
+  const t = ctx.currentTime, o = ctx.createOscillator(), pan = ctx.createStereoPanner(), g = ctx.createGain();
+  const p = (k: number) => Math.min(1, Math.max(-1, side * k));
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(350, t + 0.5);
+  pan.pan.setValueAtTime(p(0.3), t); pan.pan.linearRampToValueAtTime(p(1.5), t + 0.5);
+  g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  o.connect(pan).connect(g).connect(master); o.start(t); o.stop(t + 0.5);
+}

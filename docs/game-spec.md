@@ -280,6 +280,18 @@ Render only, with no physics ([Trackside scenery and Rung ripple](https://github
 
 **Rung ripple:** on top of the beat pulse, the rungs light towards the secondary in a stepped chase: each 16th of the Song's bar lights the next 10 m block ahead of the Bike (16 blocks, 160 m), each block fading over four steps and dimmer further out. Off the bar clock in `audio.ts` (`bar()`), so it keeps time when muted; off under reduced motion and before audio starts.
 
+## Wind and Ghost whoosh
+
+Sound only, synth only, no files ([Wind and Ghost whoosh](https://github.com/rokaN8/racing_game/issues/86), `audio.ts` with its rules in `audio/wind.ts`). Picked from three on the prototype branch [`prototype/wind`](https://github.com/rokaN8/racing_game/tree/prototype/wind) (`?sound=A|B|C`): C, Arcade, as heard there. Under the master, so M mutes it; silent outside a run (countdown, screens, Pause, Finish, a crash's explosion).
+
+**Wind:** band-passed noise, gain 0.1 × v² (v = speed / 75 m/s), centre 600 + 900 × v Hz, both scaled by a slow **gust** (two slow sines multiplied, 0.4–1). Halved while Airborne.
+
+**Air tone:** while Airborne, a 110 Hz triangle at 0.06 with a 6 Hz tremolo (0.6 ± 0.4), under the wind.
+
+**Rumble strip:** the warning before the Track edge. High-passed noise (1.5 kHz) pulsed once per 4 m ridden (on for 35 % of each), from 2 m short of the edge, rising to 0.14 at it. On the Track only. Not the gamepad rumble.
+
+**Ghost whoosh:** when the Ghost (yours or the Pilot's) crosses the camera's side-to-side line within 12 m, either way: you passing it or it passing you. A sawtooth swoops 1400 → 350 Hz over 0.5 s at 0.12, panning from 0.3 to 1.5 × the Ghost's side (its offset to the camera's right over its distance, clamped to ±1). A respawn or Retry starts the check over, so a jump never fires one.
+
 ## Run stats
 
 Counted, not ridden on: nothing here touches physics ([Run stats](https://github.com/rokaN8/racing_game/issues/85), `src/stats.ts`). A pure counter that `main.ts` feeds every physics step, off state changes between steps (as the sound effects are), so it only counts while racing with no screen open, and never the Pilot.
@@ -417,7 +429,8 @@ src/
   track/turtle.ts            # turtle builder: straights, arcs, Kickers, Gaps, Loops, free-straight closing
   render/palette.ts          # Palette, derive()
   render/scenery.ts          # Trackside scenery placement and the Rung ripple's glow
-  audio.ts                   # engine, sfx, sequencer playing a Song; crossfade, muffle
+  audio.ts                   # engine, Wind, sfx, sequencer playing a Song; crossfade, muffle
+  audio/wind.ts              # Wind and Ghost whoosh rules: rumble strip, gust, what a pass is
   audio/songs.ts             # the Menu Song (Track Songs live on their TrackDef)
   ghost.ts                   # per Track: top 5 + Ghost + best Sectors in one key, migration; the Pilot Ghost's run
   stats.ts                   # Run stats counted per physics step; Lifetime stats, banked into one key

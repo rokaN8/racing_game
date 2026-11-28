@@ -58,6 +58,12 @@
 
 **Finish cam** — After the finish line, the camera's slow circle round the stopped Bike behind the Finish screen.
 
+**Wind** — The rush of air you hear rising with speed, gusting, and joined by a wobbling tone while Airborne. Sound only.
+
+**Rumble strip** — The pulsing buzz you hear near the Track edge, faster the quicker you ride, warning before you go off. A sound, not the gamepad's rumble.
+
+**Ghost whoosh** — The swoop you hear, panned to its side, when you pass the Ghost or it passes you.
+
 **Run stats** — The numbers from one run, shown on the Finish screen: airtime, top speed, crashes (every respawn, the R key's too), Boosts fired, Boost pad hits and Perfect landings.
 
 **Lifetime stats** — Your totals across every Track and run, on the Stats screen: distance, Laps, time played, runs finished and crashes. They never reset.
