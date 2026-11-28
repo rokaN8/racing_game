@@ -184,6 +184,10 @@
       #ui table.ctl { margin-top: 18px; }
       #ui table.ctl td:first-child { padding-right: 28px; font-size: 14px; color: var(--ink); text-shadow: none; }
       #ui .note { margin-top: 10px; }
+      /* Finish: the Run stats, a 3 × 2 grid under the Laps */
+      #ui dl.runstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; margin: 6px 8px 0; }
+      #ui dl.runstats dt { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; }
+      #ui dl.runstats dd { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
       #ui kbd { font: 600 12px var(--hud-font); letter-spacing: .08em; color: var(--ink); text-shadow: none; border: 1px solid #0ff6; border-bottom-width: 2px; padding: 2px 7px; }
       /* Medals: a slanted tag in the Medal's colour; Track select's targets dim until earned. The Ideal time line. */
       #ui .medal { flex: none; font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--m);

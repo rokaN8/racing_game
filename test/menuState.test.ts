@@ -16,12 +16,14 @@ const tick = (dt: number): Action => ({ type: 'tick', dt });
 const select = () => run(initialMenu(), open('menu'), pick).s; // Menu → Play → Track select
 
 describe('Menu state', () => {
-  it('Menu has Play and Controls; Play → Track select → a Track starts it and closes the overlay', () => {
+  it('Menu has Play, Stats and Controls; Play → Track select → a Track starts it and closes the overlay', () => {
     const { s, effects } = run(initialMenu(), open('menu'), pick, down, pick);
     expect(s.screen).toBeNull();
     expect(effects).toEqual([{ start: 1, laps: 3 }]);
     expect(s.track).toBe(1);
-    expect(run(initialMenu(), open('menu'), down, pick).s.screen).toBe('controls');
+    expect(run(initialMenu(), open('menu'), down, pick).s.screen).toBe('stats');
+    expect(run(initialMenu(), open('menu'), down, down, pick).s.screen).toBe('controls');
+    expect(run(initialMenu(), open('menu'), down, pick, back).s.screen).toBe('menu');
   });
 
   it('Track select starts on the last-raced Track; the Menu restores its focus', () => {
@@ -29,14 +31,14 @@ describe('Menu state', () => {
     ({ s } = run(s, open('finish'), tick(FINISH_LOCK), down, pick));      // Finish → Track select
     expect(s.screen).toBe('select');
     expect(s.focus).toBe(2);
-    ({ s } = run(s, back, down, pick, back));                              // Menu → Controls → back
+    ({ s } = run(s, back, down, pick, back));                              // Menu → Stats → back
     expect(s.screen).toBe('menu');
     expect(s.focus).toBe(1);
   });
 
   it('focus wraps both ways', () => {
-    expect(run(initialMenu(), open('menu'), up).s.focus).toBe(1);
-    expect(run(initialMenu(), open('menu'), down, down).s.focus).toBe(0);
+    expect(run(initialMenu(), open('menu'), up).s.focus).toBe(2);
+    expect(run(initialMenu(), open('menu'), down, down, down).s.focus).toBe(0);
   });
 
   it('← → set the lap count on Track select, stopping at 1 and 5, and a Track starts with it', () => {

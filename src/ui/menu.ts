@@ -1,8 +1,9 @@
-// The side-rail overlay: Menu, Track select (with the High scores and Reset times), Controls, Pause and Finish
+// The side-rail overlay: Menu, Track select (with the High scores and Reset times), Controls, Stats, Pause and Finish
 // (docs/game-spec.md → Screens). Draws menuState and feeds it keyboard and gamepad input; the game carries out the
 // effects. Plain HTML over the canvas.
 import type { Score } from '../ghost';
 import { clock } from '../hud';
+import type { RunStats, Totals } from '../stats';
 import { drawOutline, type Outline } from './outline';
 import {
   LAP_OPTIONS, MEDALS, earns, initialMenu, itemsFor, medalFor, medalRank, medalTime, reduce, type Action, type Effect, type Item, type Medal,
@@ -16,27 +17,32 @@ export interface MenuTrack extends Outline {
   ideal: (laps: number) => number | null; // the Ideal time, null while hidden
   pilotTimes: Record<number, number>;     // the Pilot's run time per lap count: the Medals' reference
 }
-// raceTime, lap: the run so far (Pause). time, lapTimes, delta, rank: the finished run (Finish).
-interface RunInfo { raceTime: number; lap: number; time: number; lapTimes: readonly number[]; delta: number | null; rank: number | null }
+// raceTime, lap: the run so far (Pause). time, lapTimes, delta, rank, stats: the finished run (Finish).
+interface RunInfo { raceTime: number; lap: number; time: number; lapTimes: readonly number[]; delta: number | null; rank: number | null; stats: RunStats | null }
 
 const CONTROLS: [string, string, string][] = [
   ['Throttle · nose down', 'W  ↑', 'RT · stick up'], ['Brake · nose up', 'S  ↓', 'LT · stick down'],
   ['Steer · yaw', 'A D  ← →', 'Left stick'], ['Boost', 'Space  Shift', 'A'], ['Respawn', 'R', 'Y'],
   ['Pause', 'Esc', 'Start'], ['Ghost line', 'G', 'Select'], ['Mute', 'M', ''],
 ];
-const TITLE: Partial<Record<Screen, string>> = { select: 'Track select', reset: 'Reset times', controls: 'Controls', pause: 'Paused' };
+const TITLE: Partial<Record<Screen, string>> = { select: 'Track select', reset: 'Reset times', controls: 'Controls', stats: 'Stats', pause: 'Paused' };
 const fmt = (t: number) => clock(t);
 const lapsText = (n: number) => `${n} Lap${n === 1 ? '' : 's'}`;
 const date = (d: number | null) => (d === null ? '' : new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
 const esc = (s: string) => s.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
 const signed = (d: number) => `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`;
+// Time played: 1h 05m, or 4m 12s under an hour.
+const played = (t: number) => {
+  const m = Math.floor(t / 60);
+  return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m ${String(Math.floor(t % 60)).padStart(2, '0')}s`;
+};
 const kbd = (k: string) => `<kbd>${k}</kbd>`;
 const hintHtml = (h: [string[], string][]) => h.map(([keys, what]) => `<span>${keys.map(kbd).join('<i>/</i>')} ${what}</span>`).join('');
 const palette = (t: MenuTrack) => `--a:${t.colors[0]};--b:${t.colors[1]}`;
 const medalTag = (m: Medal | null, pop = false) => (m ? `<i class="medal ${m.toLowerCase()}${pop ? ' pop' : ''}">${m}</i>` : '');
 
-export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void) {
-  let s = initialMenu(), info: RunInfo = { raceTime: 0, lap: 1, time: 0, lapTimes: [], delta: null, rank: null };
+export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void, totals: () => Totals) {
+  let s = initialMenu(), info: RunInfo = { raceTime: 0, lap: 1, time: 0, lapTimes: [], delta: null, rank: null, stats: null };
   const n = tracks.length;
 
   const dispatch = (a: Action) => {
@@ -83,7 +89,7 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       if (s.armed === i) return `<span>Reset ${name}?</span><b>${Math.ceil(s.armedT)}</b>`;
       return it.reset === 'all' ? '<span>All Tracks</span>' : `<span>${name}</span>${swatch(tracks[it.reset])}`;
     }
-    return { play: 'Play', controls: 'Controls', reset: 'Reset times', resume: 'Resume', restart: 'Restart', quit: 'Quit to Menu',
+    return { play: 'Play', stats: 'Stats', controls: 'Controls', reset: 'Reset times', resume: 'Resume', restart: 'Restart', quit: 'Quit to Menu',
       retry: 'Retry', select: 'Track select', menu: 'Menu' }[it];
   };
   // Under the armed reset: what it deletes. After one: that it's done.
@@ -139,8 +145,12 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       const fastest = info.lapTimes.indexOf(Math.min(...info.lapTimes));
       const laps = info.lapTimes.length > 1 ? `<h2 class="label">Laps</h2><ol class="top">${info.lapTimes.map((x, i) =>
         `<li><span>${i + 1}</span><b>${fmt(x)}</b>${i === fastest ? '<em>Fastest</em>' : ''}</li>`).join('')}</ol>` : '';
+      // the Run stats: a 3 × 2 grid under the Laps
+      const r = info.stats, run = r ? `<h2 class="label">Run</h2><dl class="runstats">${([
+        ['Airtime', `${r.air.toFixed(1)} s`], ['Top speed', `${Math.round(r.top)} m/s`], ['Crashes', r.crashes],
+        ['Boosts', r.boosts], ['Pad hits', r.pads], ['Perfect', r.perfect]] as const).map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : '';
       return `<div class="panel" style="${palette(t)}"><div class="band"></div><h2 class="label">Top 5 · ${lapsText(s.laps)}</h2>`
-        + `${top5(t, info.rank)}${you}${ideal(t, true)}${laps}</div>`;
+        + `${top5(t, info.rank)}${you}${ideal(t, true)}${laps}${run}</div>`;
     }
     return '';
   }
@@ -151,7 +161,7 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       case 'menu': return [[['↑↓'], 'move'], [['Enter', 'A'], 'pick']];
       case 'select': return [[['↑↓'], 'track'], [['←→'], 'laps'], [['Enter', 'A'], it === 'reset' ? 'open' : 'race'], [['Esc', 'B'], 'back']];
       case 'reset': return [[['↑↓'], 'move'], [['Enter', 'A'], 'press twice'], [['Esc', 'B'], 'back']];
-      case 'controls': return [[['Esc', 'B'], 'back']];
+      case 'controls': case 'stats': return [[['Esc', 'B'], 'back']];
       case 'pause': return [[['↑↓'], 'move'], [['Enter', 'A'], 'pick'], [['Esc', 'B'], 'resume']];
       case 'finish': return [[['↑↓'], 'move'], [['Enter', 'A'], 'pick'], [['R', 'Y'], 'retry']];
     }
@@ -166,6 +176,10 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       body = `<table class="ctl"><tr><th></th><th>Keyboard</th><th>Gamepad</th></tr>`
         + CONTROLS.map(([a, k, g]) => `<tr><td>${a}</td><td>${kbd(k)}</td><td>${g ? kbd(g) : ''}</td></tr>`).join('')
         + '</table><p class="sub note">In the air, throttle and brake pitch the nose; steer yaws.</p>';
+    } else if (screen === 'stats') { // Lifetime stats: every Track and lap count together
+      const t = totals();
+      body = `<table class="ctl">${([['Distance', `${(t.dist / 1000).toFixed(1)} km`], ['Laps', t.laps], ['Time played', played(t.time)],
+        ['Runs finished', t.runs], ['Crashes', t.crashes]] as const).map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('')}</table>`;
     } else {
       body = `<div class="list">${itemsFor(screen, n).map((it, i) =>
         `<div class="item${i === s.focus ? ' on' : ''}${s.armed === i ? ' armed' : ''}${it === 'reset' ? ' minor' : ''}">${label(it, i)}</div>${resetNote(it, i)}`).join('')}</div>`;
