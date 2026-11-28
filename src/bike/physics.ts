@@ -10,6 +10,7 @@ export interface BikeState {
   s: number; d: number; latVel: number; speed: number;
   pos: Vector3; vel: Vector3; quat: Quaternion;
   airT: number; lastCP: number; respawns: number;
+  landOff: number; // the last landing's angle off, in degrees (rumble)
   boostT: number; boostCD: number; // Boost time left; time until Boost is ready again
   boostLen: number; padHits: number; // the running Boost's full length (HUD meter); Boost pads ridden onto (sound)
   lapTime: number; lastLap: number | null; laps: number;
@@ -22,7 +23,7 @@ export const frameQuat = (f: Frame) => // Bike local: +z forward, +y up, +x left
 export function newState(T: Track): BikeState {
   const st: BikeState = { mode: 'track', s: 0, d: 0, latVel: 0, speed: 0,
     pos: new Vector3(), vel: new Vector3(), quat: new Quaternion(),
-    airT: 0, lastCP: 0, respawns: 0, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
+    airT: 0, lastCP: 0, respawns: 0, landOff: 0, boostT: 0, boostCD: 0, boostLen: 1, padHits: 0, lapTime: 0, lastLap: null, laps: 0, msg: '', msgT: 0 };
   placeOnTrack(st, T);
   return st;
 }
@@ -129,6 +130,7 @@ export function step(st: BikeState, inp: Input, P: Tuning, T: Track, dt: number)
     const aF = new Vector3(0, 0, 1).applyQuaternion(st.quat).dot(T.tan[i]);
     const aU = new Vector3(0, 1, 0).applyQuaternion(st.quat).dot(T.up[i]);
     const off = Math.round(MathUtils.radToDeg(Math.acos(MathUtils.clamp(Math.min(aF, aU), -1, 1))));
+    st.landOff = off;
     if (Math.min(aF, aU) < Math.cos(MathUtils.degToRad(P.landingTolerance))) return respawn(st, T, P, `Crashed — landed ${off}° off`);
     // wrap s: a landing just behind the start line must not go negative (lastCP would be -1)
     Object.assign(st, { mode: 'track', s: (i * T.ds + along + T.L) % T.L, d, latVel: 0, speed: st.vel.dot(T.tan[i]) });

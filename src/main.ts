@@ -1,12 +1,12 @@
 import { WebGLRenderer } from 'three';
 import { newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { setMusic, sfx, updateEngine } from './audio';
+import { beat, setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
 import { drawCenter, drawHud, drawMap, lapBanner } from './hud';
-import { onRespawn, readInput } from './input';
+import { onRespawn, readInput, rumble, stopRumble } from './input';
 import { css } from './render/palette';
 import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
@@ -96,8 +96,17 @@ const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   if (effect === 'restart' || effect === 'endRun') return retry();
   if ('start' in effect) return selectTrack(effect.start, effect.laps);
   for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) for (const g of Object.values(x.ghosts)) g.clear();
-}, () => { if (phase !== 'finished') menu.open('pause', { raceTime: sum(ghost().run) + st.lapTime, lap: ghost().run.length + 1 }); });
+}, pause);
 menu.open('menu');
+// Pause (Esc / Start), and leaving the game mid-run: a hidden tab or the window losing focus (docs/game-spec.md →
+// Screens). Already on a screen, nothing changes. Stops any rumble, as no frame may come to do it while hidden.
+function pause() {
+  if (menu.screen || phase === 'finished') return;
+  menu.open('pause', { raceTime: sum(ghost().run) + st.lapTime, lap: ghost().run.length + 1 });
+  stopRumble();
+}
+addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+addEventListener('blur', pause);
 
 onRespawn(() => {
   if (menu.screen === 'finish') { retry(); menu.close(); }
@@ -112,8 +121,9 @@ let acc = 0, last = performance.now(), snap = true, seenRespawns = 0;
 // costs no race time); then the camera snaps to the respawn as before.
 const boom = createExplosion();
 let wreckT = 0;
-// Last frame's state, to spot sound events.
+// Last frame's state, to spot sound and rumble events.
 let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 renderer.setAnimationLoop(now => {
   const frame = Math.min(0.1, (now - last) / 1000); last = now; acc += frame;
   const inp = readInput();
@@ -144,18 +154,24 @@ renderer.setAnimationLoop(now => {
   if (!frozen) { wreckT -= frame; boom.update(frame); }
   const wrecked = wreckT > 0;
 
-  // Sound: one-shots when state changes ('>' so a retry's reset to zero is silent).
-  if (st.respawns > was.respawns) sfx.crash();
-  else if (was.mode === 'air' && st.mode === 'track') sfx.land();
-  if (st.padHits > was.padHits) sfx.pad();
-  if (st.boostT > was.boostT) sfx.boost();
-  if (st.lastCP > was.lastCP) sfx.checkpoint();
-  if (st.laps > was.laps) sfx.lap();
+  // Sound and rumble: one-shots when state changes ('>' so a retry's reset to zero is silent). Rumble only during a
+  // run (the last Lap's still plays as Finish opens; Pause stops it), and a new one replaces the one playing, so these
+  // go in rising order of importance.
+  const buzz: typeof rumble = (...a) => { if (!frozen) rumble(...a); };
+  if (st.lastCP > was.lastCP) { sfx.checkpoint(); buzz(0, 0.3, 40); }
+  if (st.laps > was.laps) { sfx.lap(); buzz(0, 0.4, 50); buzz(0, 0.4, 50, 120); }
+  if (st.boostT > was.boostT) { sfx.boost(); buzz(0.15, 0.3, 150); }
+  if (st.padHits > was.padHits) { sfx.pad(); buzz(0, 0.5, 200); }
+  if (st.respawns > was.respawns) { sfx.crash(); buzz(1, 1, 400); }
+  else if (was.mode === 'air' && st.mode === 'track') { sfx.land(); buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
   was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
   // The Menu Song covers the Menu screens; the Track's Song its countdown, race, Pause and Finish. Pause muffles it.
   const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
   setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');
   updateEngine(phase === 'racing' && !frozen && !wrecked ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
+  // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
+  const sinceKick = reducedMotion.matches ? null : beat();
+  w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
 
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
   goT -= frame; splitT -= frame; if (!frozen) bannerT -= frame;
@@ -171,5 +187,6 @@ renderer.setAnimationLoop(now => {
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
   if (!frozen) drawMap(w.outline, st.pos, w.ghostBike.visible ? w.ghostBike.position : null);
   if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
+  w.horizon.position.copy(camera.position); // at infinity: it moves with the camera, never nearer
   bloom.render();
 });

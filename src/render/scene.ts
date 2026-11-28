@@ -1,8 +1,8 @@
 // Track ribbon and thick neon edges, Bike and Ghost Bike (from bike.ts), grid floor, Light trail, bloom.
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute,
-  GridHelper, HalfFloatType, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion,
-  Scene, Vector2, Vector3,
+  AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, DoubleSide, Float32BufferAttribute,
+  GridHelper, Group, HalfFloatType, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Points,
+  PointsMaterial, Quaternion, Scene, SRGBColorSpace, Vector2, Vector3,
   WebGLRenderTarget,
   type Camera, type WebGLRenderer,
 } from 'three';
@@ -45,8 +45,11 @@ export function createScene(T: Track, palette: Palette) {
     const mat = new LineMaterial({ color, linewidth: px }); // linewidth in pixels
     lineMats.push(mat);
     scene.add(new LineSegments2(new LineSegmentsGeometry().setPositions(pts.flatMap(p => p.toArray())), mat));
+    return mat;
   };
-  thick(edge, c.edge, 2); thick(cps, c.accent, 4);
+  const edgeMat = thick(edge, c.edge, 2), cpMat = thick(cps, c.accent, 4);
+  // The beat pulse (docs/game-spec.md → Songs): edges and Checkpoint lines at k × their brightness.
+  const pulse = (k: number) => { edgeMat.color.setHex(c.edge).multiplyScalar(k); cpMat.color.setHex(c.accent).multiplyScalar(k); };
   // Boost pads: forward-pointing chevrons every 6 m along the strip, in the secondary colour
   const on = (s: number, side: number) => { const f = sampleAt(T, s); return f.p.addScaledVector(f.r, side * T.halfWidth).addScaledVector(f.u, 0.06); };
   const chevrons: Vector3[] = [];
@@ -56,6 +59,8 @@ export function createScene(T: Track, palette: Palette) {
 
   const grid = new GridHelper(3000, 150, c.gridMajor, c.gridMinor);
   grid.position.y = T.minY - 2; scene.add(grid);
+  const horizon = createHorizon(c, Math.atan2(T.tan[0].x, T.tan[0].z));
+  scene.add(horizon);
 
   const bikeModels = createBikeModels(m => lineMats.push(m));
   const { bike, ghostBike } = bikeModels;
@@ -64,7 +69,64 @@ export function createScene(T: Track, palette: Palette) {
 
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
-  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines };
+  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, horizon };
+}
+
+// Synthwave horizon (docs/game-spec.md → Palettes): a striped sun where the start straight looks (`heading`, about +y
+// from +z), a ring of wireframe mountains and stars. Built around the origin; main.ts moves it to the camera each
+// frame (position only), so it sits at infinity. Distances stay inside the camera's 3000 m far plane.
+// ponytail: fixed radii, fine while every Track is under ~1.2 km across; a Track much past 2 km would poke through the
+// mountains, then scale the radii (and the far plane) to the Track.
+const MOUNTAIN_R = 2000, SUN_R = 2300, STAR_R = 2600, SUN_SIZE = 1200, STARS = 300;
+function createHorizon(c: ReturnType<typeof derive>, heading: number) {
+  const group = new Group();
+  const at = (a: number, r: number, y: number) => new Vector3(r * Math.sin(a), y, r * Math.cos(a));
+
+  // Mountains: columns of [skirt, foot, shoulder, ridge]. The skirt reaches far below eye level, fill only, so no sky
+  // shows past the grid's edge from up high. The fill sits 1 % further out than the lines (same direction from the
+  // camera), so they never z-fight.
+  const COLS = 160, rows: Vector3[][] = [];
+  for (let i = 0; i < COLS; i++) {
+    const a = (i / COLS) * 2 * Math.PI, ridge = 30 + 150 * Math.abs(Math.sin(3 * a + 1) * Math.sin(7 * a)) + 40 * Math.random();
+    rows.push([-0.6 * MOUNTAIN_R, -20, ridge * (0.35 + 0.2 * Math.random()), ridge].map(y => at(a, MOUNTAIN_R, y)));
+  }
+  const fill: number[] = [], lines: Vector3[] = [];
+  for (let i = 0; i < COLS; i++) {
+    const p = rows[i], q = rows[(i + 1) % COLS];
+    for (let k = 0; k < 3; k++) fill.push(...[p[k], q[k], p[k + 1], p[k + 1], q[k], q[k + 1]].flatMap(v => v.toArray()));
+    for (let k = 1; k < 4; k++) lines.push(p[k], q[k]);               // along: foot, shoulder, ridge
+    lines.push(p[1], p[3], p[1], q[2], p[2], q[3]);                    // up, and the diagonals
+  }
+  const fillGeo = new BufferGeometry(); fillGeo.setAttribute('position', new Float32BufferAttribute(fill, 3));
+  const fillMesh = new Mesh(fillGeo, new MeshBasicMaterial({ color: c.mountainFill, side: DoubleSide }));
+  fillMesh.scale.setScalar(1.01);
+  group.add(fillMesh, new LineSegments(new BufferGeometry().setFromPoints(lines), new LineBasicMaterial({ color: c.mountain })));
+
+  // Stars: dim points on a dome, any that fall behind the mountains hidden by them.
+  const starPos: number[] = [], starCol: number[] = [], tint = new Color();
+  for (let i = 0; i < STARS; i++) {
+    const el = Math.asin(0.05 + 0.9 * Math.random()), a = Math.random() * 2 * Math.PI;
+    starPos.push(...at(a, STAR_R * Math.cos(el), STAR_R * Math.sin(el)).toArray());
+    starCol.push(...tint.setHex(c.star).multiplyScalar(0.3 + 0.7 * Math.random()).toArray());
+  }
+  const starGeo = new BufferGeometry();
+  starGeo.setAttribute('position', new Float32BufferAttribute(starPos, 3)); starGeo.setAttribute('color', new Float32BufferAttribute(starCol, 3));
+  group.add(new Points(starGeo, new PointsMaterial({ size: 2, sizeAttenuation: false, vertexColors: true })));
+
+  // Sun: secondary at the top to primary at the bottom, cut by gaps that widen towards the bottom. Its foot sinks
+  // behind the mountains.
+  const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+  const g = cv.getContext('2d')!, grad = g.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0.1, css(c.sunTop)); grad.addColorStop(0.9, css(c.sunBottom));
+  g.fillStyle = grad; g.beginPath(); g.arc(256, 256, 256, 0, 2 * Math.PI); g.fill();
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 7; i++) g.fillRect(0, 512 * (0.52 + 0.068 * i), 512, 4 + 4 * i);
+  const tex = new CanvasTexture(cv); tex.colorSpace = SRGBColorSpace;
+  const sun = new Mesh(new PlaneGeometry(SUN_SIZE, SUN_SIZE), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sun.position.copy(at(heading, SUN_R, 0.45 * SUN_SIZE)); // ~15° in radius, its foot at eye level
+  sun.lookAt(0, sun.position.y, 0); // upright, facing the camera
+  group.add(sun);
+  return group;
 }
 
 // FINISH arch over the start line (s = 0): two posts, a crossbar, and a text panel facing the oncoming Bike.
@@ -127,7 +189,8 @@ function createTrail(scene: Scene) {
 }
 
 // ponytail: "selective" bloom by luminance threshold, not bloom layers: every non-neon surface is near-black
-// (Track fill, rungs, grid sit below the threshold), so only the neon glows. Switch to layers if a bright non-glow object appears.
+// (Track fill, rungs, grid, the horizon's mountains and stars sit below the threshold), so only the neon glows, plus the
+// horizon's sun, dimmed so it blooms only a little. Switch to layers if a bright non-glow object appears.
 export function createBloom(renderer: WebGLRenderer, scene: Scene, camera: Camera) {
   // own MSAA target: the composer's default has none, which would undo the renderer's antialias
   const composer = new EffectComposer(renderer, new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType }));

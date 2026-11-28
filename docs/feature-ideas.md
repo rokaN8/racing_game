@@ -41,8 +41,9 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 
 ## C. Look and world
 
-- [ ] **C1. Synthwave horizon** [#66] (S/M). A striped setting sun, a wireframe mountain range and stars far out, from each Track's palette. The sky stays solid; these are objects, kept under the bloom threshold except the sun's rim. *Touches:* `render/scene.ts`, `palette.ts`.
-- [ ] **C2. Beat-synced Track** [#67] (S/M). Edges and Checkpoint lines pulse on the kick, rungs ripple forward each bar. The step generator already knows when each step plays; expose a beat clock from `audio.ts` (BPM alone when muted). *Touches:* `audio.ts`, `scene.ts`.
+- [x] **C1. Synthwave horizon** [#66] (S/M). A striped setting sun, a wireframe mountain range and stars far out, from each Track's palette. The sky stays solid; these are objects, kept under the bloom threshold; only the sun blooms, a little. *Touches:* `render/scene.ts`, `palette.ts`.
+- [x] **C2. Beat-synced Track** [#67] (S/M). Edges and Checkpoint lines pulse on the kick, off a beat clock from `audio.ts` (the scheduler keeps running when muted). *Touches:* `audio.ts`, `scene.ts`.
+- [ ] **C2b. Rung ripple** (S). On top of C2: the rungs ripple forward along the Track each bar. Split out of #67 as a later step. *Touches:* `scene.ts`.
 - [ ] **C3. Speed feel** (S). Streaks past the camera while Boosting, a short shake on hard landings, a slight colour split at Boost top speed. Render and camera only. *Touches:* `camera.ts`, a small particles module.
 - [ ] **C4. Trackside scenery** (M). Neon pylons, arches over Checkpoints, holo-boards with the Track name, light towers by the Loops. Outline-only, so the look holds. *Touches:* `scene.ts`.
 - [ ] **C5. Ghost line** (S). The Ghost's line drawn faintly on the Track ahead, from its recorded poses. Teaches the racing line. Toggle. *Touches:* `scene.ts`, `ghost.ts`.
@@ -69,8 +70,8 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 
 ## F. Quality of life and platform
 
-- [ ] **F1. Gamepad rumble** [#68] (S). `vibrationActuator.playEffect('dual-rumble')` on landing (stronger the further off), crash, Boost pad and Checkpoint. Native API. *Touches:* `input.ts`, the sound-event diffs in `main.ts`.
-- [ ] **F2. Auto-Pause** [#69] (S). Leaving the tab mid-run opens Pause. Today the run freezes but you come back unpaused, and the throttled music scheduler stutters. *Touches:* `main.ts` (`visibilitychange`).
+- [x] **F1. Gamepad rumble** [#68] (S). `vibrationActuator.playEffect('dual-rumble')` on landing (stronger the further off), crash, Boost pad and Checkpoint. Native API. *Touches:* `input.ts`, the sound-event diffs in `main.ts`.
+- [x] **F2. Auto-Pause** [#69] (S). Leaving the tab mid-run opens Pause. Today the run freezes but you come back unpaused, and the throttled music scheduler stutters. *Touches:* `main.ts` (`visibilitychange`).
 - [ ] **F3. Settings** (M). Music and SFX volume, FOV, FPS counter, quality (pixel ratio, bloom), reduce flashing (explosion, beat pulse). 🔒 spec says no settings screen.
 - [ ] **F4. Key remapping** (M). Needs F3. *Touches:* `input.ts`.
 - [ ] **F5. Touch controls** (M). On-screen throttle, brake and Boost with thumb or tilt steering, so it plays on phones; tap targets on the Menu. *Touches:* `input.ts`, `ui/menu.ts`, CSS.

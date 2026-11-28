@@ -45,12 +45,15 @@ describe('Palettes', () => {
     expect(derive(overdrive.palette)).toEqual({
       edge: 0xff2bd6, accent: 0xffe600, sky: 0x000000,
       fill: 0x0f030d, rungs: 0x4d0d40, gridMajor: 0x38092f, gridMinor: 0x1a0415,
+      sunTop: 0x998a00, sunBottom: 0x991a80, mountain: 0x590f4b, mountainFill: 0x080106, star: 0x666666,
     });
   });
 
-  it.each(TRACKS)('$name: only the neon glows (sky, fill, rungs and grid sit below the bloom threshold)', t => {
+  it.each(TRACKS)('$name: only the neon glows (sky, fill, rungs, grid and the horizon mountains and stars sit below the bloom threshold)', t => {
     const c = derive(t.palette);
     for (const k of ['sky', 'fill', 'rungs', 'gridMajor', 'gridMinor'] as const) expect(lum(c[k]), k).toBeLessThan(BLOOM_THRESHOLD / 2);
+    // the horizon: small and far off, so it only has to stay under the threshold, not the Track's half-margin
+    for (const k of ['mountain', 'mountainFill', 'star'] as const) expect(lum(c[k]), k).toBeLessThan(BLOOM_THRESHOLD);
     for (const k of ['edge', 'accent'] as const) expect(lum(c[k]), k).toBeGreaterThan(BLOOM_THRESHOLD);
   });
 });
