@@ -47,6 +47,7 @@ interface TrackDef {
   kind: string;                            // shown under the name: 'All-rounder', 'Technical', 'Big air', 'Flow', 'Flight', 'Climb'
   cps: ControlPoint[]; gapSegments: number[]; checkpointCps: number[]; halfWidth: number;
   boostPads?: { cp: number; len: number }[]; // see Design rules → Boost pads
+  tunnels?: { cp: number; len: number }[];   // see Design rules → Tunnels (looks only)
   palette: Palette;                        // see Palettes
   song: Song;                              // see Songs
 }
@@ -115,7 +116,7 @@ The exact pieces are in `src/track/tracks/technical.ts`, `src/track/tracks/bigai
 ### Building Tracks 2 and 3: the turtle builder
 
 `src/track/turtle.ts` lays a Track out from a heading instead of hand-placed points, so turn radii are exact:
-- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change; past 360° with a height change it is a Helix, [Helix piece](https://github.com/rokaN8/racing_game/issues/75)), Kicker, Gap, Loop, Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52)), and Boost pad (a strip length, starting where the next piece starts; [Boost pads](https://github.com/rokaN8/racing_game/issues/53))
+- **pieces:** straight (with a height change), arc (turn angle, radius, bank, height change; past 360° with a height change it is a Helix, [Helix piece](https://github.com/rokaN8/racing_game/issues/75)), Kicker, Gap, Loop, Corkscrew (length, roll direction, metres held upside down; [Corkscrew piece](https://github.com/rokaN8/racing_game/issues/52)), Boost pad (a strip length, starting where the next piece starts; [Boost pads](https://github.com/rokaN8/racing_game/issues/53)), and Tunnel (a length, starting where the next piece starts; [Tunnel and Double Loop pieces](https://github.com/rokaN8/racing_game/issues/78)). A Double Loop is two Loop pieces in a row, with no piece of its own
 - **closing:** two straights are marked *free*. Their lengths are solved (a 2×2 linear solve) so the Lap closes on the start line. Only the position is solved, so the Lap's total turn must be a multiple of 360°: 0° for a figure-8, ±360° for a single loop, and a Helix adds whole turns. The shared seam check catches a heading that doesn't close.
 - **output:** the usual `ControlPoint[]` plus Gap segments and Checkpoint indices, for `bakeTrack`
 
@@ -142,6 +143,14 @@ Overdrive keeps its hand-written control points.
 - **Headroom:** coils stack, so they need the 8 m of the self-crossing check; 24 m a turn leaves 18 m.
 - **Checkpoints:** split a Helix into two arcs to put a Checkpoint inside it. A 20 m/s respawn there rides clean.
 - **Bank stays true:** the bake measures bank from level, not from its rotation-minimizing frame, which drifts on a climbing turn (~95° a turn on Vertigo's 20 % grade; it rolled the tower top upside down). See Design rules → Bake frames.
+
+**Tunnels** ([Tunnel and Double Loop pieces](https://github.com/rokaN8/racing_game/issues/78)). `tunnel(len)` covers the next `len` m of Track. Looks only: physics never sees it, and `TUNING` is unchanged.
+- **Strands:** 8 lines along an arch over the deck (radius 6.5 m, centred 1.5 m above it, a little flattened), in the primary at 60 %, so they glow softer than the edges.
+- **Rings:** bright arches in the secondary colour, spread evenly about 24 m apart, the first at the mouth and the last at the exit, so nothing runs past the strands.
+- **Built in the Track's frame**, so it banks and climbs with the straight it covers.
+- Picked from four looks on the prototype branch [`prototype/tunnel-double-loop`](https://github.com/rokaN8/racing_game/tree/prototype/tunnel-double-loop) (`?tunnel=A|B|C|D`, D won).
+
+**Double Loops** ([Tunnel and Double Loop pieces](https://github.com/rokaN8/racing_game/issues/78)). Two `loop()` pieces in a row, back to back or with a straight between; each drifts left by its own `drift`, so they never overlap. At full throttle accel beats slopeGravity, so both tops pass near top speed, and a 20 m/s respawn 60 m before the first still clears both. `TUNING` is unchanged.
 
 **Boost pads.** A strip `len` m long, drawn as forward chevrons every 6 m in the secondary colour. `TUNING` is unchanged.
 - **Riding onto one:** +`boostKick` speed, the rising pad chime plus the Boost whoosh, and a Boost sized as the strip's length at Boost top speed plus `BOOST_PAD_TAIL` (0.3 s), so the HUD meter drains across it.
@@ -218,6 +227,7 @@ Built in M11: `src/render/palette.ts`.
 - **Derived darks**, mixed byte-wise in **sRGB**, not linear:
   - Track fill = mix(sky, primary, 0.06)
   - rungs = primary × 0.30
+  - Tunnel strands = primary × 0.60 (not a dark: they glow, softer than the edges)
   - grid = primary × 0.22 (major lines) and × 0.10 (minor lines)
   - banner background = the fill
 

@@ -18,7 +18,7 @@ const mix = (a: number, b: number, k: number) =>
 export function derive(p: Palette) {
   return {
     edge: p.primary, accent: p.secondary, sky: p.sky,
-    fill: mix(p.sky, p.primary, 0.06), rungs: mix(0, p.primary, 0.3),
+    fill: mix(p.sky, p.primary, 0.06), rungs: mix(0, p.primary, 0.3), tunnel: mix(0, p.primary, 0.6), // Tunnel strands: a softer glow than the edges
     gridMajor: mix(0, p.primary, 0.22), gridMinor: mix(0, p.primary, 0.1),
     // the horizon: a dimmed sun that only blooms a little, mountains and stars below the threshold
     sunTop: mix(p.sky, p.secondary, 0.6), sunBottom: mix(p.sky, p.primary, 0.6),

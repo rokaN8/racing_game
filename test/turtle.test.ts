@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bakeTrack, sampleAt } from '../src/track/bake';
-import { buildTrack, corkscrew, gap, kicker, straight, turn, type Piece } from '../src/track/turtle';
+import { buildTrack, corkscrew, gap, kicker, loop, straight, tunnel, turn, type Piece } from '../src/track/turtle';
 import { newState, respawn } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
 import { createPilot, lapDone } from '../src/pilot';
@@ -77,4 +77,37 @@ describe('turtle', () => {
     ride(st, { brakes: true }, s => s.respawns > 1 || s.s > T.cpS[2] + 300);
     expect(st.respawns).toBe(1);
   });
+
+  it('a Tunnel marks where it starts and how long it is, and leaves the Track untouched', () => {
+    const lap = (t: Piece[]) => buildTrack([
+      straight(100), ...t, straight(200), turn(90, 40, 25), straight(0, { free: 1 }), turn(90, 40, 25), straight(0, { free: 2 }), turn(90, 40, 25), straight(30), turn(90, 40, 25),
+    ]);
+    const plain = lap([]), tunneled = lap([tunnel(200)]);
+    expect(tunneled.cps).toEqual(plain.cps);
+    const T = bakeTrack({ ...tunneled, halfWidth: 4 });
+    expect(T.tunnels).toHaveLength(1);
+    expect(T.tunnels[0].s).toBeCloseTo(100, 0);
+    expect(T.tunnels[0].len).toBe(200);
+  });
+
+  // Double Loop (#78): two loop() pieces back to back, or with a straight between. Full throttle beats slopeGravity,
+  // so the tops pass near top speed; a 20 m/s respawn 60 m before still clears both.
+  it.each([['back to back', [loop(22, 12), loop(22, 12)]], ['40 m apart', [loop(22, 12), straight(40), loop(22, 12)]]] as [string, Piece[]][])(
+    'a Double Loop %s rides clean, from a 20 m/s respawn too', (_, dbl) => {
+      const T = bakeTrack({ ...buildTrack([
+        straight(100), straight(60, { checkpoint: true }), ...dbl, straight(60),
+        turn(90, 40, 25), straight(0, { free: 1 }), turn(90, 40, 25), straight(0, { free: 2 }), turn(90, 40, 25), straight(30), turn(90, 40, 25),
+      ]), gapSegments: [], halfWidth: 4 });
+      expect(T.up.filter((u, i) => u.y < -0.9 && (i === 0 || T.up[i - 1].y >= -0.9))).toHaveLength(2); // two tops
+      const { ride } = createPilot(T), st = newState(T);
+      expect(ride(st, {}, lapDone).filter(e => e.kind === 'respawn')).toEqual([]);
+      st.lastCP = 1; respawn(st, T, TUNING, 'test');
+      let slowestTop = Infinity;
+      ride(st, {}, s => {
+        if (s.mode === 'track' && sampleAt(T, s.s).u.y < -0.9) slowestTop = Math.min(slowestTop, s.speed);
+        return s.respawns > 1 || s.s > T.cpS[1] + 300;
+      });
+      expect(st.respawns).toBe(1);
+      expect(slowestTop).toBeGreaterThan(TUNING.stickSpeed);
+    });
 });

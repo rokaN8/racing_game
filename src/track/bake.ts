@@ -11,10 +11,11 @@ export interface Track {
   gap: boolean[]; cpS: number[]; // per-sample "no geometry here"; Checkpoint distances
   halfWidth: number; minY: number;
   pads: { s: number; len: number }[]; // Boost pads: strip start distance and length
+  tunnels: { s: number; len: number }[]; // Tunnels (render only): start distance and length
 }
 export interface Frame { p: Vector3; t: Vector3; u: Vector3; r: Vector3; gap: boolean }
 
-export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, halfWidth, boostPads = [] }: Pick<TrackDef, 'cps' | 'gapSegments' | 'checkpointCps' | 'halfWidth' | 'boostPads'>): Track {
+export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, halfWidth, boostPads = [], tunnels = [] }: Pick<TrackDef, 'cps' | 'gapSegments' | 'checkpointCps' | 'halfWidth' | 'boostPads' | 'tunnels'>): Track {
   const n = cps.length;
   const curve = new CatmullRomCurve3(cps.map(c => new Vector3(c[0], c[1], c[2])), true, 'centripetal');
   curve.arcLengthDivisions = 6000; curve.updateArcLengths();
@@ -69,8 +70,9 @@ export function bakeTrack({ cps, gapSegments: gapSegs, checkpointCps: cpIdx, hal
   }
   const cpS = cpIdx.map(k => seg.indexOf(k) * ds);
   const pads = boostPads.map(b => ({ s: seg.indexOf(b.cp) * ds, len: b.len }));
+  const tun = tunnels.map(t => ({ s: seg.indexOf(t.cp) * ds, len: t.len }));
   const minY = Math.min(...pos.map(p => p.y));
-  return { L, N, ds, pos, tan, up, rgt, gap, cpS, halfWidth, minY, pads };
+  return { L, N, ds, pos, tan, up, rgt, gap, cpS, halfWidth, minY, pads, tunnels: tun };
 }
 
 export function sampleAt(T: Track, s: number): Frame {

@@ -17,6 +17,9 @@ import { sampleAt, type Track } from '../track/bake';
 import { createBikeModels, TRAIL_ANCHOR } from './bike';
 import { color, css, derive, type Palette } from './palette';
 
+// Tunnel arch: radius, centre height over the deck, strand count (a ring clears the deck edges by ~1.5 m)
+const TUNNEL_R = 6.5, TUNNEL_H = 1.5, TUNNEL_STRANDS = 8;
+
 // Every colour comes from the Track's palette (render/palette.ts); the Bike, Ghost and Light trail stay fixed.
 export function createScene(T: Track, palette: Palette) {
   const c = derive(palette);
@@ -55,6 +58,24 @@ export function createScene(T: Track, palette: Palette) {
   const chevrons: Vector3[] = [];
   for (const pad of T.pads) for (let s = pad.s; s <= pad.s + pad.len - 2.5; s += 6) chevrons.push(on(s, -0.85), on(s + 2.5, 0), on(s + 2.5, 0), on(s, 0.85));
   if (chevrons.length) thick(chevrons, c.accent, 5);
+  // Tunnels (docs/game-spec.md → Design rules → Tunnels): 8 strands along an arch over the deck at 60 % of the primary,
+  // so they glow softer than the edges, and bright arches in the secondary colour ~24 m apart, the first at the
+  // mouth and the last at the exit, so no ring sits past the strands. Built in the Track's frame, so they bank
+  // and climb with it.
+  const at = (s: number, x: number, y: number) => { const f = sampleAt(T, s); return f.p.addScaledVector(f.r, x).addScaledVector(f.u, y); };
+  const strands: Vector3[] = [], rings: Vector3[] = [];
+  for (const t of T.tunnels) {
+    for (let k = 0; k < TUNNEL_STRANDS; k++) {
+      const a = (Math.PI * (k + 0.5)) / TUNNEL_STRANDS, x = TUNNEL_R * Math.cos(a), y = TUNNEL_H + TUNNEL_R * 0.9 * Math.sin(a);
+      for (let s = t.s; s < t.s + t.len; s += 4) strands.push(at(s, x, y), at(Math.min(s + 4, t.s + t.len), x, y));
+    }
+    const a0 = Math.asin(-TUNNEL_H / TUNNEL_R), arc = (s: number, f: number) => {
+      const a = a0 + (Math.PI - 2 * a0) * f; return at(s, TUNNEL_R * Math.cos(a), TUNNEL_H + TUNNEL_R * Math.sin(a));
+    };
+    const n = Math.max(1, Math.round(t.len / 24)); // rings spread evenly, one at the mouth and one at the exit
+    for (let r = 0; r <= n; r++) for (let k = 0; k < 24; k++) rings.push(arc(t.s + (t.len * r) / n, k / 24), arc(t.s + (t.len * r) / n, (k + 1) / 24));
+  }
+  if (strands.length) { thick(strands, c.tunnel, 2); thick(rings, c.accent, 3); }
   finishBanner(T, scene, thick, c.accent, c.fill);
 
   const grid = new GridHelper(3000, 150, c.gridMajor, c.gridMinor);

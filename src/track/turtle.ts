@@ -1,7 +1,8 @@
 // Turtle builder (docs/game-spec.md → Building Tracks 2 and 3): lays a Track out as straights and arcs from a heading,
 // so turn radii are exact, instead of hand-placed control points. Two straights are marked free; their lengths are
 // solved so the Lap closes on the start line (the end position is linear in them). The Lap must turn a multiple of 360°
-// in total (0° is a figure-8). Also Kickers, Gaps onto Landing decks, Loops and Corkscrews (docs/game-spec.md → Design rules).
+// in total (0° is a figure-8). Also Kickers, Gaps onto Landing decks, Loops, Corkscrews, Boost pads and Tunnels
+// (docs/game-spec.md → Design rules). A Double Loop is two loop() pieces, back to back or with a straight between.
 // Output is the usual control points, Gap segments and Checkpoint indices for bakeTrack.
 import type { ControlPoint } from './bake';
 
@@ -16,7 +17,8 @@ export type Piece =
   | { kind: 'gap'; drop: number; vMin: number; vMax: number; checkpoint?: boolean; deckCheckpoint?: boolean }
   | { kind: 'loop'; radius: number; drift: number; checkpoint?: boolean }
   | { kind: 'corkscrew'; len: number; dir: 1 | -1; hold: number; checkpoint?: boolean }
-  | { kind: 'boostPad'; len: number; checkpoint?: boolean };
+  | { kind: 'boostPad'; len: number; checkpoint?: boolean }
+  | { kind: 'tunnel'; len: number; checkpoint?: boolean };
 
 export const straight = (len: number, o: Omit<Extract<Piece, { kind: 'straight' }>, 'kind' | 'len'> = {}): Piece => ({ kind: 'straight', len, ...o });
 export const turn = (deg: number, radius: number, bank: number, o: { rise?: number; checkpoint?: boolean } = {}): Piece =>
@@ -37,6 +39,9 @@ export const corkscrew = (len: number, o: { dir?: 1 | -1; hold?: number; checkpo
 // Boost pad: a strip `len` m long starting where the next piece starts; riding onto it Boosts until the strip ends.
 // Takes no Track itself, so put it before the piece(s) the strip lies on.
 export const boostPad = (len: number): Piece => ({ kind: 'boostPad', len });
+// Tunnel: rings and strands round the Track for `len` m, starting where the next piece starts. Looks only: physics
+// never sees it. Takes no Track itself, so put it before the piece(s) it covers.
+export const tunnel = (len: number): Piece => ({ kind: 'tunnel', len });
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const AIR_GRAVITY = 12; // bike/tuning.ts airGravity: a Gap's reach depends on it
@@ -46,11 +51,12 @@ const dir = (h: number) => [-Math.sin(h), Math.cos(h)]; // heading 0 → +z; + h
 // the bank to its own; an arc puts one every ≤12 m (closer on tight turns) at its bank.
 function walk(pieces: Piece[], free: [number, number]) {
   let x = 0, z = 0, y = 0, h = 0, bank = 0, grade = 0; // grade: the Track's slope where the last piece ended
-  const cps: ControlPoint[] = [[0, 0, 0, 0]], checkpointCps = [0], gapSegments: number[] = [], boostPads: { cp: number; len: number }[] = [];
+  const cps: ControlPoint[] = [[0, 0, 0, 0]], checkpointCps = [0], gapSegments: number[] = [], boostPads: { cp: number; len: number }[] = [], tunnels: { cp: number; len: number }[] = [];
   const ahead = (dist: number, left = 0) => { const [dx, dz] = dir(h); return [x + dx * dist + Math.cos(h) * left, z + dz * dist + Math.sin(h) * left]; };
   for (const p of pieces) {
     if (p.checkpoint) checkpointCps.push(cps.length - 1);
     if (p.kind === 'boostPad') { boostPads.push({ cp: cps.length - 1, len: p.len }); continue; }
+    if (p.kind === 'tunnel') { tunnels.push({ cp: cps.length - 1, len: p.len }); continue; }
     if (p.kind === 'kicker') {
       const g1 = Math.tan(rad(p.deg)), yAt = (d: number) => y + grade * d + ((g1 - grade) / (2 * p.len)) * d * d;
       for (const f of [0.5, 1]) { const [px, pz] = ahead(p.len * f); cps.push([px, yAt(p.len * f), pz, 0]); }
@@ -114,7 +120,7 @@ function walk(pieces: Piece[], free: [number, number]) {
     }
     y = y0 + rise;
   }
-  return { cps, checkpointCps, gapSegments, boostPads, end: [x, z], y };
+  return { cps, checkpointCps, gapSegments, boostPads, tunnels, end: [x, z], y };
 }
 
 export function buildTrack(pieces: Piece[]) {
@@ -127,6 +133,6 @@ export function buildTrack(pieces: Piece[]) {
   if (Math.abs(w.y) > 1e-6) throw new Error(`turtle: the Lap ends ${w.y.toFixed(2)} m off the start line's height`);
   w.cps.pop(); // the last point is the start line again
   // the last point is the start line again, so a pad there starts at point 0
-  const boostPads = w.boostPads.map(b => ({ ...b, cp: b.cp % w.cps.length }));
-  return { cps: w.cps, checkpointCps: w.checkpointCps, gapSegments: w.gapSegments, boostPads, free };
+  const boostPads = w.boostPads.map(b => ({ ...b, cp: b.cp % w.cps.length })), tunnels = w.tunnels.map(t => ({ ...t, cp: t.cp % w.cps.length }));
+  return { cps: w.cps, checkpointCps: w.checkpointCps, gapSegments: w.gapSegments, boostPads, tunnels, free };
 }
