@@ -40,6 +40,7 @@ const { cps, checkpointCps, gapSegments, boostPads } = buildTrack([
 export const slipstream: TrackDef = {
   id: 'flow', name: 'Slipstream', kind: 'Flow',
   cps, gapSegments, checkpointCps, boostPads, halfWidth: 4,
+  pilot: { airControl: true, boostStraights: true }, pilotTimes: { 1: 52.93, 3: 157.98, 5: 263.05 },
   palette: { primary: 0x00ffa3, secondary: 0xc400ff, sky: 0x000a06 }, // mint / ultraviolet
   // Dreamy and wide, C major I–vi–IV–V with sevenths: half-time beat, slow pads, echoing arp.
   song: {

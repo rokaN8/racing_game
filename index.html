@@ -16,7 +16,7 @@
       #msg { position: fixed; top: 30%; left: 50%; transform: translateX(-50%); font: 600 22px/1.2 var(--hud-font); letter-spacing: .06em;
              color: var(--magenta); text-shadow: 0 0 10px var(--magenta); pointer-events: none; white-space: nowrap; }
 
-      /* In-race HUD (src/hud.ts): clock top left, Lap counter top right, speed and Boost bottom left. */
+      /* In-race HUD (src/hud.ts): clock top left, Lap counter and minimap top right, speed and Boost bottom left. */
       #hud { position: fixed; inset: 0; pointer-events: none; user-select: none; color: var(--cyan);
              font-family: var(--hud-font); font-variant-numeric: tabular-nums; text-shadow: 0 0 8px #0ff8; }
       #hud::before, #hud::after { content: ''; position: absolute; left: 0; right: 0; height: 170px; } /* keeps the numbers legible over bloom */
@@ -30,18 +30,20 @@
       #hud .clock { top: 22px; left: 28px; }
       #h-time { font-size: clamp(38px, 4.4vw, 58px); letter-spacing: .01em; margin-top: 2px; }
       #h-split { height: 28px; margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: .02em; }
-      #h-split span { display: inline-block; animation: pop .45s var(--out-expo); }
+      #h-split span { display: inline-block; } #h-split .cp { animation: pop .45s var(--out-expo); } /* a Checkpoint's split pops; the live gap doesn't */
       #hud .times { display: flex; gap: 28px; }
       #hud .times b { display: block; margin-top: 2px; font-size: 18px; font-weight: 600; color: var(--ink); }
 
-      #hud .fps { top: 8px; right: 32px; font-size: 11px; font-weight: 600; letter-spacing: .2em; opacity: .7; text-shadow: none; }
+      #hud .right { top: 8px; right: 32px; display: flex; flex-direction: column; align-items: flex-end; } /* FPS, Lap counter, minimap */
+      #hud .fps { font-size: 11px; font-weight: 600; letter-spacing: .2em; opacity: .7; text-shadow: none; }
       #hud .fps b { color: var(--ink); letter-spacing: .04em; }
-      #hud .lapc { top: 30px; right: 32px; text-align: right; }
+      #hud .lapc { margin-top: 7px; text-align: right; }
+      #minimap { display: block; width: 160px; height: 110px; margin-top: 10px; background: #05051a99; border: 1px solid #0ff3; }
       #h-lap { font-size: clamp(56px, 6.2vw, 84px); }
       #h-laps { margin-left: 4px; font-size: clamp(22px, 2.4vw, 32px); font-weight: 600; opacity: .65; }
-      #hud .final { display: none; margin-top: 8px; padding: 3px 10px 2px; font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase;
+      #hud .final { display: inline-block; visibility: hidden; margin-top: 8px; /* holds its space, so the minimap stays put */ padding: 3px 10px 2px; font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase;
                     color: #000; background: var(--magenta); box-shadow: 0 0 18px var(--magenta); text-shadow: none; transform: skewX(-14deg); }
-      #hud[data-final="1"] .final { display: inline-block; }
+      #hud[data-final="1"] .final { visibility: visible; }
       #hud[data-laps="single"] .lapc, #hud[data-laps="single"] .lapt { display: none; }
 
       #hud .speedo { left: 28px; bottom: 26px; }
@@ -80,7 +82,7 @@
       }
       @keyframes fade { 0%, 100% { opacity: 0; } 10%, 80% { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) {
-        #h-split span, #center .count { animation: none; }
+        #h-split .cp, #center .count { animation: none; }
         #center .banner { animation: fade 2.4s linear both; }
       }
       #attitude { position: fixed; right: 16px; bottom: 16px; pointer-events: none; }
@@ -177,7 +179,19 @@
       #ui table.ctl td:first-child { padding-right: 28px; font-size: 14px; color: var(--ink); text-shadow: none; }
       #ui .note { margin-top: 10px; }
       #ui kbd { font: 600 12px var(--hud-font); letter-spacing: .08em; color: var(--ink); text-shadow: none; border: 1px solid #0ff6; border-bottom-width: 2px; padding: 2px 7px; }
-      @media (prefers-reduced-motion: reduce) { #ui .newbest, #ui .cleared { animation: none; } }
+      /* Medals: a slanted tag in the Medal's colour; Track select's targets dim until earned. The Ideal time line. */
+      #ui .medal { flex: none; font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--m);
+                   border: 1px solid var(--m); padding: 1px 6px 0; text-shadow: 0 0 8px var(--m); transform: skewX(-14deg); }
+      #ui .medal.neon { --m: var(--magenta); } #ui .medal.gold { --m: #ffd23f; } #ui .medal.silver { --m: #cfdbe6; } #ui .medal.bronze { --m: #e8914f; }
+      #ui .item .medal { margin-left: auto; font-size: 9px; letter-spacing: .1em; padding: 1px 4px 0; } #ui .item.on .medal { color: #000; border-color: #000; text-shadow: none; }
+      #ui ol.medals li { opacity: .4; } #ui ol.medals li.lit { opacity: 1; } #ui ol.medals .medal { width: 58px; text-align: center; }
+      #ui .medalline { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 15px; font-weight: 600; color: var(--ink); text-shadow: none; }
+      #ui .medalline .medal { font-size: 13px; padding: 3px 10px 2px; }
+      #ui .medal.pop { animation: newbest .8s var(--out-expo) .15s both; }
+      #ui .ideal { margin: 6px 8px 0; font-size: 14px; color: var(--ink); text-shadow: none; }
+      #ui .ideal span { font-size: 11px; font-weight: 600; letter-spacing: .28em; text-transform: uppercase; color: var(--cyan); opacity: .8; }
+      #ui .ideal b { margin-left: 6px; font-size: 16px; }
+      @media (prefers-reduced-motion: reduce) { #ui .newbest, #ui .cleared, #ui .medal.pop { animation: none; } }
     </style>
   </head>
   <body>
@@ -192,11 +206,14 @@
           <div><span class="k">Best</span><b id="h-best">—</b></div>
         </div>
       </div>
-      <div class="fps"><b id="h-fps">—</b> FPS</div>
-      <div class="lapc">
-        <span class="k">Lap</span>
-        <b class="num" id="h-lap">1</b><span id="h-laps">/3</span>
-        <div><span class="final">Final lap</span></div>
+      <div class="right">
+        <div class="fps"><b id="h-fps">—</b> FPS</div>
+        <div class="lapc">
+          <span class="k">Lap</span>
+          <b class="num" id="h-lap">1</b><span id="h-laps">/3</span>
+          <div><span class="final">Final lap</span></div>
+        </div>
+        <canvas id="minimap" width="320" height="220"></canvas>
       </div>
       <div class="speedo">
         <b class="num" id="h-speed">0</b><span class="unit">m/s</span>

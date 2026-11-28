@@ -2,9 +2,9 @@
 // turns too tight to hold (if asked); Boost in the last 40 m before each Gap, or on straights (if asked); in the air it
 // pitches the nose onto the flight path (if asked), like a player lining up a landing, or holds a fixed pitch.
 import { MathUtils } from 'three';
-import type { Track } from '../src/track/bake';
-import { cornerPull, step, type BikeState, type Input } from '../src/bike/physics';
-import { TUNING } from '../src/bike/tuning';
+import type { Track } from './track/bake';
+import { cornerPull, step, type BikeState, type Input } from './bike/physics';
+import { TUNING } from './bike/tuning';
 
 export const DT = 1 / 120;
 export const NONE: Input = { throttle: 0, brake: 0, steer: 0, pitch: 0, boost: false };
@@ -34,16 +34,20 @@ export function createPilot(T: Track) {
 
   // The fastest the Bike may go here: every turn in the next 200 m stays reachable, braking at 85% of brake, and is
   // taken at 85% of the speed full steer can hold (speed² × pull per speed² ≤ steerRate × steerResponse).
-  const HOLD = TUNING.steerRate * TUNING.steerResponse;
+  // ponytail: cached per sample, read at the sample just ahead (the turns up to a sample closer, so on the safe side):
+  // the 200 m scan every step made a 5-Lap run cost over a second, too slow to build the Pilot Ghost in the game.
+  const HOLD = TUNING.steerRate * TUNING.steerResponse, safe: number[] = [];
   function safeSpeed(s: number) {
+    const i = Math.ceil(s / T.ds) % T.N;
+    if (safe[i] !== undefined) return safe[i];
     let v = Infinity;
     for (let ds = 0; ds < 200; ds += 2) {
-      const k = Math.abs(cornerPull(T, s + ds, 1, TUNING));
+      const k = Math.abs(cornerPull(T, i * T.ds + ds, 1, TUNING));
       if (k < 1e-5) continue;
       const vt = 0.85 * Math.sqrt(HOLD / k);
       v = Math.min(v, Math.sqrt(vt * vt + 2 * 0.85 * TUNING.brake * ds));
     }
-    return v;
+    return (safe[i] = v);
   }
 
   function pilot(st: BikeState, o: Pilot): Input {

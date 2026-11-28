@@ -4,7 +4,7 @@ import { bakeTrack } from '../../src/track/bake';
 import { hangTime } from '../../src/track/tracks/bigair';
 import { newState, type BikeState } from '../../src/bike/physics';
 import { TUNING } from '../../src/bike/tuning';
-import { createPilot, type Pilot } from '../pilot';
+import { createPilot, type Pilot } from '../../src/pilot';
 
 const T = bakeTrack(hangTime);
 const { gaps, ride } = createPilot(T);

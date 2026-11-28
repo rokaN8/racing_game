@@ -3,13 +3,18 @@
 // effects. Plain HTML over the canvas.
 import type { Score } from '../ghost';
 import { clock } from '../hud';
-import { LAP_OPTIONS, initialMenu, itemsFor, reduce, type Action, type Effect, type Item, type Screen } from './menuState';
+import { drawOutline, type Outline } from './outline';
+import {
+  LAP_OPTIONS, MEDALS, earns, initialMenu, itemsFor, medalFor, medalRank, medalTime, reduce, type Action, type Effect, type Item, type Medal,
+  type Screen,
+} from './menuState';
 
-export interface MenuTrack {
+// colors: also the swatch and band
+export interface MenuTrack extends Outline {
   name: string; kind: string;
-  colors: [string, string];                          // swatch, band and outline gradient
-  outline: { x: number; z: number; gap: boolean }[]; // the baked Track's samples, for the top-down outline
   scores: (laps: number) => readonly Score[];
+  ideal: (laps: number) => number | null; // the Ideal time, null while hidden
+  pilotTimes: Record<number, number>;     // the Pilot's run time per lap count: the Medals' reference
 }
 // raceTime, lap: the run so far (Pause). time, lapTimes, delta, rank: the finished run (Finish).
 interface RunInfo { raceTime: number; lap: number; time: number; lapTimes: readonly number[]; delta: number | null; rank: number | null }
@@ -28,6 +33,7 @@ const signed = (d: number) => `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`;
 const kbd = (k: string) => `<kbd>${k}</kbd>`;
 const hintHtml = (h: [string[], string][]) => h.map(([keys, what]) => `<span>${keys.map(kbd).join('<i>/</i>')} ${what}</span>`).join('');
 const palette = (t: MenuTrack) => `--a:${t.colors[0]};--b:${t.colors[1]}`;
+const medalTag = (m: Medal | null, pop = false) => (m ? `<i class="medal ${m.toLowerCase()}${pop ? ' pop' : ''}">${m}</i>` : '');
 
 export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void) {
   let s = initialMenu(), info: RunInfo = { raceTime: 0, lap: 1, time: 0, lapTimes: [], delta: null, rank: null };
@@ -42,20 +48,36 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
   };
 
   const swatch = (t: MenuTrack) => `<i class="sw" style="${palette(t)}"></i>`;
+  // At the current lap count: a Track's #1 time (null with none) and the Pilot's run time, which the Medals are set from.
+  const best = (t: MenuTrack) => t.scores(s.laps)[0]?.time ?? null, pilotTime = (t: MenuTrack) => t.pilotTimes[s.laps];
   // A Track's top 5 at the current lap count, `mark` highlighted; #1 carries the Ghost tag and, past 1 Lap, its splits.
   const top5 = (t: MenuTrack, mark: number | null = null) => {
     const sc = t.scores(s.laps);
-    if (!sc.length) return '<p class="none">No times yet. Your fastest run becomes your Ghost.</p>';
+    if (!sc.length) return '<p class="none">No times yet. Beat the Pilot: your fastest run becomes your Ghost.</p>';
     return `<ol class="top">${sc.map((x, k) =>
       `<li class="${k + 1 === mark ? 'me' : ''}"><span>#${k + 1}</span><b>${fmt(x.time)}</b><small>${date(x.date)}</small>${k === 0 ? '<em>Ghost</em>' : ''}</li>`
       + (k === 0 && s.laps > 1 ? `<li class="laps"><small>${x.lapTimes.map(fmt).join(' · ')}</small></li>` : '')).join('')}</ol>`;
   };
+  // The Ideal time under the top 5 (with how far #1 is off it, on Finish), when there is one to show.
+  const ideal = (t: MenuTrack, off = false) => {
+    const x = t.ideal(s.laps);
+    return x === null ? '' : `<p class="ideal"><span>Ideal</span> <b>${fmt(x)}</b>${off ? ` · best ${(t.scores(s.laps)[0].time - x).toFixed(2)} off` : ''}</p>`;
+  };
+  // The four target times at this lap count, the ones #1 has earned lit.
+  const medals = (t: MenuTrack) => {
+    const P = pilotTime(t);
+    return `<h2 class="label">Medals</h2><ol class="top medals">${MEDALS.map(([m]) => `<li class="${earns(best(t), m, P) ? 'lit' : ''}">`
+      + `${medalTag(m)}<b>${fmt(medalTime(m, P))}</b>${m === 'Neon' ? '<small>beat the Pilot</small>' : ''}</li>`).join('')}</ol>`;
+  };
   const trackPanel = (t: MenuTrack, extra = '') =>
     `<div class="panel${extra}" style="${palette(t)}"><div class="band"></div><h1>${esc(t.name)}</h1><div class="sub">${esc(t.kind)}</div>`
-    + `<canvas class="outline" width="320" height="200"></canvas><h2 class="label">Best · ${lapsText(s.laps)}</h2>${top5(t)}</div>`;
+    + `<canvas class="outline" width="320" height="200"></canvas><h2 class="label">Best · ${lapsText(s.laps)}</h2>${top5(t)}${ideal(t)}${medals(t)}</div>`;
 
   const label = (it: Item, i: number) => {
-    if (typeof it === 'object' && 'track' in it) { const t = tracks[it.track]; return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${swatch(t)}`; }
+    if (typeof it === 'object' && 'track' in it) { // with the Medal its #1 earns at this lap count
+      const t = tracks[it.track], m = medalFor(best(t), pilotTime(t));
+      return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${medalTag(m)}${swatch(t)}`;
+    }
     if (typeof it === 'object') {
       const name = it.reset === 'all' ? 'all Tracks' : esc(tracks[it.reset].name);
       if (s.armed === i) return `<span>Reset ${name}?</span><b>${Math.ceil(s.armedT)}</b>`;
@@ -86,15 +108,19 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
     return `<h2>${TITLE[screen]}</h2>${sub}`;
   }
 
-  // Finish: where you raced, the time, then your place: a big rank, NEW BEST, or how far off the best you were.
+  // Finish: where you raced, the time, then your place: a big rank, NEW BEST, or how far off the best you were. Then the
+  // Medal this run earned (popping in if it's better than your old best's) and how far it was off the next one.
   function finishHead() {
-    const t = tracks[s.track], best = info.rank === 1;
-    const verdict = best ? `<span class="newbest">New best</span>${info.delta === null ? '' : `<span><span class="ahead">${signed(info.delta)}</span> on your old best</span>`}`
+    const t = tracks[s.track], newBest = info.rank === 1, P = pilotTime(t);
+    const got = medalFor(info.time, P), had = info.delta === null ? null : medalFor(info.time - info.delta, P), next = MEDALS[medalRank(got) - 1]?.[0];
+    const medal = `<div class="medalline">${got ? medalTag(got, medalRank(got) < medalRank(had)) : '<span>No Medal</span>'}`
+      + `${next ? `<span>· ${(info.time - medalTime(next, P)).toFixed(2)} to ${next}</span>` : ''}</div>`;
+    const verdict = newBest ? `<span class="newbest">New best</span>${info.delta === null ? '' : `<span><span class="ahead">${signed(info.delta)}</span> on your old best</span>`}`
       : info.delta === null ? '' : `<span><span class="behind">${signed(info.delta)}</span> to your best</span>`;
     return `<div class="result" style="${palette(t)}"><div class="where">${esc(t.name)} · ${lapsText(s.laps)}</div>`
       + `<div class="time">${fmt(info.time)}</div><div class="standing">`
       + (info.rank ? `<b class="rank">#${info.rank}</b>` : '')
-      + `<div class="verdict">${info.rank ? '' : '<span>Outside the top 5</span>'}${verdict}</div></div></div>`;
+      + `<div class="verdict">${info.rank ? '' : '<span>Outside the top 5</span>'}${verdict}</div></div>${medal}</div>`;
   }
 
   function panel(screen: Screen) {
@@ -114,7 +140,7 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       const laps = info.lapTimes.length > 1 ? `<h2 class="label">Laps</h2><ol class="top">${info.lapTimes.map((x, i) =>
         `<li><span>${i + 1}</span><b>${fmt(x)}</b>${i === fastest ? '<em>Fastest</em>' : ''}</li>`).join('')}</ol>` : '';
       return `<div class="panel" style="${palette(t)}"><div class="band"></div><h2 class="label">Top 5 · ${lapsText(s.laps)}</h2>`
-        + `${top5(t, info.rank)}${you}${laps}</div>`;
+        + `${top5(t, info.rank)}${you}${ideal(t, true)}${laps}</div>`;
     }
     return '';
   }
@@ -199,24 +225,4 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
     },
     close() { if (s.screen) { s = { ...s, screen: null, armed: -1 }; render(); } },
   };
-}
-
-// Top-down outline of the whole Track, centred in its canvas: Gaps left open, start line marked. +z up the screen; the
-// Bike's starting right (−x) to the right, so it reads the way the Lap is ridden.
-function drawOutline(cv: HTMLCanvasElement, t: MenuTrack) {
-  const g = cv.getContext('2d'), pts = t.outline;
-  if (!g || !pts.length) return;
-  const xs = pts.map(p => -p.x), zs = pts.map(p => -p.z), pad = 12;
-  const x0 = Math.min(...xs), z0 = Math.min(...zs), w = Math.max(...xs) - x0 || 1, h = Math.max(...zs) - z0 || 1;
-  const k = Math.min((cv.width - 2 * pad) / w, (cv.height - 2 * pad) / h);
-  const ox = (cv.width - w * k) / 2, oz = (cv.height - h * k) / 2;
-  const P = (i: number) => [ox + (xs[i] - x0) * k, oz + (zs[i] - z0) * k] as const;
-  const grad = g.createLinearGradient(0, 0, cv.width, 0);
-  grad.addColorStop(0, t.colors[0]); grad.addColorStop(1, t.colors[1]);
-  g.lineWidth = 3; g.lineCap = 'round'; g.strokeStyle = grad; g.shadowColor = t.colors[0]; g.shadowBlur = 8;
-  g.beginPath();
-  pts.forEach((p, i) => { if (p.gap) return; g.moveTo(...P(i)); g.lineTo(...P((i + 1) % pts.length)); });
-  g.stroke();
-  g.shadowBlur = 0; g.fillStyle = '#fff';
-  const [sx, sy] = P(0); g.fillRect(sx - 6, sy - 1.5, 12, 3);
 }

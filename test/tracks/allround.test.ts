@@ -5,7 +5,7 @@ import { bakeTrack, sampleAt } from '../../src/track/bake';
 import { overdrive } from '../../src/track/tracks/allround';
 import { cornerPull, newState, respawn, step, type BikeState, type Input } from '../../src/bike/physics';
 import { TUNING } from '../../src/bike/tuning';
-import { BOOSTED, createPilot, DT, lapDone, NONE } from '../pilot';
+import { BOOSTED, createPilot, DT, lapDone, NONE } from '../../src/pilot';
 
 const T = bakeTrack(overdrive);
 const { gaps, ride } = createPilot(T);

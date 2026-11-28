@@ -33,6 +33,7 @@ const { cps, checkpointCps } = buildTrack([
 export const switchback: TrackDef = {
   id: 'technical', name: 'Switchback', kind: 'Technical',
   cps, gapSegments: [], checkpointCps, halfWidth: 4,
+  pilot: { brakes: true, boostStraights: true }, pilotTimes: { 1: 54.15, 3: 161.52, 5: 268.88 },
   palette: { primary: 0x39ff14, secondary: 0xffb000, sky: 0x010a04 }, // acid green / amber
   // Dark and driving, E Phrygian: 16th bass, choppy arp, syncopated kick.
   song: {

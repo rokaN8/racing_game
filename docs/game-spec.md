@@ -143,28 +143,42 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
 - **Menu.** Logo, then Play · Controls. Coming back to it restores the last focus.
 - **Track select** (also where the High scores live).
   - **Rail:** the lap count under the title (`‹ 3 Laps ›`, set with ← →, stopping at 1 and 5; 3 at boot), then name, kind and palette swatch per Track, then a smaller Reset times. Focus starts on the last-raced Track.
-  - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track (centred, scaled to the window height), and its top 5 at the current lap count. With no times yet: "No times yet. Your fastest run becomes your Ghost."
-  - **Outline:** drawn from the baked Track's x/z, with Gaps left open and the start line marked, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
+  - **Rail Medal:** the Medal each Track's #1 earns at the current lap count, as a small tag before its swatch.
+  - **Panel:** palette band, name, kind, a **top-down outline** of the whole Track (centred, scaled to the window height), its top 5 at the current lap count, the Ideal time ("Ideal 1:58.40", while it isn't above #1), then the four Medal target times, the ones #1 has earned lit (Neon marked "beat the Pilot"). With no times yet: "No times yet. Beat the Pilot: your fastest run becomes your Ghost."
+  - **Outline** (`ui/outline.ts`, shared with the HUD's minimap): drawn from the baked Track's x/z, with Gaps left open, the start line marked and a tick across each other Checkpoint, stroked in the palette gradient. +z points up the screen and the Bike's starting right is to the right.
 - **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then All Tracks; the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
 - **Controls.** The Keyboard | Gamepad table sits in the rail.
 - **Pause** (Esc / Start). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
 - **Finish.**
-  - **Rail head:** the Track and lap count in its palette colour, the run time, then the rank as a big numeral. A new #1 adds a slanted magenta NEW BEST tag that pops in, with the gain on the old best; otherwise the gap to the best. Outside the top 5 it says so instead of a rank. Then Retry · Track select · Menu.
-  - **Panel:** the Track's top 5 at this lap count with this run highlighted; outside the top 5, a dashed "You" row with the gap to #5. Then each Lap's time, the first fastest tagged. R / Y still retry.
+  - **Rail head:** the Track and lap count in its palette colour, the run time, then the rank as a big numeral. A new #1 adds a slanted magenta NEW BEST tag that pops in, with the gain on the old best; otherwise the gap to the best. Outside the top 5 it says so instead of a rank. Under it, the Medal this run earned and the gap to the next one ("Gold · 0.41 to Neon", or "No Medal · 1.20 to Bronze"); a Medal better than the old #1's pops in like NEW BEST. Then Retry · Track select · Menu.
+  - **Panel:** the Track's top 5 at this lap count with this run highlighted; outside the top 5, a dashed "You" row with the gap to #5. Then the Ideal time and how far #1 is off it ("Ideal 1:58.40 · best 1.10 off"), then each Lap's time, the first fastest tagged. R / Y still retry.
   - **Lock:** a pick is ignored for 0.7 s after Finish opens, so a Boost tap (Space / A) at the line can't skip it.
 - **Top 5 rows.** `#n · time · date`, with a **Ghost** tag on #1, and #1's Lap times under it for runs of more than 1 Lap.
 - **Input.** Up/down (arrows, W/S, d-pad or left stick) move; left/right (arrows, A/D, d-pad or stick) set the lap count on Track select and move elsewhere. Enter/Space pick, Esc/Backspace back. Gamepad: A picks, B backs out, Start pauses and resumes. All edge-triggered.
 
+## Medals
+
+Bronze, Silver, Gold and Neon target times per Track and lap count, set against the Pilot's run time `P` there ([#62](https://github.com/rokaN8/racing_game/issues/62)): **Neon** faster than `P` (you beat the Pilot), **Gold** ≤ `P` × 1.05, **Silver** ≤ `P` × 1.12, **Bronze** ≤ `P` × 1.25. A starting point, to tune by play-testing. Targets and times are compared to the hundredth, as they are shown: a time equal to Gold's, Silver's or Bronze's target earns it, while Neon takes beating `P`. `P` is baked into each `TrackDef` (`pilotTimes`), and a shared Track check holds it within 0.05 s of the live Pilot, so Track select never rides the Pilot. Your Medal is the one your #1 earns: nothing is stored, and Reset times clears it with the scores. `medalFor(time, P)` sits beside the menu state.
+
+## Pilot Ghost
+
+Every Track has a rival from the first run ([#61](https://github.com/rokaN8/racing_game/issues/61)). With no Ghost of your own at a Track and lap count, the Pilot's run is the Ghost, with its Checkpoint splits, so the split line, the live gap and the Lap banner work against it. Your first finished run replaces it; Reset times brings it back. It never enters the High scores, and the HUD best stays your own.
+
+- **The Pilot** (`src/pilot.ts`, physics-only imports) is the headless driver the Track tests ride. Each `TrackDef.pilot` holds the profile of its clean, fastest Lap: Overdrive Air control + Boost before the Gap; Switchback brakes + Boost on straights; Hang Time Air control + brakes + Boost on straights; Slipstream and Afterglow Air control + Boost on straights. A shared check rides it clean at every lap count.
+- **Computed, never stored.** Physics is pure and fixed-step, so the run comes out the same every time. `pilotRun` records it through the Ghost's own `record()`, so its poses, splits and distances are in the format the Ghost plays. It is built lazily, from the countdown of the first run with no Ghost, a few ms a frame while no screen is open (a 5-Lap Hang Time run is ~30,000 steps, ~0.6 s of the countdown at 120 fps) and finished outright at GO if it isn't done. The Pilot's turn look-ahead is cached per Track sample, which made that affordable.
+
 ## Storage
 
-- **One key per Track and lap count:** `neon-racer.track.<id>.v1` (1 Lap: the key from before lap counts) or `neon-racer.track.<id>.<n>laps.v1` = `{ scores: [{ time, date, lapTimes }], ghost: { poses, splits } | null }`.
+- **One key per Track and lap count:** `neon-racer.track.<id>.v1` (1 Lap: the key from before lap counts) or `neon-racer.track.<id>.<n>laps.v1` = `{ scores: [{ time, date, lapTimes }], ghost: { poses, splits, dist? } | null, sectors? }`.
   - `scores` holds at most 5, fastest first. `time` is the run total, `lapTimes` each Lap's time (a 1-Lap score saved without it reads as `[time]`). `date` is epoch ms, shown in the local format.
   - `ghost` belongs to `scores[0]`: the whole run, with a split at every Checkpoint pass of every Lap. One write per finish, so scores and Ghost can't disagree. If that write is over quota, the scores are written without the Ghost.
+  - `ghost.dist` ([#63](https://github.com/rokaN8/racing_game/issues/63)): base64 Float32Array of `[run distance, run time]` pairs at 10 Hz (every 12th step), plus the furthest point before each respawn sends the distance back, and the finish. Run distance = Laps done × Track length + `s`. The run time is kept because the run clock carries the penalties. ~2.4 % on a 5-Lap Ghost. A Ghost saved without it (or with garbage) plays and splits as before, with no live gap.
+  - `sectors` ([#65](https://github.com/rokaN8/racing_game/issues/65)): the best time ever ridden in each Sector, a Checkpoint pass to the next (each Lap's start line counts; the last ends at the finish), from every finished run, top 5 or not. Penalties count in their Sector. Garbage or a length other than Laps × Checkpoints loads as empty; the scores stay. Records from before have none, so the Ideal time counts runs from then on.
 - **Ranking.** A finished run is inserted into the top 5. An equal time ranks below the existing one. A new #1 replaces the Ghost.
 - **Reset.** Reset a Track = `removeItem` on its keys at every lap count. Reset all = loop over `TRACKS`.
 - **Migration** (once, at boot). If `neon-racer.ghost.v2` (or v1) exists and the Overdrive key doesn't, write Overdrive = `{ scores: [{ time, date: null }], ghost }`. Remove the old keys only after that write succeeds.
 - **Guarding.** Every read and write is guarded as today. Garbage loads as empty, and the game runs with storage blocked.
-- **Ghost module.** `createGhost(storage, trackId, laps)`, one instance per Track and lap count, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `clear()` for resets, and `restart()`, which is today's `reset()` (retry) renamed.
+- **Ghost module.** `createGhost(storage, { id, L, cpS }, laps)`, one instance per Track and lap count, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `clear()` for resets, `restart()`, which is today's `reset()` (retry) renamed, `liveGap(bike)` for the live gap (a binary search over the running max of the Ghost's distances), `idealTime` (the best Sectors added up; null with none, or while above #1), and `needsPilot` / `setPilot()` for the Pilot Ghost.
 
 ## Palettes
 
@@ -245,13 +259,14 @@ src/
   render/palette.ts          # Palette, derive()
   audio.ts                   # engine, sfx, sequencer playing a Song; crossfade, muffle
   audio/songs.ts             # the Menu Song (Track Songs live on their TrackDef)
-  ghost.ts                   # per Track: top 5 + Ghost in one key, migration
-  ui/menu.ts                 # the side-rail overlay: Menu, Track select (+ High scores, Reset times), Controls, Pause, Finish
-test/
+  ghost.ts                   # per Track: top 5 + Ghost + best Sectors in one key, migration; the Pilot Ghost's run
   pilot.ts                   # headless pilots: steer to centre, brake for turns, Air control onto the flight path
-  track.test.ts              # shared checks, looped over TRACKS
+  ui/menu.ts                 # the side-rail overlay: Menu, Track select (+ High scores, Reset times), Controls, Pause, Finish
+  ui/outline.ts              # the top-down Track outline, for Track select and the minimap
+test/
+  track.test.ts              # shared checks, looped over TRACKS (+ the Pilot clean at every lap count)
   tracks/<id>.test.ts        # each Track's Lap checks
-  ghost.test.ts              # + top 5, ties, reset, migration
+  ghost.test.ts              # + top 5, ties, reset, migration, Pilot Ghost, live gap, Ideal time
 ```
 
 ## Milestones

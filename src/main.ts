@@ -4,8 +4,8 @@ import { TUNING } from './bike/tuning';
 import { setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
-import { createGhost, migrateOldGhost } from './ghost';
-import { drawCenter, drawHud, lapBanner } from './hud';
+import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
+import { drawCenter, drawHud, drawMap, lapBanner } from './hud';
 import { onRespawn, readInput } from './input';
 import { css } from './render/palette';
 import { createExplosion, EXPLOSION_T } from './render/explosion';
@@ -20,11 +20,15 @@ try { storage = localStorage; } catch { /* blocked: High scores and Ghosts live 
 migrateOldGhost(storage, TRACKS[0].id); // the best Lap from before Tracks belongs to Overdrive
 
 // Every Track's world is built at boot, with High scores and a Ghost per lap count; picking a Track swaps which one
-// is drawn and ridden.
+// is drawn and ridden. The Pilot Ghost's runs are only built once a run needs one (pilots, per lap count).
 const worlds = TRACKS.map(track => {
   const T = bakeTrack(track);
-  const ghosts = Object.fromEntries(LAP_OPTIONS.map(n => [n, createGhost(storage, track.id, n)]));
-  return { track, T, ...createScene(T, track.palette), ghosts };
+  const ghosts = Object.fromEntries(LAP_OPTIONS.map(n => [n, createGhost(storage, { id: track.id, L: T.L, cpS: T.cpS }, n)]));
+  const outline = { // the top-down outline, for Track select and the minimap
+    colors: [css(track.palette.primary), css(track.palette.secondary)] as [string, string],
+    outline: T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: T.gap[i] })), checkpoints: T.cpS.map(s => Math.round(s / T.ds)),
+  };
+  return { track, T, ...createScene(T, track.palette), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
 });
 let w = worlds[0], laps = DEFAULT_LAPS;
 const ghost = () => w.ghosts[laps];
@@ -53,13 +57,25 @@ const COUNTDOWN = 3;
 let phase: 'countdown' | 'racing' | 'finished' = 'countdown', countT = COUNTDOWN, goT = 0;
 let prevBest = ghost().bestTime;
 let split: number | null = null, splitT = 0;
+let liveGap: number | null = null, liveGapT = 0; // the live gap to the Ghost, read 10x a second
 let banner = '', bannerT = 0, lapsShown = 0; // the Lap banner, and how many of the run's Laps it has announced
 
 function retry() {
   Object.assign(st, newState(w.T));
   ghost().restart();
   w.trail.update(st.pos, st.quat, true, false);
-  phase = 'countdown'; countT = COUNTDOWN; split = null; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
+  phase = 'countdown'; countT = COUNTDOWN; split = null; liveGap = null; liveGapT = 0; bannerT = 0; lapsShown = 0; snap = true; wreckT = 0;
+}
+// The Pilot Ghost, while there's no Ghost of your own at this Track and lap count. Its run is built from the first run
+// that needs it, from its countdown, `ms` a frame (a 5-Lap run is ~30,000 physics steps), so it never drops a frame.
+function buildPilot(ms: number) {
+  if (!ghost().needsPilot) return;
+  const run = (w.pilots[laps] ??= pilotRun(w.T, w.track.pilot, laps));
+  for (const end = performance.now() + ms; ;) {
+    const r = run.next();
+    if (r.done) return ghost().setPilot(r.value);
+    if (performance.now() >= end) return;
+  }
 }
 function selectTrack(i: number, n: number) {
   w = worlds[i]; laps = n;
@@ -73,10 +89,8 @@ function finish() {
 }
 
 const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
-  name: x.track.name, kind: x.track.kind,
-  colors: [css(x.track.palette.primary), css(x.track.palette.secondary)],
-  outline: x.T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: x.T.gap[i] })),
-  scores: n => x.ghosts[n].scores,
+  name: x.track.name, kind: x.track.kind, ...x.outline, pilotTimes: x.track.pilotTimes,
+  scores: n => x.ghosts[n].scores, ideal: n => x.ghosts[n].idealTime,
 })), effect => {
   if (effect === 'resume') return;
   if (effect === 'restart' || effect === 'endRun') return retry();
@@ -106,6 +120,7 @@ renderer.setAnimationLoop(now => {
   menu.tick(frame);
   const frozen = menu.screen !== null;
   if (phase === 'countdown' && !frozen && (countT -= frame) <= 0) { phase = 'racing'; goT = 0.7; prevBest = ghost().bestTime; }
+  if (!frozen) buildPilot(phase === 'racing' ? Infinity : 4); // done by GO on any sane machine; if not, finished outright
   if (phase !== 'racing' || frozen || wreckT > 0) acc = 0; // nothing piles up to catch up on at GO, on Resume or after a crash
   while (acc >= DT) {
     step(st, inp, TUNING, w.T, DT); acc -= DT;
@@ -118,6 +133,8 @@ renderer.setAnimationLoop(now => {
     trailRespawns = st.respawns;
     if (st.laps === laps) { finish(); break; }
   }
+  // The live gap holds while Airborne (the distance doesn't move) and is read on the Track 10x a second, so it doesn't flicker.
+  if (phase === 'racing' && st.mode === 'track' && (liveGapT -= frame) <= 0) { liveGap = ghost().liveGap(st); liveGapT = 0.1; }
   if (st.respawns !== seenRespawns) {
     if (st.respawns > seenRespawns) { // a crash, not a retry: the Bike still shows last frame's pose, the crash spot
       w.scene.add(boom.points); boom.start(w.bike.position, w.bike.quaternion); wreckT = EXPLOSION_T;
@@ -150,8 +167,9 @@ renderer.setAnimationLoop(now => {
     w.bike.position.copy(st.pos); w.bike.quaternion.copy(shownQuat); w.updateBike(st, frame);
   }
   const run = ghost().run;
-  drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime });
+  drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime, liveGap });
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
+  if (!frozen) drawMap(w.outline, st.pos, w.ghostBike.visible ? w.ghostBike.position : null);
   if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
   bloom.render();
 });
