@@ -70,6 +70,8 @@
 
 **Data shard** — A glowing diamond placed on a Track to collect by riding through it. Ten per Track, some on the racing line, some in risky spots; once found it stays found. Collecting one never changes the Lap or the time.
 
+**Settings** — The screen where you set Music and Sound volume, Reduce motion, field of view, quality, the FPS counter and the Ghost line. Reached from the Menu or Pause.
+
 **Run stats** — The numbers from one run, shown on the Finish screen: airtime, top speed, crashes (every respawn, the R key's too), Boosts fired, Boost pad hits and Perfect landings.
 
 **Lifetime stats** — Your totals across every Track and run, on the Stats screen: distance, Laps, time played, runs finished and crashes. They never reset.

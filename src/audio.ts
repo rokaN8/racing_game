@@ -12,18 +12,19 @@ let muted = false;
 try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* storage blocked: start unmuted */ }
 
 let ctx: AudioContext | null = null;
-let master: GainNode, engGain: GainNode, engFilter: BiquadFilterNode, engine: OscillatorNode, noise: AudioBuffer;
+let master: GainNode, fx: GainNode, engGain: GainNode, engFilter: BiquadFilterNode, engine: OscillatorNode, noise: AudioBuffer;
 let windGain: GainNode, windFilter: BiquadFilterNode, airGain: GainNode, rumbleGain: GainNode;
 
 function start() {
   if (ctx) { if (ctx.state === 'suspended') void ctx.resume(); return; }
   try { ctx = new AudioContext(); } catch { return; } // no Web Audio: play silent
   master = ctx.createGain(); master.gain.value = muted ? 0 : VOLUME; master.connect(ctx.destination);
+  fx = ctx.createGain(); fx.gain.value = soundVol; fx.connect(master); // Settings → Sound: everything but the Songs
 
   engine = ctx.createOscillator(); engine.type = 'triangle';
   engFilter = ctx.createBiquadFilter(); engFilter.type = 'lowpass'; engFilter.Q.value = 4;
   engGain = ctx.createGain(); engGain.gain.value = 0;
-  engine.connect(engFilter).connect(engGain).connect(master); engine.start();
+  engine.connect(engFilter).connect(engGain).connect(fx); engine.start();
 
   noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); // 1 s of white noise, reused by every burst
   const d = noise.getChannelData(0);
@@ -45,7 +46,7 @@ let wantSong: Song | null = null, wantMuffled = false; // what the game asked fo
 
 function startMusic() {
   if (!ctx) return;
-  music = ctx.createGain(); music.gain.value = MUSIC; music.connect(master);
+  music = ctx.createGain(); music.gain.value = MUSIC * musicVol; music.connect(master);
   react = ctx.createBiquadFilter(); react.type = 'lowpass'; react.frequency.value = OPEN_HZ; react.connect(music);
   muffle = ctx.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = OPEN_HZ; muffle.connect(react);
   if (wantSong) play(wantSong, 0);
@@ -75,7 +76,7 @@ function fadeOut(p: Player, secs: number) {
 function setMuffle(on: boolean) {
   const t = ctx!.currentTime;
   muffle.frequency.setTargetAtTime(on ? MUFFLE_HZ : OPEN_HZ, t, 0.03); // eases in about 0.1 s
-  music.gain.setTargetAtTime(on ? MUSIC / 2 : MUSIC, t, 0.03);
+  music.gain.setTargetAtTime(MUSIC * musicVol * (on ? 0.5 : 1), t, 0.03);
 }
 
 function schedule() {
@@ -183,11 +184,11 @@ addEventListener('pointerdown', start);
 function startWind() {
   const loop = (dest: AudioNode) => { const s = ctx!.createBufferSource(); s.buffer = noise; s.loop = true; s.connect(dest); s.start(); };
   const gain = (dest: AudioNode) => { const g = ctx!.createGain(); g.gain.value = 0; g.connect(dest); return g; };
-  windGain = gain(master); windFilter = ctx!.createBiquadFilter(); windFilter.type = 'bandpass'; windFilter.Q.value = 0.7;
+  windGain = gain(fx); windFilter = ctx!.createBiquadFilter(); windFilter.type = 'bandpass'; windFilter.Q.value = 0.7;
   windFilter.connect(windGain); loop(windFilter);
-  rumbleGain = gain(master); const hp = ctx!.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
+  rumbleGain = gain(fx); const hp = ctx!.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
   hp.connect(rumbleGain); loop(hp);
-  airGain = gain(master);
+  airGain = gain(fx);
   const tone = ctx!.createOscillator(), trem = ctx!.createGain(), lfo = ctx!.createOscillator(), depth = ctx!.createGain();
   tone.type = 'triangle'; tone.frequency.value = 110; trem.gain.value = 0.6; // 0.6 ± 0.4
   lfo.frequency.value = 6; depth.gain.value = 0.4; lfo.connect(depth).connect(trem.gain);
@@ -208,6 +209,16 @@ export function updateWind(speed: number, airborne: boolean, edge: number | null
   rumbleGain.gain.setTargetAtTime(on * 0.14 * edgeNear(edge) * (rumbleOn(ridden) ? 1 : 0), t, 0.005);
 }
 
+// Settings (docs/game-spec.md → Settings): the Songs' and the sounds' gains, 0…1. M mutes on top of both.
+let musicVol = 1, soundVol = 1;
+export function setVolumes(m: number, s: number) {
+  musicVol = m; soundVol = s;
+  if (!ctx || !music) return;
+  const t = ctx.currentTime;
+  music.gain.setTargetAtTime(MUSIC * musicVol * (wantMuffled ? 0.5 : 1), t, 0.03); fx.gain.setTargetAtTime(soundVol, t, 0.03);
+}
+export const isMuted = () => muted;
+
 // Each frame. Glides with setTargetAtTime so the engine never clicks or zippers.
 // A deep triangle hum: narrow pitch range (35-65 Hz) and a dark filter, so speed and Boost never make it whine.
 export function updateEngine(speed: number, airborne: boolean) {
@@ -219,13 +230,13 @@ export function updateEngine(speed: number, airborne: boolean) {
 }
 
 // A pitched blip: glides f0 → f1 and fades out over dur seconds, starting `at` seconds from now.
-function blip(f0: number, f1: number, dur: number, at = 0, type: OscillatorType = 'square', vol = 0.15) {
+function blip(f0: number, f1: number, dur: number, at = 0, type: OscillatorType = 'square', vol = 0.15, dest: AudioNode = fx) {
   if (!ctx) return;
   const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
   o.type = type;
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g).connect(master); o.start(t); o.stop(t + dur);
+  o.connect(g).connect(dest); o.start(t); o.stop(t + dur);
 }
 
 // Filtered noise: the low-pass sweeps f0 → f1 while the burst swells in over `attack` and fades out by dur.
@@ -235,7 +246,7 @@ function burst(f0: number, f1: number, dur: number, attack: number, vol: number)
   src.buffer = noise; f.type = 'lowpass';
   f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
   g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(master); src.start(t); src.stop(t + dur);
+  src.connect(f).connect(g).connect(fx); src.start(t); src.stop(t + dur);
 }
 
 export const sfx = {
@@ -249,6 +260,8 @@ export const sfx = {
   checkpoint: () => { blip(880, 880, 0.09); blip(1320, 1320, 0.14, 0.09); },
   lap: () => [660, 880, 1320].forEach((f, i) => blip(f, f, 0.18, i * 0.1, 'triangle', 0.25)),
   whoosh: (side: number) => swoop(side),
+  // Settings: a short blip at the new level, through the Songs' gain or the sounds'
+  level: (which: 'music' | 'sound') => { if (ctx && music) blip(660, 660, 0.12, 0, 'triangle', 0.25, which === 'music' ? music : fx); },
   shard: () => { blip(1568, 1568, 0.08, 0, 'triangle', 0.2); blip(2093, 2093, 0.08, 0.06, 'triangle', 0.18); blip(3136, 3136, 0.22, 0.12, 'sine', 0.14); }, // a bright three-note sparkle
 };
 
@@ -261,5 +274,5 @@ function swoop(side: number) {
   o.type = 'sawtooth'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(350, t + 0.5);
   pan.pan.setValueAtTime(p(0.3), t); pan.pan.linearRampToValueAtTime(p(1.5), t + 0.5);
   g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  o.connect(pan).connect(g).connect(master); o.start(t); o.stop(t + 0.5);
+  o.connect(pan).connect(g).connect(fx); o.start(t); o.stop(t + 0.5);
 }

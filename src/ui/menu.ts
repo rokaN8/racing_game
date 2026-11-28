@@ -3,6 +3,7 @@
 // effects. Plain HTML over the canvas.
 import type { Score } from '../ghost';
 import { clock } from '../hud';
+import type { SettingRow } from '../settings';
 import type { RunStats, Totals } from '../stats';
 import { drawOutline, type Outline } from './outline';
 import {
@@ -26,7 +27,7 @@ const CONTROLS: [string, string, string][] = [
   ['Steer · yaw', 'A D  ← →', 'Left stick'], ['Boost', 'Space  Shift', 'A'], ['Respawn', 'R', 'Y'],
   ['Pause', 'Esc', 'Start'], ['Ghost line', 'G', 'Select'], ['Mute', 'M', ''],
 ];
-const TITLE: Partial<Record<Screen, string>> = { select: 'Track select', reset: 'Reset times', controls: 'Controls', stats: 'Stats', pause: 'Paused' };
+const TITLE: Partial<Record<Screen, string>> = { select: 'Track select', reset: 'Reset times', controls: 'Controls', stats: 'Stats', settings: 'Settings', pause: 'Paused' };
 const fmt = (t: number) => clock(t);
 const lapsText = (n: number) => `${n} Lap${n === 1 ? '' : 's'}`;
 const date = (d: number | null) => (d === null ? '' : new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
@@ -42,7 +43,13 @@ const hintHtml = (h: [string[], string][]) => h.map(([keys, what]) => `<span>${k
 const palette = (t: MenuTrack) => `--a:${t.colors[0]};--b:${t.colors[1]}`;
 const medalTag = (m: Medal | null, pop = false) => (m ? `<i class="medal ${m.toLowerCase()}${pop ? ' pop' : ''}">${m}</i>` : '');
 
-export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void, totals: () => Totals) {
+const SETTING_NAME: Record<SettingRow, string> = {
+  music: 'Music', sound: 'Sound', motion: 'Reduce motion', fov: 'Field of view', quality: 'Quality', fps: 'FPS counter', ghostLine: 'Ghost line',
+};
+
+// settingText: a Settings row's value as shown, e.g. '80 %' or 'Auto'.
+export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void, totals: () => Totals,
+  settingText: (row: SettingRow) => string) {
   let s = initialMenu(), info: RunInfo = { raceTime: 0, lap: 1, time: 0, lapTimes: [], delta: null, rank: null, stats: null };
   const n = tracks.length;
 
@@ -88,16 +95,19 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       const t = tracks[it.track], m = medalFor(best(t), pilotTime(t));
       return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${shardTag(t)}${medalTag(m)}${swatch(t)}`;
     }
+    if (typeof it === 'object' && 'setting' in it) return `<span>${SETTING_NAME[it.setting]}</span><b class="value">‹ ${esc(settingText(it.setting))} ›</b>`;
+    if (it === 'resetSettings') return s.armed === i ? `<span>Reset settings?</span><b>${Math.ceil(s.armedT)}</b>` : '<span>Reset to defaults</span>';
     if (typeof it === 'object') {
       const name = it.reset === 'all' ? 'all Tracks' : esc(tracks[it.reset].name);
       if (s.armed === i) return `<span>Reset ${name}?</span><b>${Math.ceil(s.armedT)}</b>`;
       return it.reset === 'all' ? '<span>All Tracks</span>' : `<span>${name}</span>${swatch(tracks[it.reset])}`;
     }
-    return { play: 'Play', stats: 'Stats', controls: 'Controls', reset: 'Reset times', resume: 'Resume', restart: 'Restart', quit: 'Quit to Menu',
+    return { play: 'Play', stats: 'Stats', settings: 'Settings', controls: 'Controls', reset: 'Reset times', resume: 'Resume', restart: 'Restart', quit: 'Quit to Menu',
       retry: 'Retry', select: 'Track select', menu: 'Menu' }[it];
   };
   // Under the armed reset: what it deletes. After one: that it's done.
   const resetNote = (it: Item, i: number) => {
+    if (s.armed === i && it === 'resetSettings') return '<p class="warn">Puts every setting back to its default, the Ghost line too. Press again to confirm.</p>';
     if (s.armed !== i || typeof it !== 'object' || !('reset' in it)) return '';
     const whose = it.reset === 'all' ? "every Track's" : `${esc(tracks[it.reset].name)}'s`;
     return `<p class="warn">Deletes ${whose} times and Ghosts at every lap count. Press again to confirm.</p>`;
@@ -166,6 +176,7 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
       case 'select': return [[['↑↓'], 'track'], [['←→'], 'laps'], [['Enter', 'A'], it === 'reset' ? 'open' : 'race'], [['Esc', 'B'], 'back']];
       case 'reset': return [[['↑↓'], 'move'], [['Enter', 'A'], 'press twice'], [['Esc', 'B'], 'back']];
       case 'controls': case 'stats': return [[['Esc', 'B'], 'back']];
+      case 'settings': return [[['↑↓'], 'move'], [['←→'], 'change'], [['Esc', 'B'], 'back']];
       case 'pause': return [[['↑↓'], 'move'], [['Enter', 'A'], 'pick'], [['Esc', 'B'], 'resume']];
       case 'finish': return [[['↑↓'], 'move'], [['Enter', 'A'], 'pick'], [['R', 'Y'], 'retry']];
     }
@@ -186,8 +197,8 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
         ['Runs finished', t.runs], ['Crashes', t.crashes]] as const).map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('')}</table>`;
     } else {
       body = `<div class="list">${itemsFor(screen, n).map((it, i) =>
-        `<div class="item${i === s.focus ? ' on' : ''}${s.armed === i ? ' armed' : ''}${it === 'reset' ? ' minor' : ''}">${label(it, i)}</div>${resetNote(it, i)}`).join('')}</div>`;
-      if (s.cleared !== null) body += `<p class="cleared">${s.cleared === 'all' ? 'All Tracks' : esc(tracks[s.cleared].name)} cleared</p>`;
+        `<div class="item${i === s.focus ? ' on' : ''}${s.armed === i ? ' armed' : ''}${it === 'reset' || it === 'resetSettings' ? ' minor' : ''}">${label(it, i)}</div>${resetNote(it, i)}`).join('')}</div>`;
+      if (s.cleared !== null) body += `<p class="cleared">${s.cleared === 'settings' ? 'Settings reset' : `${s.cleared === 'all' ? 'All Tracks' : esc(tracks[s.cleared].name)} cleared`}</p>`;
     }
     root.innerHTML = `<div class="rail${screen === 'controls' ? ' wide' : ''}">${head(screen)}${body}<div class="hint">${hintHtml(hint(screen))}</div></div>${panel(screen)}`;
     const cv = root.querySelector<HTMLCanvasElement>('canvas.outline');

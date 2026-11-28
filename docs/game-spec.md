@@ -24,7 +24,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 
 | Area | Decision | Ticket |
 |---|---|---|
-| Flow | Boot → Menu (Play → Track select · Stats · Controls; High scores and Reset times live in Track select). Picking a Track → countdown → run → Finish (Retry · Track select · Menu). Pause (Esc / Start): Resume · Restart · Quit to Menu. Keyboard and gamepad everywhere. | [Wayfinder: Rounded-out game spec](https://github.com/rokaN8/racing_game/issues/33) |
+| Flow | Boot → Menu (Play → Track select · Stats · Settings · Controls; High scores and Reset times live in Track select). Picking a Track → countdown → run → Finish (Retry · Track select · Menu). Pause (Esc / Start): Resume · Restart · Quit to Menu. Keyboard and gamepad everywhere. | [Wayfinder: Rounded-out game spec](https://github.com/rokaN8/racing_game/issues/33) |
 | Runtime and storage | One `TrackDef` record per Track in an ordered `TRACKS` array. Every Track's scene is built at boot and swapped. One storage key per Track holds its top 5 and its Ghost. Today's best migrates to Overdrive. | [Multi-Track runtime and storage](https://github.com/rokaN8/racing_game/issues/34) |
 | Screens | Side-rail overlay over the frozen game. Track select shows each Track's kind, top-down outline and top 5. Reset is press twice within 3 s. | [Menu, Pause and High scores screens](https://github.com/rokaN8/racing_game/issues/35) |
 | Songs | Song as data, played by a pure step generator. Four Songs. Crossfade 1.5 s; Retry keeps the Song going; Pause muffles it. | [Four distinct synth Songs](https://github.com/rokaN8/racing_game/issues/36) |
@@ -36,6 +36,7 @@ Still no art or audio files: everything is drawn and synthesised in code.
 | Knot | 3.3 km pentagram (720° right), no braking: crosses itself 5 times, alternating over (14 m) and under (in a Tunnel), a Double Loop and a Corkscrew upside down over one crossing. 5 Checkpoints, ~54 s. | [Knot layout](https://github.com/rokaN8/racing_game/issues/79) |
 | Rocket start | Throttle press begun in the last 0.25 s before GO launches at 15 m/s; held from earlier Stalls for 0.5 s. The Pilot always gets one. `TUNING` unchanged. | [Rocket start](https://github.com/rokaN8/racing_game/issues/81) |
 | Landing grades | Perfect ≤5° / Clean ≤20° / Sketchy ≤35°, coloured. A Perfect landing from a Gap Boosts 0.5 s. `TUNING` unchanged. | [Perfect landing and Landing grades](https://github.com/rokaN8/racing_game/issues/80) |
+| Settings | One Settings screen, from the Menu and Pause: Music and Sound volume, Reduce motion (Auto / On / Off), Field of view, Quality, FPS counter, Ghost line. Changes apply at once; one guarded key. M still mutes on top. | [Settings](https://github.com/rokaN8/racing_game/issues/89) |
 | Palettes | Primary, secondary and sky per Track. Darks derived in sRGB. Bike, Ghost and HUD stay fixed. | [Per-Track palettes](https://github.com/rokaN8/racing_game/issues/39) |
 | Track 1 name, milestones | Track 1 is **Overdrive**. Build order M9 → M13 below. | [Game spec hand-off](https://github.com/rokaN8/racing_game/issues/40) |
 
@@ -219,7 +220,7 @@ Overdrive keeps its hand-written control points.
 An HTML overlay over the frozen game. While it's open the HUD is hidden and the run is frozen (countdown, physics and engine sound). Built in M10: `src/ui/menu.ts` draws the pure state machine in `src/ui/menuState.ts`.
 
 - **Layout.** A left rail over a dark gradient on the left third: title, items, then key hints for that screen as key chips. The focused item is a slanted magenta bar with dark text. A detail panel on the right shows whatever the focused item is about; it shares the rail's top line, never runs under the rail, and scrolls inside itself rather than off screen. The game stays visible behind.
-- **Menu.** Logo, then Play · Stats · Controls. Coming back to it restores the last focus.
+- **Menu.** Logo, then Play · Stats · Settings · Controls. Coming back to it restores the last focus.
 - **Track select** (also where the High scores live).
   - **Rail:** the lap count under the title (`‹ 3 Laps ›`, set with ← →, stopping at 1 and 5; 3 at boot), then name, kind and palette swatch per Track, then a smaller Reset times. Focus starts on the last-raced Track.
   - **Rail Medal:** the Medal each Track's #1 earns at the current lap count, as a small tag before its swatch. A Track with every Data shard found also gets a magenta ◆ before it.
@@ -228,7 +229,8 @@ An HTML overlay over the frozen game. While it's open the HUD is hidden and the 
 - **Reset times.** Opened from Track select; back returns to it. The rail holds each Track, then All Tracks; the panel shows the focused Track (or every Track's #1). The first press turns the item red with "Reset Overdrive? 3", a line under it saying what goes ("Deletes Overdrive's times and Ghosts at every lap count. Press again to confirm."), and the panel edge turns red. A second press within 3 s resets every lap count of that Track; "Overdrive cleared" shows for 2.5 s. A timeout or moving focus cancels.
 - **Controls.** The Keyboard | Gamepad table sits in the rail.
 - **Stats.** The Lifetime stats as a table in the rail (see Run stats). Esc / B back to the Menu. Not opened from Pause.
-- **Pause** (Esc / Start, or leaving the game mid-run: a hidden tab or the window losing focus during the countdown, a run or a crash, [#69](https://github.com/rokaN8/racing_game/issues/69); already on a screen, nothing changes). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
+- **Settings.** From the Menu or Pause (the run stays frozen); Esc / B back to whichever opened it. See Settings.
+- **Pause** (Esc / Start, or leaving the game mid-run: a hidden tab or the window losing focus during the countdown, a run or a crash, [#69](https://github.com/rokaN8/racing_game/issues/69); already on a screen, nothing changes). The rail shows the Track name, the Lap (past 1 Lap) and the run time so far, then Resume · Settings · Restart · Quit to Menu. Esc, Start or B resume. Quit to Menu resets the run.
 - **Finish.**
   - **Rail head:** the Track and lap count in its palette colour, the run time, then the rank as a big numeral. A new #1 adds a slanted magenta NEW BEST tag that pops in, with the gain on the old best; otherwise the gap to the best. Outside the top 5 it says so instead of a rank. Under it, the Medal this run earned and the gap to the next one ("Gold · 0.41 to Neon", or "No Medal · 1.20 to Bronze"); a Medal better than the old #1's pops in like NEW BEST. Then Retry · Track select · Menu.
   - **Panel:** the Track's top 5 at this lap count with this run highlighted; outside the top 5, a dashed "You" row with the gap to #5. Then the Ideal time and how far #1 is off it ("Ideal 1:58.40 · best 1.10 off"), then each Lap's time, the first fastest tagged, then the run's Run stats (see Run stats). R / Y still retry.
@@ -266,7 +268,7 @@ Render and camera only, with no physics ([Speed feel and Finish cam](https://git
 - the streaks at half brightness;
 - the Finish cam holds Chase's view instead of orbiting.
 
-The Settings ticket adds its own switches.
+Settings can force it on or off (see Settings).
 
 ## Trackside scenery and Rung ripple
 
@@ -302,6 +304,25 @@ Sound only, synth only, no files ([Wind and Ghost whoosh](https://github.com/rok
 **Rumble strip:** the warning before the Track edge. High-passed noise (1.5 kHz) pulsed once per 4 m ridden (on for 35 % of each), from 2 m short of the edge, rising to 0.14 at it. On the Track only. Not the gamepad rumble.
 
 **Ghost whoosh:** when the Ghost (yours or the Pilot's) crosses the camera's side-to-side line within 12 m, either way: you passing it or it passing you. A sawtooth swoops 1400 → 350 Hz over 0.5 s at 0.12, panning from 0.3 to 1.5 × the Ghost's side (its offset to the camera's right over its distance, clamped to ±1). A respawn or Retry starts the check over, so a jump never fires one.
+
+## Settings
+
+One screen of settings ([Settings](https://github.com/rokaN8/racing_game/issues/89), `src/settings.ts`), opened from the Menu (Play · Stats · Settings · Controls) or Pause (Resume · Settings · Restart · Quit to Menu). Back returns to whichever opened it.
+
+| Row | Values | Default | Does |
+|---|---|---|---|
+| Music | 0–100 % in 10s | 100 % | the Songs' level (gain = (v/100)²) |
+| Sound | 0–100 % in 10s | 100 % | everything else: engine, sound effects, Wind, Rumble strip, Ghost whoosh |
+| Reduce motion | Auto / On / Off | Auto | Auto follows the OS; On or Off forces what reduced motion drives (beat pulse, Rung ripple, Speed feel's shake, split and streaks, the Finish cam's orbit) |
+| Field of view | Narrow 90° / Normal 102° / Wide 110° | Normal | the camera's vertical FOV; Boost still widens it by 12° |
+| Quality | High / Low | High | pixel ratio up to 2 (High) or 1 (Low) |
+| FPS counter | Show / Hide | Hide | the HUD's frame rate |
+| Ghost line | On / Off | Off | the same switch as G, with its own key |
+
+- **Changing:** ↑↓ move, ←→ step (volumes stop at 0 and 100; the others wrap), Enter steps forward. Every change applies at once, no Apply. A volume change plays a short blip at the new level.
+- **Reset to defaults:** the last row, pressed twice within 3 s like Reset times ("Settings reset" shows after). It resets every row, the Ghost line too.
+- **Mute:** M mutes everything on top of both volumes without touching them; while muted, Music shows "· muted (M)".
+- **Storage:** one localStorage key, `neon-racer.settings.v1`, a JSON object of the rows above but the Ghost line (it keeps `neon-racer.ghostLine`; mute keeps `neon-racer.muted`). Each field is checked on its own: missing or bad, it takes its default and the rest are kept. Blocked storage: the defaults, and changes last the session.
 
 ## Data shards
 
@@ -359,6 +380,7 @@ Every Track has a rival from the first run ([#61](https://github.com/rokaN8/raci
   - From before the Ghost store: a localStorage record may still hold its Ghost inline (`ghost: { poses, splits, dist? }`, base64 Float32Array). It is raced straight away. When its Track loads, it is put into the Ghost store, and once that transaction completes the record is rewritten without it. Until then every rewrite keeps it, so a failed put loses nothing; the next load tries again.
 - **Lifetime stats:** `neon-racer.stats.v1`, see Run stats.
 - **Data shards:** `neon-racer.shards.v1`, see Data shards.
+- **Settings:** `neon-racer.settings.v1`, see Settings.
 - **Guarding.** Every read and write is guarded. Garbage loads as empty, and the game runs with storage blocked: blocked or missing localStorage keeps the times in memory, and a blocked, missing, failing or hung IndexedDB (it fails in several ways, by browser) keeps the Ghosts in memory.
 - **Ghost module.** `createGhost(storage, { id, L, cpS }, laps, now, ghostStore)`, one instance per Track and lap count, built at boot. It exposes `scores` (the HUD best is `scores[0].time`), `load()` to fetch its Ghost (once), `clear()` for resets, `restart()`, which is today's `reset()` (retry) renamed, `liveGap(bike)` for the live gap (a binary search over the running max of the Ghost's distances), `idealTime` (the best Sectors added up; null with none, or while above #1), and `needsPilot` / `setPilot()` for the Pilot Ghost.
 
@@ -458,6 +480,7 @@ src/
   ghost.ts                   # per Track: top 5 + Ghost + best Sectors in one key, migration; the Pilot Ghost's run
   stats.ts                   # Run stats counted per physics step; Lifetime stats, banked into one key
   shards.ts                  # Data shards: positions, the pickup check, found shards in one key
+  settings.ts                # Settings: rows, stepping, their key
   pilot.ts                   # headless pilots: steer to centre, brake for turns, Air control onto the flight path
   ui/menu.ts                 # the side-rail overlay: Menu, Track select (+ High scores, Reset times), Controls, Pause, Finish
   ui/outline.ts              # the top-down Track outline, for Track select and the minimap
@@ -533,4 +556,4 @@ Accept when:
 - Multiplayer, AI opponents.
 - Unlockables and progression.
 - New Bike types.
-- A settings screen (M still mutes). Audio files: Songs stay synth.
+- Audio files: Songs stay synth.

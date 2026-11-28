@@ -42,6 +42,7 @@
       #hud .times b { display: block; margin-top: 2px; font-size: 18px; font-weight: 600; color: var(--ink); }
 
       #hud .right { top: 8px; right: 32px; display: flex; flex-direction: column; align-items: flex-end; } /* FPS, Lap counter, minimap */
+      body:not(.show-fps) #hud .fps { display: none; } /* Settings → FPS counter */
       #hud .fps { font-size: 11px; font-weight: 600; letter-spacing: .2em; opacity: .7; text-shadow: none; }
       #hud .fps b { color: var(--ink); letter-spacing: .04em; }
       #hud .lapc { margin-top: 7px; text-align: right; }
@@ -190,6 +191,7 @@
       #ui .shards span { opacity: .6; } #ui .shards b { color: var(--b); text-shadow: 0 0 8px var(--b); }
       #ui .shardtag { flex: none; font-style: normal; font-size: 13px; color: var(--magenta); text-shadow: 0 0 8px var(--magenta); }
       /* Finish: the Run stats, a 3 × 2 grid under the Laps */
+      #ui .item .value { margin-left: auto; font-weight: 700; white-space: nowrap; } /* Settings: a row's value */
       #ui dl.runstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; margin: 6px 8px 0; }
       #ui dl.runstats dt { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; }
       #ui dl.runstats dd { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
