@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARM_TIME, CLEARED_TIME, FINISH_LOCK, initialMenu, reduce, type Action, type Effect, type MenuState } from '../src/ui/menuState';
+import { ARM_TIME, CLEARED_TIME, FINISH_LOCK, initialMenu, medalFor, medalTime, reduce, type Action, type Effect, type MenuState } from '../src/ui/menuState';
 
 const N = 3; // Tracks
 // Run actions from a state; returns the end state and every effect, in order.
@@ -104,5 +104,21 @@ describe('Menu state', () => {
       expect(run(start, back).s.screen).toBe('menu');
     }
     expect(run(initialMenu(), open('menu'), back).s.screen).toBe('menu');
+  });
+});
+
+describe('Medals', () => {
+  it('are earned at or under each target, set against the Pilot time: Neon at it, Gold +5 %, Silver +12 %, Bronze +25 %', () => {
+    const at: [number, string | null][] = [[90, 'Neon'], [100, 'Neon'], [100.01, 'Gold'], [105, 'Gold'], [105.01, 'Silver'],
+      [112, 'Silver'], [112.01, 'Bronze'], [125, 'Bronze'], [125.01, null]];
+    for (const [time, medal] of at) expect(medalFor(time, 100), `${time}`).toBe(medal);
+    expect(medalFor(null, 100)).toBeNull(); // no times yet
+  });
+
+  it('compare to the hundredth, as the times are shown', () => {
+    expect(medalTime('Gold', 52.93)).toBe(55.58); // 55.5765
+    expect(medalFor(55.58, 52.93)).toBe('Gold');
+    expect(medalFor(55.584, 52.93)).toBe('Gold'); // shows as 0:55.58 too
+    expect(medalFor(55.59, 52.93)).toBe('Silver');
   });
 });

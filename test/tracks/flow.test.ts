@@ -4,7 +4,7 @@ import { bakeTrack } from '../../src/track/bake';
 import { slipstream } from '../../src/track/tracks/flow';
 import { newState, step } from '../../src/bike/physics';
 import { CEILING_UP_Y, TUNING } from '../../src/bike/tuning';
-import { createPilot, DT, lapDone, NONE, type Pilot } from '../pilot';
+import { createPilot, DT, lapDone, NONE, type Pilot } from '../../src/pilot';
 
 const T = bakeTrack(slipstream);
 const { gaps, ride } = createPilot(T);

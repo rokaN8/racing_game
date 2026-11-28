@@ -1,10 +1,12 @@
 // In-race HUD, plain HTML over the canvas (markup and styles in index.html). Top left: the run clock (penalties
-// included), the Checkpoint split under it, then the current Lap time and the best run. Top right: the Lap counter,
-// flagged on the final Lap. Bottom left: speed and the Boost meter. Bottom right: the Attitude indicator while
-// Airborne. Very top right: frames per second. Centre: the countdown, GO and the Lap banner. Each field is written only when its text changes.
+// included), the gap to the Ghost under it, then the current Lap time and the best run. Top right: the Lap counter,
+// flagged on the final Lap, then the minimap. Bottom left: speed and the Boost meter. Bottom right: the Attitude
+// indicator while Airborne. Very top right: frames per second. Centre: the countdown, GO and the Lap banner. Each
+// field is written only when its text changes.
 import { Vector3, type Quaternion } from 'three';
 import type { BikeState } from './bike/physics';
 import { TUNING } from './bike/tuning';
+import { drawOutline, type Outline } from './ui/outline';
 
 // m:ss.cc: the race clock's format everywhere times are shown (HUD, Finish, High scores).
 export function clock(t: number) {
@@ -12,7 +14,7 @@ export function clock(t: number) {
   return `${Math.floor(cs / 6000)}:${String(Math.floor(r / 100)).padStart(2, '0')}.${String(r % 100).padStart(2, '0')}`;
 }
 // A time against the best: green when ahead, red when behind.
-const delta = (d: number) => `<span class="${d < 0 ? 'ahead' : 'behind'}">${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}</span>`;
+const delta = (d: number, cls = '') => `<span class="${d < 0 ? 'ahead' : 'behind'}${cls}">${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}</span>`;
 
 const $ = (id: string) => document.getElementById(id)!;
 const hud = $('hud'), center = $('center');
@@ -42,13 +44,16 @@ function countFrame() {
   fpsFrames = 0; fpsFrom = now;
 }
 
-export interface RunHud { time: number; lap: number; laps: number; best: number | null }
+// gap: the live gap to the Ghost, or null without one (or one saved before live gaps)
+export interface RunHud { time: number; lap: number; laps: number; best: number | null; gap: number | null }
+// split: a Checkpoint's split against the Ghost, while it shows
 export function drawHud(st: BikeState, q: Quaternion, split: number | null, run: RunHud) {
   countFrame();
   flag('laps', run.laps > 1 ? 'multi' : 'single');
   flag('final', run.laps > 1 && run.lap >= run.laps ? '1' : '');
   put(f.time, clock(run.time));
-  put(f.split, split === null ? '' : delta(split), true); // a new split inserts a fresh span, so it pops in
+  // The split line: a Checkpoint's split pops in (a fresh .cp span) and holds; otherwise the live gap, which doesn't.
+  put(f.split, split !== null ? delta(split, ' cp') : run.gap === null ? '' : delta(run.gap), true);
   put(f.lapTime, clock(st.lapTime));
   put(f.best, run.best === null ? '—' : clock(run.best));
   put(f.lap, String(Math.min(run.lap, run.laps)));
@@ -64,6 +69,27 @@ export function drawHud(st: BikeState, q: Quaternion, split: number | null, run:
 
   att.hidden = st.mode !== 'air';
   if (!att.hidden) drawAttitude(q);
+}
+
+// The minimap: the Track's outline, drawn once per Track offscreen and copied each frame, then the Ghost's and the
+// Bike's dots. Fixed north-up, as on Track select. ghost: null while the Ghost isn't showing.
+const map = $('minimap') as HTMLCanvasElement, mapCtx = map.getContext('2d')!;
+let mapOf: Outline | null = null, mapBg = document.createElement('canvas'), project: ReturnType<typeof drawOutline>;
+export function drawMap(t: Outline, bike: Vector3, ghost: Vector3 | null) {
+  if (t !== mapOf) {
+    mapOf = t; mapBg = document.createElement('canvas');
+    mapBg.width = map.width; mapBg.height = map.height;
+    project = drawOutline(mapBg, t, map.width / 160);
+  }
+  mapCtx.clearRect(0, 0, map.width, map.height);
+  mapCtx.drawImage(mapBg, 0, 0);
+  const R = map.width / 160 * 3.5;
+  for (const [p, color] of [[ghost, '#fff'], [bike, '#0ff']] as const) {
+    if (!p) continue;
+    const [x, y] = project(p.x, p.z);
+    mapCtx.fillStyle = mapCtx.shadowColor = color; mapCtx.shadowBlur = R * 2;
+    mapCtx.beginPath(); mapCtx.arc(x, y, R, 0, 2 * Math.PI); mapCtx.fill();
+  }
 }
 
 // The centre stage: the countdown, GO and the Lap banner. Empty hides it. New markup replays its entrance.

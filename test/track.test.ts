@@ -4,7 +4,8 @@ import { bakeTrack, sampleAt } from '../src/track/bake';
 import { TRACKS } from '../src/track/tracks';
 import { newState, respawn, step } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
-import { BOOSTED, createPilot } from './pilot';
+import { BOOSTED, createPilot } from '../src/pilot';
+import { LAP_OPTIONS } from '../src/ui/menuState';
 
 describe.each(TRACKS)('$name', track => {
   const T = bakeTrack(track);
@@ -39,6 +40,17 @@ describe.each(TRACKS)('$name', track => {
       const a = T.pos[i], b = T.pos[j];
       if (Math.hypot(a.x - b.x, a.z - b.z) < 2 * T.halfWidth) expect(Math.abs(a.y - b.y)).toBeGreaterThan(8);
     }
+  });
+
+  // The Pilot Ghost's run (docs/game-spec.md → Pilot Ghost), and the baked time the Medals are set from.
+  it.each(LAP_OPTIONS)('the Pilot rides a %i-Lap run clean, in its baked time', n => {
+    const st = newState(T);
+    let time = 0;
+    for (let k = 1; k <= n; k++) {
+      expect(ride(st, track.pilot, st => st.laps >= k).filter(e => e.kind === 'respawn')).toEqual([]);
+      time += st.lastLap!;
+    }
+    expect(Math.abs(time - track.pilotTimes[n]), `the Pilot rode ${time.toFixed(4)}`).toBeLessThan(0.05);
   });
 
   it.each(T.cpS.map((_, k) => k + 1))('a respawn at Checkpoint %i at 20 m/s rides clean to the next one', k => {

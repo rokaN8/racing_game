@@ -4,7 +4,7 @@ import { bakeTrack } from '../../src/track/bake';
 import { afterglow } from '../../src/track/tracks/flight';
 import { newState, type BikeState } from '../../src/bike/physics';
 import { CEILING_UP_Y, TUNING } from '../../src/bike/tuning';
-import { createPilot, type Pilot } from '../pilot';
+import { createPilot, type Pilot } from '../../src/pilot';
 
 const T = bakeTrack(afterglow);
 const { gaps, ride } = createPilot(T);

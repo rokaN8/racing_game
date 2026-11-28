@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { bakeTrack } from '../../src/track/bake';
 import { switchback } from '../../src/track/tracks/technical';
 import { newState } from '../../src/bike/physics';
-import { createPilot, gapsOf, lapDone } from '../pilot';
+import { createPilot, gapsOf, lapDone } from '../../src/pilot';
 
 const T = bakeTrack(switchback);
 const { ride } = createPilot(T);

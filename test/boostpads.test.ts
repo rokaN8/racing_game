@@ -5,7 +5,7 @@ import { bakeTrack } from '../src/track/bake';
 import { boostPad, buildTrack, straight, turn } from '../src/track/turtle';
 import { newState, step } from '../src/bike/physics';
 import { TUNING } from '../src/bike/tuning';
-import { createPilot, DT, lapDone, NONE } from './pilot';
+import { createPilot, DT, lapDone, NONE } from '../src/pilot';
 
 // a rectangle of R60 banked turns with a 200 m Boost pad starting 150 m after the line
 const { cps, checkpointCps, boostPads } = buildTrack([

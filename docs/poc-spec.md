@@ -84,7 +84,7 @@ While Airborne, the left stick does Air control: forward is nose down.
 
 ### HUD
 
-Top left: the run clock (penalties included, `m:ss.cc`), the Checkpoint split against the Ghost, the current Lap time and the best run. Top right: the Lap counter, tagged on the final Lap (hidden for 1-Lap runs). Bottom left: speed and a segmented Boost meter that drains red while Boosting and refills over the cooldown. Crossing the line onto a new Lap shows a centre banner ("Lap 2/3" or "Final lap") with the Lap just finished and the split. Lettering is Oxanium, self-hosted from `public/fonts/`.
+Top left: the run clock (penalties included, `m:ss.cc`), the gap to the Ghost, the current Lap time and the best run. The gap line shows the live gap ([#63](https://github.com/rokaN8/racing_game/issues/63)): your run time now minus the Ghost's when it first got as far round as you are, `−0.42` green ahead, `+1.10` red behind, read about 10× a second so it doesn't flicker, and held while Airborne (the distance doesn't move). Passing a Checkpoint pops the Checkpoint split there for 2 s. A Ghost saved before live gaps shows Checkpoint splits only. Top right: the Lap counter, tagged on the final Lap (hidden for 1-Lap runs), then a 160 × 110 minimap ([#64](https://github.com/rokaN8/racing_game/issues/64)): the Track select outline, fixed north-up, with a cyan Bike dot and a white Ghost dot while the Ghost shows. Bottom left: speed and a segmented Boost meter that drains red while Boosting and refills over the cooldown. Crossing the line onto a new Lap shows a centre banner ("Lap 2/3" or "Final lap") with the Lap just finished and the split. Lettering is Oxanium, self-hosted from `public/fonts/`.
 
 While Airborne it also shows the Attitude indicator (see M7).
 

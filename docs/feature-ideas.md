@@ -18,11 +18,11 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 
 ## A. Racing and modes
 
-- [ ] **A1. Pilot Ghost** [#61] (S/M). Every Track has a rival from the first run. `test/pilot.ts` already rides a clean Lap headlessly; run it at boot (or bake it at build time), record its poses and race it when you have no Ghost of your own, or pick it on Track select. A Ghost, not an AI opponent, so it stays in scope. *Touches:* move `createPilot` into `src/`, `ghost.ts`, `main.ts`.
-- [ ] **A2. Medal times** [#62] (S). Bronze / Silver / Gold per Track and lap count, plus Neon for beating the Pilot Ghost. Shown on Track select next to the top 5 and on Finish ("Gold · 0.41 to Neon"). Derived from `scores[0]`, nothing new stored. A goal before you have a Ghost. *Touches:* `TrackDef` or the Pilot time, `ui/menu.ts`.
+- [x] **A1. Pilot Ghost** [#61] (S/M). Every Track has a rival from the first run. `test/pilot.ts` already rides a clean Lap headlessly; run it at boot (or bake it at build time), record its poses and race it when you have no Ghost of your own, or pick it on Track select. A Ghost, not an AI opponent, so it stays in scope. *Touches:* move `createPilot` into `src/`, `ghost.ts`, `main.ts`.
+- [x] **A2. Medal times** [#62] (S). Bronze / Silver / Gold per Track and lap count, plus Neon for beating the Pilot Ghost. Shown on Track select next to the top 5 and on Finish ("Gold · 0.41 to Neon"). Derived from `scores[0]`, nothing new stored. A goal before you have a Ghost. *Touches:* `TrackDef` or the Pilot time, `ui/menu.ts`.
 - [ ] **A3. Practice** (S). Endless Laps, no Finish, start at any Checkpoint, R goes back to it with no penalty. Best Lap shown, never saved to High scores. For drilling Hang Time's step-up or Switchback's hairpin. *Touches:* `menuState.ts`, `main.ts`.
 - [ ] **A4. Checkpoint rush** (M). Arcade countdown: the clock starts at 20 s, each Checkpoint adds time, the run ends at zero. Score = distance ridden. Own High scores. *Touches:* `main.ts`, `ghost.ts`, `hud.ts`.
-- [ ] **A5. Ideal Lap** [#65] (S). The sum of your best time in each Checkpoint sector over all runs, on Track select and Finish ("Ideal 0:38.72 · 1.10 off"). Splits are already recorded at every Checkpoint; keep the best sector times per Track. Shows where the time is. *Touches:* `ghost.ts`, `ui/menu.ts`.
+- [x] **A5. Ideal Lap** [#65] (S). The sum of your best time in each Checkpoint sector over all runs, on Track select and Finish ("Ideal 0:38.72 · 1.10 off"). Splits are already recorded at every Checkpoint; keep the best sector times per Track. Shows where the time is. *Touches:* `ghost.ts`, `ui/menu.ts`.
 - [ ] **A6. Grand tour** (M). All five Tracks back to back, one Lap each, one total. Songs already crossfade. Own top 5. *Touches:* `main.ts` (swap world mid-run), `ghost.ts`, `menuState.ts`.
 - [ ] **A7. Daily challenge** (S/M). A date-seeded Track, lap count and Mutator (B5); one best per day and a streak counter, on this device. *Touches:* `menuState.ts`, storage.
 - [ ] **A8. Mirror Tracks** (M). Every Track flipped left ↔ right: five more Tracks for free. Negate x on the control points (turn and bank signs flip in the turtle builder); the existing frame tests check the handedness. Own score keys. *Touches:* `bake.ts` / `turtle.ts`, `tracks/index.ts`, Track tests run over mirrored Tracks too.
@@ -51,8 +51,8 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 
 ## D. HUD and feedback
 
-- [ ] **D1. Live Ghost gap** [#63] (S/M). A running ± gap to the Ghost, not just at Checkpoints. Store the Ghost's distance with each pose (stride 7 → 8, a new storage version; old Ghosts keep Checkpoint splits only), then gap = when the Ghost was where you are now. *Touches:* `ghost.ts`, `hud.ts`.
-- [ ] **D2. Minimap** [#64] (S). The top-down outline from Track select, small in a corner, with Bike and Ghost dots and Checkpoint ticks. *Touches:* outline code in `ui/menu.ts`, `hud.ts`.
+- [x] **D1. Live Ghost gap** [#63] (S/M). A running ± gap to the Ghost, not just at Checkpoints. Store the Ghost's distance at 10 Hz beside its poses (built as an optional `dist`, no new storage version; old Ghosts keep Checkpoint splits only), then gap = when the Ghost was where you are now. *Touches:* `ghost.ts`, `hud.ts`.
+- [x] **D2. Minimap** [#64] (S). The top-down outline from Track select, small in a corner, with Bike and Ghost dots and Checkpoint ticks. *Touches:* outline code in `ui/menu.ts`, `hud.ts`.
 - [ ] **D3. Progress bar** (S). Instead of D2: a thin bar along the top with Checkpoint ticks and Bike and Ghost markers. Pick one.
 - [ ] **D4. Landing grades** (S). Perfect / Clean / Sketchy, coloured, instead of only `Landed · 12° off`. Pairs with B2. *Touches:* `physics.ts` message, `index.html` styles.
 - [ ] **D5. Run stats** (S). On Finish: airtime, top speed, crashes, Boosts used, Boost pad hits. Lifetime totals (distance, Laps, time played) on a Stats screen. *Touches:* `main.ts` counters, `ui/menu.ts`, one storage key.
