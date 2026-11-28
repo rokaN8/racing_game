@@ -1,7 +1,7 @@
 import { WebGLRenderer } from 'three';
 import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { beat, setMusic, sfx, updateEngine } from './audio';
+import { bar, beat, setMusic, sfx, updateEngine } from './audio';
 import { MENU_SONG } from './audio/songs';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
@@ -34,7 +34,7 @@ const worlds = TRACKS.map(track => {
     colors: [css(track.palette.primary), css(track.palette.secondary)] as [string, string],
     outline: T.pos.map((p, i) => ({ x: p.x, z: p.z, gap: T.gap[i] })), checkpoints: T.cpS.map(s => Math.round(s / T.ds)),
   };
-  return { track, T, ...createScene(T, track.palette), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
+  return { track, T, ...createScene(T, track.palette, track.name), ghosts, outline, pilots: {} as Record<number, Generator<void, Recording>> };
 });
 let w = worlds[0], laps = DEFAULT_LAPS;
 const ghost = () => w.ghosts[laps];
@@ -197,6 +197,7 @@ renderer.setAnimationLoop(now => {
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
   const sinceKick = reducedMotion.matches ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
+  w.ripple(st.s, reducedMotion.matches ? null : bar()); // the Rung ripple chases ahead of the Bike each bar
 
   msgEl.textContent = st.msgT > 0 ? st.msg : '';
   msgEl.dataset.grade = st.msgKind;

@@ -58,6 +58,10 @@
 
 **Finish cam** — After the finish line, the camera's slow circle round the stopped Bike behind the Finish screen.
 
+**Trackside scenery** — The neon landmarks round a Track, off the deck: light towers by the Loops and Corkscrews, a beacon tower by each Checkpoint, a holo-board with the Track's name by the start. Looks only.
+
+**Rung ripple** — The rungs lighting up block by block ahead of the Bike in time with the Song, once a bar.
+
 **Ghost line** — Your Ghost's path drawn faintly as dots on the Track ahead of you, showing the line it took. Optional; only for a Ghost of your own.
 
 **Pilot Ghost** — The Ghost while you have no run of your own at a Track and lap count: the Pilot's run, computed when needed, never stored and never in the High scores. Your first finished run replaces it.

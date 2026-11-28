@@ -68,9 +68,9 @@ Everything else below is struck through: cut while charting wave 2, or 🔒 and 
 
 - [x] **C1. Synthwave horizon** [#66] (S/M). A striped setting sun, a wireframe mountain range and stars far out, from each Track's palette. The sky stays solid; these are objects, kept under the bloom threshold; only the sun blooms, a little. *Touches:* `render/scene.ts`, `palette.ts`.
 - [x] **C2. Beat-synced Track** [#67] (S/M). Edges and Checkpoint lines pulse on the kick, off a beat clock from `audio.ts` (the scheduler keeps running when muted). *Touches:* `audio.ts`, `scene.ts`.
-- [ ] **C2b. Rung ripple** [#84] (S). On top of C2: the rungs ripple forward along the Track each bar. Split out of #67 as a later step. *Touches:* `scene.ts`.
+- [x] **C2b. Rung ripple** [#84] (S). On top of C2: the rungs ripple forward along the Track each bar. Split out of #67 as a later step. Built as a stepped chase ahead of the Bike. *Touches:* `scene.ts`.
 - [x] **C3. Speed feel** [#83] (S). Streaks past the camera while Boosting, a short shake on hard landings, a slight colour split at Boost top speed. Render and camera only. *Touches:* `camera.ts`, a small particles module.
-- [ ] **C4. Trackside scenery** [#84] (M). Neon pylons, arches over Checkpoints, holo-boards with the Track name, light towers by the Loops. Outline-only, so the look holds. *Touches:* `scene.ts`.
+- [x] **C4. Trackside scenery** [#84] (M). Neon pylons, arches over Checkpoints, holo-boards with the Track name, light towers by the Loops. Outline-only, so the look holds. Built as far landmarks only: light towers by Loops and Corkscrews, beacon towers off Checkpoints, one holo-board by the start (no pylons or Checkpoint arches, so the deck stays clear). *Touches:* `scene.ts`.
 - [x] **C5. Ghost line** [#82] (S). The Ghost's line drawn faintly on the Track ahead, from its recorded poses. Teaches the racing line. Toggle. *Touches:* `scene.ts`, `ghost.ts`.
 - [x] **C6. Finish cam** [#83] (S). After the line the camera swings into a slow orbit of the Bike behind the Finish screen. *Touches:* `camera.ts`, `main.ts`.
 - [ ] ~~**C7. Camera modes** (S). C cycles Chase (today, the default) / Close / High (the original isometric idea) / Cockpit. *Touches:* `camera.ts`, `input.ts`, Controls screen. 🔒 camera is locked; Chase stays the default.~~ 🔒 not unlocked in wave 2.

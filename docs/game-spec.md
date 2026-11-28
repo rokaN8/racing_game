@@ -266,6 +266,19 @@ Render and camera only, with no physics ([Speed feel and Finish cam](https://git
 
 The Settings ticket adds its own switches.
 
+## Trackside scenery and Rung ripple
+
+Render only, with no physics ([Trackside scenery and Rung ripple](https://github.com/rokaN8/racing_game/issues/84), `render/scenery.ts`). Picked from three on the prototype branch [`prototype/scenery`](https://github.com/rokaN8/racing_game/tree/prototype/scenery) (`?scenery=A|B|C`): C, far and big, so the deck stays clear.
+
+**Trackside scenery:** placed from the baked Track alone, so no `TrackDef` lists it. Outline only.
+- **Light towers:** a lattice tower (corners plus a ring every 6 m, in the softer Tunnel colour) either side of every Loop and Corkscrew (each run of samples with up.y < −0.5), 16 m past the edge, 15 m above the Loop's top, with a 4 m mast in the secondary.
+- **Beacon towers:** one off each Checkpoint but the start, 25 m out on its right, 25 m above the deck (40 m off the grid at least), with a 6 m mast.
+- **Holo-board:** the Track's name in the primary, outlined with scanlines, additive, 40 × 10 m, 30 m left of the start straight and 18 m up, framed in the secondary on two legs, facing the oncoming Bike.
+- **Clearance:** a tower or the board that would stand within 3 m (past its own size and the deck's half-width) of any part of the Track below its top is dropped, not moved. A test checks every Track.
+- **Cost:** about four draw calls a Track (towers, masts, board, its frame).
+
+**Rung ripple:** on top of the beat pulse, the rungs light towards the secondary in a stepped chase: each 16th of the Song's bar lights the next 10 m block ahead of the Bike (16 blocks, 160 m), each block fading over four steps and dimmer further out. Off the bar clock in `audio.ts` (`bar()`), so it keeps time when muted; off under reduced motion and before audio starts.
+
 ## Medals
 
 Bronze, Silver, Gold and Neon target times per Track and lap count, set against the Pilot's run time `P` there ([#62](https://github.com/rokaN8/racing_game/issues/62)): **Neon** faster than `P` (you beat the Pilot), **Gold** ≤ `P` × 1.05, **Silver** ≤ `P` × 1.12, **Bronze** ≤ `P` × 1.25. A starting point, to tune by play-testing. Targets and times are compared to the hundredth, as they are shown: a time equal to Gold's, Silver's or Bronze's target earns it, while Neon takes beating `P`. `P` is baked into each `TrackDef` (`pilotTimes`), and a shared Track check holds it within 0.05 s of the live Pilot, so Track select never rides the Pilot. Your Medal is the one your #1 earns: nothing is stored, and Reset times clears it with the scores. `medalFor(time, P)` sits beside the menu state.
@@ -383,6 +396,7 @@ src/
   track/tracks/index.ts      # TrackDef, TRACKS
   track/turtle.ts            # turtle builder: straights, arcs, Kickers, Gaps, Loops, free-straight closing
   render/palette.ts          # Palette, derive()
+  render/scenery.ts          # Trackside scenery placement and the Rung ripple's glow
   audio.ts                   # engine, sfx, sequencer playing a Song; crossfade, muffle
   audio/songs.ts             # the Menu Song (Track Songs live on their TrackDef)
   ghost.ts                   # per Track: top 5 + Ghost + best Sectors in one key, migration; the Pilot Ghost's run

@@ -41,6 +41,13 @@ export function sinceKick(song: Song, n: number, nextT: number, now: number): nu
   return null;
 }
 
+// How far (0..1) through its bar the step sounding at `now` is, same arguments as sinceKick; null before the first
+// step. For the Rung ripple.
+export function barPhase(song: Song, n: number, nextT: number, now: number): number | null {
+  const x = n - (nextT - now) * song.bpm * 4 / 60; // steps heard so far, fractional
+  return x < 0 || n === 0 ? null : (Math.min(x, n) % 16) / 16;
+}
+
 // Slow and dreamy: soft pads, a lazy echoing arp, almost no drums.
 export const MENU_SONG: Song = {
   bpm: 84, echo: 0.5,

@@ -1,7 +1,7 @@
 // Synth sound, Web Audio only: no files. An engine hum that follows speed, plus one-shot sounds for events.
 // Browsers keep audio off until the player interacts, so the AudioContext starts on the first key or click.
 // Plus music: the current Song (see setMusic). M mutes everything; the choice is kept in localStorage when storage works.
-import { sinceKick, stepEvents, type Note, type Song } from './audio/songs';
+import { barPhase, sinceKick, stepEvents, type Note, type Song } from './audio/songs';
 
 const MUTE_KEY = 'neon-racer.muted';
 const VOLUME = 0.35; // master; leaves headroom for music later
@@ -104,6 +104,13 @@ export function beat(): number | null {
   if (ctx?.state !== 'running') return null;
   const now = ctx.currentTime - (ctx.outputLatency || 0), p = players.find(p => now < p.stopAt - CROSSFADE / 2);
   return p ? sinceKick(p.song, p.n, p.nextT, now) : null;
+}
+
+// How far (0..1) the heard Song is through its bar, for the Rung ripple; null as for beat().
+export function bar(): number | null {
+  if (ctx?.state !== 'running') return null;
+  const now = ctx.currentTime - (ctx.outputLatency || 0), p = players.find(p => now < p.stopAt - CROSSFADE / 2);
+  return p ? barPhase(p.song, p.n, p.nextT, now) : null;
 }
 
 function sound(p: Player, note: Note, t: number) {
