@@ -16,7 +16,7 @@ export const VARIANTS = {
   A: 'Rings: dense dim arcs every 6 m (below bloom), a bright secondary ring every 24 m',
   B: 'Frames: square portals every 20 m, bright secondary, follow the bank',
   C: 'Light tube: 8 bright primary strands along an arch, no rings',
-  D: 'Picked: C's strands dimmed below bloom, A's bright secondary ring every 24 m',
+  D: 'Picked: C strands dimmed below bloom, plus A bright secondary ring every 24 m',
 } as const;
 export type Key = keyof typeof VARIANTS;
 const KEYS = Object.keys(VARIANTS) as Key[];
