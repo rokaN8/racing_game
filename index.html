@@ -8,13 +8,19 @@
       /* Oxanium (SIL OFL 1.1), self-hosted latin subset: squared, light-cycle lettering with tabular digits by default. */
       @font-face { font-family: 'Oxanium'; src: url(/fonts/oxanium.woff2) format('woff2'); font-weight: 200 800; font-display: swap; }
       :root {
-        --cyan: #0ff; --ink: #eaffff; --magenta: #ff2bd6; --boost: #ff1a1a; --ahead: #3f6; --behind: #f44;
+        --cyan: #0ff; --ink: #eaffff; --magenta: #ff2bd6; --boost: #ff1a1a; --ahead: #3f6; --behind: #f44; --sketchy: #ffb000;
         --hud-font: 'Oxanium', system-ui, sans-serif; --out-expo: cubic-bezier(.16, 1, .3, 1);
       }
       body { margin: 0; background: #000; overflow: hidden; font: 13px/1.4 var(--hud-font); }
       canvas { display: block; }
       #msg { position: fixed; top: 30%; left: 50%; transform: translateX(-50%); font: 600 22px/1.2 var(--hud-font); letter-spacing: .06em;
              color: var(--magenta); text-shadow: 0 0 10px var(--magenta); pointer-events: none; white-space: nowrap; }
+      /* Landing grades (docs/game-spec.md → Landing grades): Perfect pops in magenta, Clean green, Sketchy amber */
+      #msg[data-grade=perfect] { font-size: 30px; font-weight: 800; letter-spacing: .24em; }
+      #msg[data-grade=perfect].pop { animation: perfect .45s var(--out-expo); }
+      @keyframes perfect { from { transform: translateX(-50%) scale(1.6); opacity: 0; filter: blur(4px); } }
+      #msg[data-grade=clean] { color: var(--ahead); text-shadow: 0 0 10px var(--ahead); }
+      #msg[data-grade=sketchy] { color: var(--sketchy); text-shadow: 0 0 10px var(--sketchy); }
 
       /* In-race HUD (src/hud.ts): clock top left, Lap counter and minimap top right, speed and Boost bottom left. */
       #hud { position: fixed; inset: 0; pointer-events: none; user-select: none; color: var(--cyan);
