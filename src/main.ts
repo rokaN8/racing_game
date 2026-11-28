@@ -1,7 +1,7 @@
 import { Vector3, WebGLRenderer } from 'three';
 import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { bar, beat, setMusic, setReact, sfx, updateEngine, updateWind } from './audio';
+import { bar, beat, isMuted, setMusic, setReact, setVolumes, sfx, updateEngine, updateWind } from './audio';
 import { layerOn } from './audio/react';
 import { MENU_SONG } from './audio/songs';
 import { ghostPass } from './audio/wind';
@@ -10,7 +10,7 @@ import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost'
 import { openGhostStore } from './ghostStore';
 import { drawCenter, drawHud, drawMap, lapBanner } from './hud';
 import { onGhostLine, onRespawn, readInput, rumble, stopRumble } from './input';
-import { createGhostLine, toggleGhostLine } from './render/ghostLine';
+import { createGhostLine, ghostLineOn, toggleGhostLine } from './render/ghostLine';
 import { css } from './render/palette';
 import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
@@ -19,6 +19,9 @@ import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
 import { bank, createRunStats, loadTotals, saveTotals } from './stats';
 import { loadFound, saveFound, shardPositions, touchedShard } from './shards';
+import {
+  DEFAULT_SETTINGS, FOV_DEG, gainOf, loadSettings, motionReduced, saveSettings, stepSetting, type SettingRow,
+} from './settings';
 import { createMenu } from './ui/menu';
 import { DEFAULT_LAPS, LAP_OPTIONS } from './ui/menuState';
 
@@ -51,7 +54,7 @@ const ghostLine = createGhostLine(); // docs/game-spec.md → Ghost line
 onGhostLine(toggleGhostLine);
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 const st = newState(w.T);
-const { camera, update: updateCamera, orbit: finishCam } = createChaseCamera();
+const { camera, update: updateCamera, orbit: finishCam, setFov } = createChaseCamera();
 // Run stats and Lifetime stats (docs/game-spec.md → Run stats): the run is banked into the totals when it ends
 // (Finish, Restart, Quit, a new Track) or the page goes, then counts on from zero.
 const runStats = createRunStats(st);
@@ -68,7 +71,7 @@ const msgEl = document.getElementById('msg')!;
 
 const renderer = new WebGLRenderer({ antialias: true });
 // ponytail: pixel ratio capped at 2 since bloom runs at full resolution; drop to 1 or render bloom at half size if a dense screen misses 60 fps.
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); // Settings → Quality may drop it to 1
 document.body.prepend(renderer.domElement);
 const bloom = createBloom(renderer, w.scene, camera);
 function resize() {
@@ -79,6 +82,32 @@ function resize() {
 }
 addEventListener('resize', resize);
 resize();
+
+// Settings (docs/game-spec.md → Settings): applied at boot and on every change.
+let settings = loadSettings(storage);
+const osReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const reduced = () => motionReduced(settings, osReducedMotion.matches);
+function applySettings() {
+  setVolumes(gainOf(settings.music), gainOf(settings.sound));
+  setFov(FOV_DEG[settings.fov]);
+  renderer.setPixelRatio(settings.quality === 'high' ? Math.min(devicePixelRatio, 2) : 1); resize();
+  document.body.classList.toggle('show-fps', settings.fps);
+}
+applySettings();
+const onOff = (b: boolean, yes = 'On', no = 'Off') => (b ? yes : no);
+const SETTING_TEXT: Record<SettingRow, () => string> = {
+  music: () => `${settings.music} %${isMuted() ? ' · muted (M)' : ''}`, sound: () => `${settings.sound} %`,
+  motion: () => ({ auto: 'Auto', on: 'On', off: 'Off' })[settings.motion],
+  fov: () => `${{ narrow: 'Narrow', normal: 'Normal', wide: 'Wide' }[settings.fov]} ${FOV_DEG[settings.fov]}°`,
+  quality: () => onOff(settings.quality === 'high', 'High', 'Low'), fps: () => onOff(settings.fps, 'Show', 'Hide'), ghostLine: () => onOff(ghostLineOn()),
+};
+function changeSetting(row: SettingRow | 'reset', dir: -1 | 1 = 1) {
+  if (row === 'reset') { settings = { ...DEFAULT_SETTINGS }; if (ghostLineOn()) toggleGhostLine(); }
+  else if (row === 'ghostLine') toggleGhostLine();
+  else settings = stepSetting(settings, row, dir);
+  saveSettings(storage, settings); applySettings();
+  if (row === 'music' || row === 'sound') sfx.level(row);
+}
 
 // A run: a 3-2-1 countdown at the line, `laps` Laps, then the Finish screen. Physics only steps while racing and no
 // screen is open, so the clock and the Ghost both start on GO, and Pause freezes everything.
@@ -126,10 +155,12 @@ const menu = createMenu(document.getElementById('ui')!, worlds.map(x => ({
   shards: () => ({ found: foundOn(x.track.id).size, total: x.shardAt.length }),
 })), effect => {
   if (effect === 'resume') return;
+  if (effect === 'resetSettings') return changeSetting('reset');
   if (effect === 'restart' || effect === 'endRun') return retry();
+  if ('setting' in effect) return changeSetting(effect.setting, effect.dir);
   if ('start' in effect) return selectTrack(effect.start, effect.laps);
   for (const x of effect.reset === 'all' ? worlds : [worlds[effect.reset]]) for (const g of Object.values(x.ghosts)) g.clear();
-}, pause, () => totals);
+}, pause, () => totals, row => SETTING_TEXT[row]());
 menu.open('menu');
 // Pause (Esc / Start), and leaving the game mid-run: a hidden tab or the window losing focus (docs/game-spec.md →
 // Screens). Already on a screen, nothing changes. Stops any rumble, as no frame may come to do it while hidden.
@@ -156,7 +187,6 @@ const boom = createExplosion();
 let wreckT = 0;
 // Last frame's state, to spot sound and rumble events.
 let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const toGhost = new Vector3(), camFwd = new Vector3(), camRight = new Vector3();
 let ghostAhead: number | null = null; // the Ghost's distance ahead of the camera last frame, for the Ghost whoosh
 renderer.setAnimationLoop(now => {
@@ -237,9 +267,9 @@ renderer.setAnimationLoop(now => {
   // Reactive music (docs/game-spec.md → Reactive music): the Song follows the ride
   setReact({ racing, air: st.mode === 'air', airT: st.airT, boost: st.boostT > 0, layer: layerOn(laps, ghost().run.length, st.lastCP, w.T.cpS.length) });
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
-  const sinceKick = reducedMotion.matches ? null : beat();
+  const sinceKick = reduced() ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
-  w.ripple(st.s, reducedMotion.matches ? null : bar()); // the Rung ripple chases ahead of the Bike each bar
+  w.ripple(st.s, reduced() ? null : bar()); // the Rung ripple chases ahead of the Bike each bar
 
   shardMsgT -= frame;
   const showShard = shardMsgT > 0 && !(st.msgT > 0 && st.msgT > shardMsgT); // the newer message wins
@@ -259,10 +289,10 @@ renderer.setAnimationLoop(now => {
   drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime, liveGap });
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
   if (!frozen) drawMap(w.outline, st.pos, w.ghostBike.visible ? w.ghostBike.position : null);
-  if (phase === 'finished') finishCam(st, frame, reducedMotion.matches); // docs/game-spec.md → Finish cam
+  if (phase === 'finished') finishCam(st, frame, reduced()); // docs/game-spec.md → Finish cam
   else {
     if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
-    bloom.setSplit(speedFeel.update(w.scene, camera, st, frame, hit, reducedMotion.matches));
+    bloom.setSplit(speedFeel.update(w.scene, camera, st, frame, hit, reduced()));
   }
   hit = null;
   w.horizon.position.copy(camera.position); // at infinity: it moves with the camera, never nearer

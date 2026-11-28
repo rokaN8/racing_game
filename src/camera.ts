@@ -5,11 +5,12 @@
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import type { BikeState } from './bike/physics';
 
-const DIST = 9, HEIGHT = 3, LOOK_AHEAD = 8, FOV = 102, BOOST_FOV = 114, FOV_RATE = 5, STIFFNESS = 8;
+const DIST = 9, HEIGHT = 3, LOOK_AHEAD = 8, FOV = 102, BOOST_FOV_ADD = 12, FOV_RATE = 5, STIFFNESS = 8;
 export const ORBIT = { R: 14, H: 4, RATE: 0.15, BLEND: 1.5 }; // m, m up, rad/s (~40 s a turn), s to ease in
 
 export function createChaseCamera() {
   const camera = new PerspectiveCamera(FOV, 1, 0.1, 3000);
+  let base = FOV; // Settings → Field of view
   const smUp = new Vector3(0, 1, 0);
 
   // shownQuat: the Bike's displayed (smoothed) orientation. snap: jump straight to the target.
@@ -23,7 +24,7 @@ export function createChaseCamera() {
     const k = snap ? 1 : 1 - Math.exp(-STIFFNESS * frame);
     camera.position.lerp(want, k); smUp.lerp(camUp, k).normalize(); camera.up.copy(smUp);
     camera.lookAt(st.pos.clone().addScaledVector(fwd, LOOK_AHEAD).addScaledVector(camUp, 1));
-    const fov = st.boostT > 0 ? BOOST_FOV : FOV;
+    const fov = st.boostT > 0 ? base + BOOST_FOV_ADD : base;
     camera.fov = snap ? fov : camera.fov + (fov - camera.fov) * (1 - Math.exp(-FOV_RATE * frame));
     camera.updateProjectionMatrix();
   }
@@ -44,5 +45,5 @@ export function createChaseCamera() {
   }
   const chase = (...a: Parameters<typeof update>) => { orbitT = -1; update(...a); };
 
-  return { camera, update: chase, orbit };
+  return { camera, update: chase, orbit, setFov: (deg: number) => { base = deg; } };
 }

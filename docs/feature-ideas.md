@@ -97,7 +97,7 @@ Everything else below is struck through: cut while charting wave 2, or 🔒 and 
 
 - [x] **F1. Gamepad rumble** [#68] (S). `vibrationActuator.playEffect('dual-rumble')` on landing (stronger the further off), crash, Boost pad and Checkpoint. Native API. *Touches:* `input.ts`, the sound-event diffs in `main.ts`.
 - [x] **F2. Auto-Pause** [#69] (S). Leaving the tab mid-run opens Pause. Today the run freezes but you come back unpaused, and the throttled music scheduler stutters. *Touches:* `main.ts` (`visibilitychange`).
-- [ ] **F3. Settings** [#89] (M). Music and SFX volume, FOV, FPS counter, quality (pixel ratio, bloom), reduce flashing (explosion, beat pulse). 🔒 spec says no settings screen.
+- [x] **F3. Settings** [#89] (M). Music and SFX volume, FOV, FPS counter, quality (pixel ratio, bloom), reduce flashing (explosion, beat pulse). 🔒 spec says no settings screen.
 - [ ] **F4. Key remapping** [#90] (M). Needs F3. *Touches:* `input.ts`.
 - [ ] ~~**F5. Touch controls** (M). On-screen throttle, brake and Boost with thumb or tilt steering, so it plays on phones; tap targets on the Menu. *Touches:* `input.ts`, `ui/menu.ts`, CSS.~~ Cut in wave 2.
 - [ ] ~~**F6. Installable and offline** (S). A web app manifest and a small service worker caching the build: the game needs no network, so it runs from the home screen offline. Mind Vite's `/racing_game/` base.~~ Cut in wave 2.

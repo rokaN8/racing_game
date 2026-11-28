@@ -9,6 +9,7 @@ const STRIDE = 7, HOP = 3 * STRIDE; // ghost.ts pose layout; look at every 3rd p
 
 let on = false;
 try { on = localStorage.getItem(KEY) === '1'; } catch { /* storage blocked: off */ }
+export const ghostLineOn = () => on;
 export function toggleGhostLine() {
   on = !on;
   try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* storage blocked: lasts this session */ }

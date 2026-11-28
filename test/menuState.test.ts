@@ -16,13 +16,14 @@ const tick = (dt: number): Action => ({ type: 'tick', dt });
 const select = () => run(initialMenu(), open('menu'), pick).s; // Menu → Play → Track select
 
 describe('Menu state', () => {
-  it('Menu has Play, Stats and Controls; Play → Track select → a Track starts it and closes the overlay', () => {
+  it('Menu has Play, Stats, Settings and Controls; Play → Track select → a Track starts it and closes the overlay', () => {
     const { s, effects } = run(initialMenu(), open('menu'), pick, down, pick);
     expect(s.screen).toBeNull();
     expect(effects).toEqual([{ start: 1, laps: 3 }]);
     expect(s.track).toBe(1);
     expect(run(initialMenu(), open('menu'), down, pick).s.screen).toBe('stats');
-    expect(run(initialMenu(), open('menu'), down, down, pick).s.screen).toBe('controls');
+    expect(run(initialMenu(), open('menu'), down, down, pick).s.screen).toBe('settings');
+    expect(run(initialMenu(), open('menu'), down, down, down, pick).s.screen).toBe('controls');
     expect(run(initialMenu(), open('menu'), down, pick, back).s.screen).toBe('menu');
   });
 
@@ -37,8 +38,8 @@ describe('Menu state', () => {
   });
 
   it('focus wraps both ways', () => {
-    expect(run(initialMenu(), open('menu'), up).s.focus).toBe(2);
-    expect(run(initialMenu(), open('menu'), down, down, down).s.focus).toBe(0);
+    expect(run(initialMenu(), open('menu'), up).s.focus).toBe(3);
+    expect(run(initialMenu(), open('menu'), down, down, down, down).s.focus).toBe(0);
   });
 
   it('← → set the lap count on Track select, stopping at 1 and 5, and a Track starts with it', () => {
@@ -54,7 +55,7 @@ describe('Menu state', () => {
 
   it('elsewhere ← → move like ↑ ↓', () => {
     expect(run(initialMenu(), open('menu'), right).s.focus).toBe(1);
-    expect(run(initialMenu(), open('pause'), left).s.focus).toBe(2);
+    expect(run(initialMenu(), open('pause'), left).s.focus).toBe(3);
   });
 
   it('Reset times sits under the Tracks; back returns to it', () => {
@@ -77,12 +78,33 @@ describe('Menu state', () => {
     expect(run(done, pick).effects).toEqual([]);                                  // and a third press starts over
   });
 
-  it('Pause: Resume, Restart and Quit to Menu; Esc / B resumes', () => {
+  it('Pause: Resume, Settings, Restart and Quit to Menu; Esc / B resumes', () => {
     const paused = run(initialMenu(), open('pause')).s;
     expect(run(paused, pick)).toMatchObject({ s: { screen: null }, effects: ['resume'] });
-    expect(run(paused, down, pick)).toMatchObject({ s: { screen: null }, effects: ['restart'] });
+    expect(run(paused, down, pick)).toMatchObject({ s: { screen: 'settings' }, effects: [] });
+    expect(run(paused, down, down, pick)).toMatchObject({ s: { screen: null }, effects: ['restart'] });
     expect(run(paused, up, pick)).toMatchObject({ s: { screen: 'menu' }, effects: ['endRun'] });
     expect(run(paused, back)).toMatchObject({ s: { screen: null }, effects: ['resume'] });
+  });
+
+  it('Settings: back returns to whichever opened it, Menu or Pause', () => {
+    expect(run(initialMenu(), open('menu'), down, down, pick, back).s).toMatchObject({ screen: 'menu', focus: 2 });
+    expect(run(initialMenu(), open('pause'), down, pick, back).s.screen).toBe('pause');
+    expect(run(initialMenu(), open('pause'), down, pick, back, back)).toMatchObject({ s: { screen: null }, effects: ['resume'] });
+  });
+
+  it('Settings: ← → step the focused row, Enter steps it forward', () => {
+    const set = run(initialMenu(), open('settings')).s; // Music first
+    expect(run(set, left).effects).toEqual([{ setting: 'music', dir: -1 }]);
+    expect(run(set, down, right, pick).effects).toEqual([{ setting: 'sound', dir: 1 }, { setting: 'sound', dir: 1 }]);
+    expect(run(set, down, right).s.focus).toBe(1); // focus stays on the row
+  });
+
+  it('Settings: Reset to defaults needs two presses within 3 s', () => {
+    const last = run(initialMenu(), open('settings'), up).s;
+    expect(run(last, pick)).toMatchObject({ s: { armed: last.focus }, effects: [] });
+    expect(run(last, pick, pick)).toMatchObject({ s: { armed: -1, cleared: 'settings' }, effects: ['resetSettings'] });
+    expect(run(last, pick, tick(ARM_TIME + 0.1), pick).effects).toEqual([]);
   });
 
   it('Finish: Retry, Track select and Menu; back does nothing', () => {
