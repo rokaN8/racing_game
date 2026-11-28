@@ -245,6 +245,27 @@ The POC's controls, plus **gamepad rumble** ([#68](https://github.com/rokaN8/rac
 - **Toggle:** **off by default**. **G** (gamepad: Select / Back) toggles it. The choice is kept in localStorage (`neon-racer.ghostLine`) when storage works, and it's listed in Controls.
 - Picked from three looks (dots, a line, chevrons) on the prototype branch [`prototype/ghost-line`](https://github.com/rokaN8/racing_game/tree/prototype/ghost-line).
 
+## Speed feel and Finish cam
+
+Render and camera only, with no physics ([Speed feel and Finish cam](https://github.com/rokaN8/racing_game/issues/83)). Picked from three strengths on the prototype branch [`prototype/speed-feel`](https://github.com/rokaN8/racing_game/tree/prototype/speed-feel) (`?feel=A|B|C`): B's streaks and colour split, A's shake, A's orbit.
+
+**Speed feel** (`render/speedFeel.ts`):
+- **Streaks:** 120 cyan lines on a tube round the view axis (2.5–8.5 m out, 4–70 m ahead), rushing past at the Bike's speed, drawn additively. They ease in and out with Boost.
+- **Shake:** 0.12 m on a Sketchy landing (×1.6 on a crash), decaying over 0.3 s.
+- **Colour split:** an RGB shift pass after bloom, only while Boosting. It ramps from 0 at 60 m/s to 0.0025 at Boost top speed (75 m/s), and the pass is skipped while it's 0.
+- **With bloom and the beat pulse:** the streaks stay dim (60 % at most) and sit apart from the Track edges the beat pulses, and the split runs after bloom.
+
+**Finish cam** (`camera.ts`): after the line, while the Finish screen is up, the camera eases (smoothstep, 1.5 s) from where Chase was into an orbit of the stopped Bike, starting at Chase's angle round it.
+- **The orbit:** radius 14 m, 4 m up, 0.15 rad/s (~40 s a turn), looking at the Bike.
+- **Retry or Restart:** the first chase update ends it, and the camera snaps back to Chase for the countdown.
+
+**Reduced motion** (the OS setting, as for the beat pulse):
+- no shake and no colour split;
+- the streaks at half brightness;
+- the Finish cam holds Chase's view instead of orbiting.
+
+The Settings ticket adds its own switches.
+
 ## Medals
 
 Bronze, Silver, Gold and Neon target times per Track and lap count, set against the Pilot's run time `P` there ([#62](https://github.com/rokaN8/racing_game/issues/62)): **Neon** faster than `P` (you beat the Pilot), **Gold** ≤ `P` × 1.05, **Silver** ≤ `P` × 1.12, **Bronze** ≤ `P` × 1.25. A starting point, to tune by play-testing. Targets and times are compared to the hundredth, as they are shown: a time equal to Gold's, Silver's or Bronze's target earns it, while Neon takes beating `P`. `P` is baked into each `TrackDef` (`pilotTimes`), and a shared Track check holds it within 0.05 s of the live Pilot, so Track select never rides the Pilot. Your Medal is the one your #1 earns: nothing is stored, and Reset times clears it with the scores. `medalFor(time, P)` sits beside the menu state.

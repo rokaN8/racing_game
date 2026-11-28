@@ -12,6 +12,7 @@ import { createGhostLine, toggleGhostLine } from './render/ghostLine';
 import { css } from './render/palette';
 import { createExplosion, EXPLOSION_T } from './render/explosion';
 import { createBloom, createScene } from './render/scene';
+import { createSpeedFeel, type Hit } from './render/speedFeel';
 import { bakeTrack } from './track/bake';
 import { TRACKS } from './track/tracks';
 import { createMenu } from './ui/menu';
@@ -41,7 +42,9 @@ const ghostLine = createGhostLine(); // docs/game-spec.md → Ghost line
 onGhostLine(toggleGhostLine);
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 const st = newState(w.T);
-const { camera, update: updateCamera } = createChaseCamera();
+const { camera, update: updateCamera, orbit: finishCam } = createChaseCamera();
+const speedFeel = createSpeedFeel();
+let hit: Hit | null = null; // this frame's Sketchy landing or crash, for the shake
 const msgEl = document.getElementById('msg')!;
 
 const renderer = new WebGLRenderer({ antialias: true });
@@ -179,11 +182,11 @@ renderer.setAnimationLoop(now => {
   if (st.laps > was.laps) { sfx.lap(); buzz(0, 0.4, 50); buzz(0, 0.4, 50, 120); }
   if (st.boostT > was.boostT) { sfx.boost(); buzz(0.15, 0.3, 150); }
   if (st.padHits > was.padHits) { sfx.pad(); buzz(0, 0.5, 200); }
-  if (st.respawns > was.respawns) { sfx.crash(); buzz(1, 1, 400); }
+  if (st.respawns > was.respawns) { sfx.crash(); buzz(1, 1, 400); hit = 'crash'; }
   else if (was.mode === 'air' && st.mode === 'track') { // landing grades (docs/game-spec.md → Landing grades)
     sfx.land();
     if (st.landGrade === 'perfect') { sfx.perfect(); buzz(0, 0.6, 40); buzz(0, 0.6, 40, 90); }
-    else { if (st.landGrade === 'sketchy') sfx.sketchy(); buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
+    else { if (st.landGrade === 'sketchy') { sfx.sketchy(); hit = 'sketchy'; } buzz(0.25 + 0.75 * Math.min(1, st.landOff / TUNING.landingTolerance), 0.3, 120); }
     msgEl.classList.remove('pop'); void msgEl.offsetWidth; msgEl.classList.add('pop'); // replay the pop
   }
   was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
@@ -210,7 +213,12 @@ renderer.setAnimationLoop(now => {
   drawHud(st, shownQuat, splitT > 0 ? split : null, { time: sum(run) + st.lapTime, lap: run.length + 1, laps, best: ghost().bestTime, liveGap });
   w.ghostBike.visible = phase !== 'countdown' && ghost().pose(w.ghostBike.position, w.ghostBike.quaternion);
   if (!frozen) drawMap(w.outline, st.pos, w.ghostBike.visible ? w.ghostBike.position : null);
-  if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
+  if (phase === 'finished') finishCam(st, frame, reducedMotion.matches); // docs/game-spec.md → Finish cam
+  else {
+    if (!wrecked) { updateCamera(st, shownQuat, frame, snap); snap = false; } // held at the crash; snaps once it's over
+    bloom.setSplit(speedFeel.update(w.scene, camera, st, frame, hit, reducedMotion.matches));
+  }
+  hit = null;
   w.horizon.position.copy(camera.position); // at infinity: it moves with the camera, never nearer
   bloom.render();
 });
