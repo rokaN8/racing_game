@@ -21,7 +21,7 @@ export interface TrackDef {
   song: Song;
   boostPads?: { cp: number; len: number }[]; // Boost pads: a strip len m long from control point cp
   pilot: Pilot;    // how the Pilot rides its fastest clean run: the Pilot Ghost
-  pilotTimes: Record<number, number>; // the Pilot's run time per lap count, which the Medals are set from (test/track.test.ts checks them)
+  pilotTimes: Record<1 | 3 | 5, number>; // the Pilot's run time at each of LAP_OPTIONS, which the Medals are set from (test/track.test.ts checks them)
 }
 
 export const TRACKS: TrackDef[] = [overdrive, switchback, hangTime, slipstream, afterglow];

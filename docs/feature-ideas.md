@@ -12,7 +12,7 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 
 1. Pilot Ghost + Medal times (A1, A2): #61, #62
 2. Live Ghost gap + Minimap (D1, D2): #63, #64
-3. Ideal Lap (A5): #65
+3. Ideal time (A5): #65
 4. Synthwave horizon + beat-synced Track (C1, C2): #66, #67
 5. Gamepad rumble + auto-Pause (F1, F2): #68, #69
 
@@ -22,7 +22,7 @@ Cheap, no 🔒, and each makes the five Tracks more worth replaying:
 - [x] **A2. Medal times** [#62] (S). Bronze / Silver / Gold per Track and lap count, plus Neon for beating the Pilot Ghost. Shown on Track select next to the top 5 and on Finish ("Gold · 0.41 to Neon"). Derived from `scores[0]`, nothing new stored. A goal before you have a Ghost. *Touches:* `TrackDef` or the Pilot time, `ui/menu.ts`.
 - [ ] **A3. Practice** (S). Endless Laps, no Finish, start at any Checkpoint, R goes back to it with no penalty. Best Lap shown, never saved to High scores. For drilling Hang Time's step-up or Switchback's hairpin. *Touches:* `menuState.ts`, `main.ts`.
 - [ ] **A4. Checkpoint rush** (M). Arcade countdown: the clock starts at 20 s, each Checkpoint adds time, the run ends at zero. Score = distance ridden. Own High scores. *Touches:* `main.ts`, `ghost.ts`, `hud.ts`.
-- [x] **A5. Ideal Lap** [#65] (S). The sum of your best time in each Checkpoint sector over all runs, on Track select and Finish ("Ideal 0:38.72 · 1.10 off"). Splits are already recorded at every Checkpoint; keep the best sector times per Track. Shows where the time is. *Touches:* `ghost.ts`, `ui/menu.ts`.
+- [x] **A5. Ideal time** [#65] (S). The sum of your best time in each Checkpoint sector over all runs, on Track select and Finish ("Ideal 0:38.72 · 1.10 off"). Splits are already recorded at every Checkpoint; keep the best sector times per Track. Shows where the time is. *Touches:* `ghost.ts`, `ui/menu.ts`.
 - [ ] **A6. Grand tour** (M). All five Tracks back to back, one Lap each, one total. Songs already crossfade. Own top 5. *Touches:* `main.ts` (swap world mid-run), `ghost.ts`, `menuState.ts`.
 - [ ] **A7. Daily challenge** (S/M). A date-seeded Track, lap count and Mutator (B5); one best per day and a streak counter, on this device. *Touches:* `menuState.ts`, storage.
 - [ ] **A8. Mirror Tracks** (M). Every Track flipped left ↔ right: five more Tracks for free. Negate x on the control points (turn and bank signs flip in the turtle builder); the existing frame tests check the handedness. Own score keys. *Touches:* `bake.ts` / `turtle.ts`, `tracks/index.ts`, Track tests run over mirrored Tracks too.

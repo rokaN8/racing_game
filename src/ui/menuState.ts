@@ -99,11 +99,14 @@ export function reduce(s: MenuState, a: Action, trackCount: number): [MenuState,
 }
 
 // Medals (docs/game-spec.md → Medals): target times set against the Pilot's run time P at that Track and lap count,
-// best first. Compared to the hundredth, as times are shown, so a time equal to a target earns it.
+// best first. Compared to the hundredth, as times are shown: a time equal to Gold's, Silver's or Bronze's target
+// earns it, while Neon takes beating the Pilot.
 export const MEDALS = [['Neon', 1], ['Gold', 1.05], ['Silver', 1.12], ['Bronze', 1.25]] as const;
 export type Medal = (typeof MEDALS)[number][0];
 const cs = (t: number) => Math.round(t * 100);
 export const medalTime = (m: Medal, P: number) => cs(P * MEDALS.find(([name]) => name === m)![1]) / 100;
-export const earns = (time: number | null, m: Medal, P: number) => time !== null && cs(time) <= cs(medalTime(m, P));
+export const earns = (time: number | null, m: Medal, P: number) =>
+  time !== null && (m === 'Neon' ? cs(time) < cs(P) : cs(time) <= cs(medalTime(m, P)));
+export const medalRank = (m: Medal | null) => (m ? MEDALS.findIndex(([x]) => x === m) : MEDALS.length); // 0 = Neon, none last
 // The best Medal a time earns, or null (none, or no time yet).
 export const medalFor = (time: number | null, P: number): Medal | null => MEDALS.find(([m]) => earns(time, m, P))?.[0] ?? null;

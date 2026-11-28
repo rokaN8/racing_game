@@ -29,6 +29,19 @@ interface Saved { scores: Score[]; ghost: { poses: string; splits: number[]; dis
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
+// The running max of a Ghost's run distances (a respawn sends them back), so the live gap can binary search where it
+// first got somewhere. Worked out once per Ghost.
+const reaches = new WeakMap<Float32Array, Float32Array>();
+function reach(dist: Float32Array) {
+  let r = reaches.get(dist);
+  if (!r) {
+    r = new Float32Array(dist.length / 2);
+    for (let k = 0, most = -Infinity; k < r.length; k++) r[k] = most = Math.max(most, dist[2 * k]);
+    reaches.set(dist, r);
+  }
+  return r;
+}
+
 // Every storage call is guarded: the game must run with storage blocked, missing or holding garbage.
 function read(storage: Storage | null, key: string): string | null {
   try { return storage?.getItem(key) ?? null; } catch { return null; }
@@ -109,6 +122,8 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
   let lastRank: number | null = null;  // the last finished run's place in the top 5 (1-5), or null outside it
   const newRun = () => { recording = []; splits = [0]; cpSeen = 1; lapTimes = []; dist = []; far = 0; was = [0, 0]; };
   const sum = (xs: readonly number[], from = 0) => xs.reduce((a, b) => a + b, from);
+  // Where the run is (call after this step's record()): [run distance, run time]
+  const runAt = (bike: Pick<BikePose, 's' | 'lapTime'>) => [lapTimes.length * track.L + bike.s, sum(lapTimes, bike.lapTime)] as const;
 
   // A finished run: slot it into the top 5 (an equal time ranks below), a new #1 becomes the Ghost, and keep each
   // Sector's best (from the splits, so a respawn's penalty counts in its Sector). One write.
@@ -160,7 +175,7 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
       }
       seenLaps = bike.laps;
       // A respawn goes back to lastCP, never past it, so it can't pass a Checkpoint twice.
-      const runTime = sum(lapTimes, bike.lapTime);
+      const [d, runTime] = runAt(bike);
       for (; bike.lastCP >= cpSeen; cpSeen++) {
         const ref = rival()?.splits[splits.length];
         splits.push(runTime);
@@ -168,7 +183,6 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
       }
       // The run distance every 12th step, plus the furthest point before it goes back (a respawn), which a 10 Hz
       // sample could miss: the live gap looks up where the Ghost first got.
-      const d = lapTimes.length * track.L + bike.s;
       if (d < was[0] && was[0] >= far) dist.push(...was);
       if (!((recording.length / STRIDE) % DIST_EVERY)) dist.push(d, runTime);
       far = Math.max(far, d); was = [d, runTime];
@@ -178,16 +192,15 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
 
     // The live gap: the run time now minus the Ghost's when it first got as far round as the Bike is (- = ahead).
     // Null with no Ghost, or one saved without distances. Call after record().
-    gap(bike: Pick<BikePose, 's' | 'lapTime'>) {
+    liveGap(bike: Pick<BikePose, 's' | 'lapTime'>) {
       const D = rival()?.dist;
       if (!D) return null;
-      const x = lapTimes.length * track.L + bike.s;
-      // ponytail: a linear scan (~2,700 pairs for 5 Laps, read 10x a second); binary search a running max if it shows.
-      for (let j = 0; j < D.length; j += 2) if (D[j] >= x) {
-        const d0 = j ? D[j - 2] : 0, t0 = j ? D[j - 1] : 0; // the sample before is short of x: interpolate
-        return sum(lapTimes, bike.lapTime) - (t0 + ((D[j + 1] - t0) * (x - d0)) / (D[j] - d0 || 1));
-      }
-      return null;
+      const [x, now] = runAt(bike), reached = reach(D);
+      let lo = 0, hi = reached.length; // the first sample as far round as x
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (reached[mid] >= x) hi = mid; else lo = mid + 1; }
+      if (lo === reached.length) return null; // past where its record ends
+      const j = 2 * lo, d0 = j ? D[j - 2] : 0, t0 = j ? D[j - 1] : 0; // the sample before is short of x: interpolate
+      return now - (t0 + ((D[j + 1] - t0) * (x - d0)) / (D[j] - d0 || 1));
     },
 
     // Start a fresh run (a retry from the line): drops the run's recording without closing it.

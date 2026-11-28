@@ -108,8 +108,8 @@ describe('Menu state', () => {
 });
 
 describe('Medals', () => {
-  it('are earned at or under each target, set against the Pilot time: Neon at it, Gold +5 %, Silver +12 %, Bronze +25 %', () => {
-    const at: [number, string | null][] = [[90, 'Neon'], [100, 'Neon'], [100.01, 'Gold'], [105, 'Gold'], [105.01, 'Silver'],
+  it('are set against the Pilot time: Neon for beating it, Gold at or under +5 %, Silver +12 %, Bronze +25 %', () => {
+    const at: [number, string | null][] = [[90, 'Neon'], [99.99, 'Neon'], [100, 'Gold'], [105, 'Gold'], [105.01, 'Silver'],
       [112, 'Silver'], [112.01, 'Bronze'], [125, 'Bronze'], [125.01, null]];
     for (const [time, medal] of at) expect(medalFor(time, 100), `${time}`).toBe(medal);
     expect(medalFor(null, 100)).toBeNull(); // no times yet

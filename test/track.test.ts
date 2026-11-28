@@ -50,7 +50,7 @@ describe.each(TRACKS)('$name', track => {
       expect(ride(st, track.pilot, st => st.laps >= k).filter(e => e.kind === 'respawn')).toEqual([]);
       time += st.lastLap!;
     }
-    expect(Math.abs(time - track.pilotTimes[n]), `the Pilot rode ${time.toFixed(4)}`).toBeLessThan(0.05);
+    expect(Math.abs(time - track.pilotTimes[n as 1 | 3 | 5]), `the Pilot rode ${time.toFixed(4)}`).toBeLessThan(0.05);
   });
 
   it.each(T.cpS.map((_, k) => k + 1))('a respawn at Checkpoint %i at 20 m/s rides clean to the next one', k => {

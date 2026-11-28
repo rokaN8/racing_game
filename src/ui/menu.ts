@@ -5,7 +5,8 @@ import type { Score } from '../ghost';
 import { clock } from '../hud';
 import { drawOutline, type Outline } from './outline';
 import {
-  LAP_OPTIONS, MEDALS, earns, initialMenu, itemsFor, medalFor, medalTime, reduce, type Action, type Effect, type Item, type Medal, type Screen,
+  LAP_OPTIONS, MEDALS, earns, initialMenu, itemsFor, medalFor, medalRank, medalTime, reduce, type Action, type Effect, type Item, type Medal,
+  type Screen,
 } from './menuState';
 
 // colors: also the swatch and band
@@ -33,7 +34,6 @@ const kbd = (k: string) => `<kbd>${k}</kbd>`;
 const hintHtml = (h: [string[], string][]) => h.map(([keys, what]) => `<span>${keys.map(kbd).join('<i>/</i>')} ${what}</span>`).join('');
 const palette = (t: MenuTrack) => `--a:${t.colors[0]};--b:${t.colors[1]}`;
 const medalTag = (m: Medal | null, pop = false) => (m ? `<i class="medal ${m.toLowerCase()}${pop ? ' pop' : ''}">${m}</i>` : '');
-const rankOf = (m: Medal | null) => (m ? MEDALS.findIndex(([x]) => x === m) : MEDALS.length); // 0 = Neon
 
 export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e: Effect) => void, onPause: () => void) {
   let s = initialMenu(), info: RunInfo = { raceTime: 0, lap: 1, time: 0, lapTimes: [], delta: null, rank: null };
@@ -48,6 +48,8 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
   };
 
   const swatch = (t: MenuTrack) => `<i class="sw" style="${palette(t)}"></i>`;
+  // At the current lap count: a Track's #1 time (null with none) and the Pilot's run time, which the Medals are set from.
+  const best = (t: MenuTrack) => t.scores(s.laps)[0]?.time ?? null, pilotTime = (t: MenuTrack) => t.pilotTimes[s.laps];
   // A Track's top 5 at the current lap count, `mark` highlighted; #1 carries the Ghost tag and, past 1 Lap, its splits.
   const top5 = (t: MenuTrack, mark: number | null = null) => {
     const sc = t.scores(s.laps);
@@ -63,9 +65,9 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
   };
   // The four target times at this lap count, the ones #1 has earned lit.
   const medals = (t: MenuTrack) => {
-    const P = t.pilotTimes[s.laps], best = t.scores(s.laps)[0]?.time ?? null;
-    return `<h2 class="label">Medals</h2><ol class="top medals">${MEDALS.map(([m]) => `<li class="${earns(best, m, P) ? 'lit' : ''}">`
-      + `${medalTag(m)}<b>${fmt(medalTime(m, P))}</b>${m === 'Neon' ? '<small>the Pilot</small>' : ''}</li>`).join('')}</ol>`;
+    const P = pilotTime(t);
+    return `<h2 class="label">Medals</h2><ol class="top medals">${MEDALS.map(([m]) => `<li class="${earns(best(t), m, P) ? 'lit' : ''}">`
+      + `${medalTag(m)}<b>${fmt(medalTime(m, P))}</b>${m === 'Neon' ? '<small>beat the Pilot</small>' : ''}</li>`).join('')}</ol>`;
   };
   const trackPanel = (t: MenuTrack, extra = '') =>
     `<div class="panel${extra}" style="${palette(t)}"><div class="band"></div><h1>${esc(t.name)}</h1><div class="sub">${esc(t.kind)}</div>`
@@ -73,7 +75,7 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
 
   const label = (it: Item, i: number) => {
     if (typeof it === 'object' && 'track' in it) { // with the Medal its #1 earns at this lap count
-      const t = tracks[it.track], m = medalFor(t.scores(s.laps)[0]?.time ?? null, t.pilotTimes[s.laps]);
+      const t = tracks[it.track], m = medalFor(best(t), pilotTime(t));
       return `<span>${esc(t.name)} <small>${esc(t.kind)}</small></span>${medalTag(m)}${swatch(t)}`;
     }
     if (typeof it === 'object') {
@@ -109,11 +111,11 @@ export function createMenu(root: HTMLElement, tracks: MenuTrack[], onEffect: (e:
   // Finish: where you raced, the time, then your place: a big rank, NEW BEST, or how far off the best you were. Then the
   // Medal this run earned (popping in if it's better than your old best's) and how far it was off the next one.
   function finishHead() {
-    const t = tracks[s.track], best = info.rank === 1, P = t.pilotTimes[s.laps];
-    const got = medalFor(info.time, P), had = info.delta === null ? null : medalFor(info.time - info.delta, P), next = MEDALS[rankOf(got) - 1]?.[0];
-    const medal = `<div class="medalline">${got ? medalTag(got, rankOf(got) < rankOf(had)) : '<span>No Medal</span>'}`
+    const t = tracks[s.track], newBest = info.rank === 1, P = pilotTime(t);
+    const got = medalFor(info.time, P), had = info.delta === null ? null : medalFor(info.time - info.delta, P), next = MEDALS[medalRank(got) - 1]?.[0];
+    const medal = `<div class="medalline">${got ? medalTag(got, medalRank(got) < medalRank(had)) : '<span>No Medal</span>'}`
       + `${next ? `<span>· ${(info.time - medalTime(next, P)).toFixed(2)} to ${next}</span>` : ''}</div>`;
-    const verdict = best ? `<span class="newbest">New best</span>${info.delta === null ? '' : `<span><span class="ahead">${signed(info.delta)}</span> on your old best</span>`}`
+    const verdict = newBest ? `<span class="newbest">New best</span>${info.delta === null ? '' : `<span><span class="ahead">${signed(info.delta)}</span> on your old best</span>`}`
       : info.delta === null ? '' : `<span><span class="behind">${signed(info.delta)}</span> to your best</span>`;
     return `<div class="result" style="${palette(t)}"><div class="where">${esc(t.name)} · ${lapsText(s.laps)}</div>`
       + `<div class="time">${fmt(info.time)}</div><div class="standing">`

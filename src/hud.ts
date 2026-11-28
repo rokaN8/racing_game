@@ -44,8 +44,8 @@ function countFrame() {
   fpsFrames = 0; fpsFrom = now;
 }
 
-// gap: the live gap to the Ghost, or null without one (or one saved before live gaps)
-export interface RunHud { time: number; lap: number; laps: number; best: number | null; gap: number | null }
+// liveGap: the live gap to the Ghost, or null without one (or one saved before live gaps)
+export interface RunHud { time: number; lap: number; laps: number; best: number | null; liveGap: number | null }
 // split: a Checkpoint's split against the Ghost, while it shows
 export function drawHud(st: BikeState, q: Quaternion, split: number | null, run: RunHud) {
   countFrame();
@@ -53,7 +53,7 @@ export function drawHud(st: BikeState, q: Quaternion, split: number | null, run:
   flag('final', run.laps > 1 && run.lap >= run.laps ? '1' : '');
   put(f.time, clock(run.time));
   // The split line: a Checkpoint's split pops in (a fresh .cp span) and holds; otherwise the live gap, which doesn't.
-  put(f.split, split !== null ? delta(split, ' cp') : run.gap === null ? '' : delta(run.gap), true);
+  put(f.split, split !== null ? delta(split, ' cp') : run.liveGap === null ? '' : delta(run.liveGap), true);
   put(f.lapTime, clock(st.lapTime));
   put(f.best, run.best === null ? '—' : clock(run.best));
   put(f.lap, String(Math.min(run.lap, run.laps)));

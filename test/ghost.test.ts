@@ -330,14 +330,14 @@ describe('Ghost', () => {
 
     it('is the time against the Ghost where you are, all the way round, matching the Checkpoint split', () => {
       const ghost = createGhost(memoryStorage(), TWO_CPS);
-      expect(ghost.gap(bikeAt())).toBeNull(); // no Ghost yet
+      expect(ghost.liveGap(bikeAt())).toBeNull(); // no Ghost yet
       ride(ghost);
       const gaps: number[] = [];
-      ride(ghost, Infinity, b => gaps.push(ghost.gap(b)!));
+      ride(ghost, Infinity, b => gaps.push(ghost.liveGap(b)!));
       expect(gaps).toHaveLength(199);
       for (const g of gaps) expect(g).toBeCloseTo(0, 6);
       let atCP: [number, number] | null = null;
-      ride(ghost, 30, (b, split) => { if (split !== null) atCP = [split, ghost.gap(b)!]; }); // behind by a crash at the Checkpoint
+      ride(ghost, 30, (b, split) => { if (split !== null) atCP = [split, ghost.liveGap(b)!]; }); // behind by a crash at the Checkpoint
       expect(atCP![0]).toBeCloseTo(crash(30), 6);
       expect(atCP![1]).toBeCloseTo(atCP![0], 2);
     });
@@ -346,13 +346,13 @@ describe('Ghost', () => {
       const clean = createGhost(memoryStorage(), TWO_CPS);
       ride(clean);
       const first: Record<string, number> = {}, last: Record<string, number> = {};
-      ride(clean, 60, b => { const g = clean.gap(b)!; first[b.s] ??= g; last[b.s] = g; });
+      ride(clean, 60, b => { const g = clean.liveGap(b)!; first[b.s] ??= g; last[b.s] = g; });
       expect(first[59.5]).toBeCloseTo(0, 6);      // just before the crash
       expect(last[50]).toBeCloseTo(crash(10), 6); // just after it: back 10 m, +3 s
       const crashed = createGhost(memoryStorage(), TWO_CPS);
       ride(crashed, 60);                        // the Ghost: to 60 m, back to 50 m with +3 s, on to the line
       const vs: Record<string, number> = {};
-      ride(crashed, Infinity, b => { vs[b.s] = crashed.gap(b)!; });
+      ride(crashed, Infinity, b => { vs[b.s] = crashed.liveGap(b)!; });
       expect(vs[55]).toBeCloseTo(0, 6);         // the Ghost first got here before its crash
       expect(vs[59.5]).toBeCloseTo(0, 6);
       expect(vs[80]).toBeCloseTo(-crash(10), 6); // and here only after it
@@ -369,7 +369,7 @@ describe('Ghost', () => {
         ride(old, Infinity, (b, split) => {
           if (split !== null) splits.push(split);
           posed &&= old.pose(new Vector3(), new Quaternion());
-          if (old.gap(b) !== null) gaps++;
+          if (old.liveGap(b) !== null) gaps++;
         });
         expect(posed).toBe(true);
         expect(splits).toEqual([expect.closeTo(0, 6)]);
