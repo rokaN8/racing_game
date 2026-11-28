@@ -58,6 +58,10 @@
 
 **Finish cam** — After the finish line, the camera's slow circle round the stopped Bike behind the Finish screen.
 
+**Reactive music** — The Song following the ride: muffled and thinner while Airborne, opening up the longer you fly; brighter on Boost; an extra lead on the final Lap.
+
+**Final-Lap layer** — The extra lead that joins the Song on a run's last Lap (in a 1-Lap run, after the last Checkpoint).
+
 **Wind** — The rush of air you hear rising with speed, gusting, and joined by a wobbling tone while Airborne. Sound only.
 
 **Rumble strip** — The pulsing buzz you hear near the Track edge, faster the quicker you ride, warning before you go off. A sound, not the gamepad's rumble.

@@ -87,7 +87,7 @@ Everything else below is struck through: cut while charting wave 2, or 🔒 and 
 
 ## E. Audio
 
-- [ ] **E1. Reactive music** [#87] (S/M). The Song follows the ride: drums drop out and a filter sweeps up while Airborne, the arp opens on Boost, an extra layer joins on the final Lap. Songs are already per-voice data; add a gain per voice. *Touches:* `audio.ts`.
+- [x] **E1. Reactive music** [#87] (S/M). The Song follows the ride: drums drop out and a filter sweeps up while Airborne, the arp opens on Boost, an extra layer joins on the final Lap. Songs are already per-voice data; add a gain per voice. Built as Underwater: drums sink and the mix muffles then opens in flight; a sawtooth lead on the final Lap; gains only for drums and the layer. *Touches:* `audio.ts`.
 - [x] **E2. Ghost whoosh** [#86] (S). A panned Doppler swish when you pass the Ghost or it passes you. Built as a tonal swoop panned to the Ghost's side. *Touches:* `audio.ts`, `main.ts`.
 - [x] **E3. Wind and grip** [#86] (S). Wind rising with speed, a hollow tone while Airborne, a hiss near the Track edge that warns before you go off. Built as gusty wind, a tremolo air tone and rumble-strip pulses from 2 m out. *Touches:* `audio.ts`.
 - [ ] ~~**E4. More Songs** (S each). A Finish sting, a Pause loop, a second Song per Track. Songs are 16-step data. *Touches:* `audio/songs.ts`, `TrackDef`.~~ Cut in wave 2; the new Tracks' Songs come with #76.

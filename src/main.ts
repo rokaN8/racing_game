@@ -1,7 +1,8 @@
 import { Vector3, WebGLRenderer } from 'three';
 import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { bar, beat, setMusic, sfx, updateEngine, updateWind } from './audio';
+import { bar, beat, setMusic, setReact, sfx, updateEngine, updateWind } from './audio';
+import { layerOn } from './audio/react';
 import { MENU_SONG } from './audio/songs';
 import { ghostPass } from './audio/wind';
 import { createChaseCamera } from './camera';
@@ -219,6 +220,8 @@ renderer.setAnimationLoop(now => {
     if (ghostPass(ghostAhead, ahead, dist)) sfx.whoosh(toGhost.dot(camRight) / Math.max(dist, 1));
     ghostAhead = ahead;
   } else ghostAhead = null;
+  // Reactive music (docs/game-spec.md → Reactive music): the Song follows the ride
+  setReact({ racing, air: st.mode === 'air', airT: st.airT, boost: st.boostT > 0, layer: layerOn(laps, ghost().run.length, st.lastCP, w.T.cpS.length) });
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
   const sinceKick = reducedMotion.matches ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
