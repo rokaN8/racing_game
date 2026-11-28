@@ -1,6 +1,7 @@
 // High scores and Ghost for one Track at one lap count (docs/game-spec.md → Storage). Keeps the top 5 run times (each
-// with its lap splits) and the recording of the fastest run, the Ghost, together under one storage key, so they can
-// never disagree. Records the Bike's pose every physics step and replays the Ghost sample by sample in step with the
+// with its lap splits) and best Sectors in localStorage, read at once, and the recording of the fastest run, the Ghost,
+// in the Ghost store (IndexedDB), loaded when a run on the Track starts. The stored Ghost carries its #1's time and
+// date, so the two can never disagree. Records the Bike's pose every physics step and replays the Ghost sample by sample in step with the
 // current run. Also keeps the Ghost's Checkpoint splits over the whole run, so each Checkpoint can show the time
 // against it. With no Ghost of your own, the Pilot Ghost stands in (docs/game-spec.md → Pilot Ghost). No rendering, no DOM.
 import type { Quaternion, Vector3 } from 'three';
@@ -23,9 +24,17 @@ export interface Score { time: number; date: number | null; lapTimes: number[] }
 // dist: [run distance, run time] pairs at 10 Hz, for the live gap; the time, since the run clock carries the penalties.
 // Null for a Ghost saved before there were distances.
 export interface Recording { poses: Float32Array; splits: number[]; dist: Float32Array | null }
-// poses, dist: base64 Float32Array. sectors: the best time ridden in each Sector (Checkpoint pass to the next, the
-// last to the finish) by any finished run; missing on a record from before Sectors.
-interface Saved { scores: Score[]; ghost: { poses: string; splits: number[]; dist?: string } | null; sectors?: number[] }
+// The localStorage record. sectors: the best time ridden in each Sector (Checkpoint pass to the next, the last to the
+// finish) by any finished run; missing on a record from before Sectors. ghost: only on a record from before the Ghost
+// store (poses, dist as base64 Float32Array), moved to the store when its Track loads.
+interface Inline { poses: string; splits: number[]; dist?: string }
+interface Saved { scores: Score[]; ghost?: Inline | null; sectors?: number[] }
+
+// Where Ghosts are kept (docs/game-spec.md → Storage): IndexedDB through ghostStore.ts, or a test's in-memory one. Each
+// key holds the Ghost with its #1's time and date, so a Ghost that no longer belongs to the #1 is dropped on load.
+// get() resolves undefined and put() false on any failure, and either may never settle (a blocked or hung database).
+export interface StoredGhost extends Recording { time: number; date: number | null }
+export interface GhostStore { get(key: string): Promise<unknown>; put(key: string, ghost: StoredGhost): Promise<boolean>; delete(key: string): void }
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -53,27 +62,29 @@ function remove(storage: Storage | null, key: string) {
   try { storage?.removeItem(key); } catch { /* blocked: nothing to remove */ }
 }
 
+// Whole `stride`-float records, all finite, or null.
+const floats = (v: unknown, stride: number) =>
+  v instanceof Float32Array && v.length > 0 && v.length % stride === 0 && v.every(Number.isFinite) ? v : null;
 // Base64 of whole `stride`-float records, or null.
 function decode(b64: unknown, stride: number): Float32Array | null {
   try {
     const bin = atob(b64 as string), bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const floats = new Float32Array(bytes.buffer); // throws on a length that isn't whole floats
-    return floats.length && !(floats.length % stride) && floats.every(Number.isFinite) ? floats : null;
+    return floats(new Float32Array(bytes.buffer), stride); // throws on a length that isn't whole floats
   } catch { return null; }
 }
-function encode(floats: Float32Array) {
-  const bytes = new Uint8Array(floats.buffer, floats.byteOffset, floats.byteLength);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin); // ~180 KB for a 40 s Lap
-}
 const cleanSplits = (splits: unknown) => (Array.isArray(splits) && splits.every(finite) ? splits : []);
+// A Ghost store value, or null when it's garbage.
+function fromStore(v: unknown): StoredGhost | null {
+  const r = v as Partial<StoredGhost> | null | undefined, poses = floats(r?.poses, STRIDE);
+  if (!r || !poses || !finite(r.time) || !(r.date === null || finite(r.date))) return null;
+  return { time: r.time, date: r.date, poses, splits: cleanSplits(r.splits), dist: floats(r.dist, 2) };
+}
 
 // A Track's saved record, or empty when missing or garbage. A Ghost or Sectors that don't decode are dropped; the
-// times stay.
-function load(storage: Storage | null, track: GhostTrack, laps: number): { scores: Score[]; ghost: Recording | null; sectors: number[] } {
-  const none = { scores: [], ghost: null, sectors: [] };
+// times stay. inline: the raw Ghost of a record from before the Ghost store, while it decodes.
+function readRecord(storage: Storage | null, track: GhostTrack, laps: number): { scores: Score[]; ghost: Recording | null; inline: Inline | null; sectors: number[] } {
+  const none = { scores: [], ghost: null, inline: null, sectors: [] };
   try {
     const { scores, ghost, sectors } = JSON.parse(read(storage, KEY(track.id, laps)) ?? 'null') as Saved;
     if (!Array.isArray(scores)) return none;
@@ -87,7 +98,7 @@ function load(storage: Storage | null, track: GhostTrack, laps: number): { score
     const sec = cleanSplits(sectors);
     return {
       scores: ok, ghost: poses && { poses, splits: cleanSplits(ghost!.splits), dist: decode(ghost!.dist, 2) },
-      sectors: sec.length === laps * track.cpS.length ? sec : [],
+      inline: poses && ghost!, sectors: sec.length === laps * track.cpS.length ? sec : [],
     };
   } catch { return none; }
 }
@@ -108,14 +119,19 @@ export function migrateOldGhost(storage: Storage | null, trackId: string) {
 // The Track as the Ghost needs it: its storage id, its length (for the run distance) and its Checkpoints.
 export interface GhostTrack { id: string; L: number; cpS: readonly number[] }
 
-export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1, now = () => Date.now()) {
+export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1, now = () => Date.now(), store: GhostStore | null = null) {
   const key = KEY(track.id, laps);
-  let { scores, ghost, sectors } = load(storage, track, laps);
-  const save = (r: Recording) => ({ poses: encode(r.poses), splits: r.splits, ...(r.dist && { dist: encode(r.dist) }) });
-  let saved = ghost && save(ghost); // kept so a finish outside #1 doesn't re-encode the Ghost
+  let { scores, ghost, inline, sectors } = readRecord(storage, track, laps);
+  let loading: Promise<void> | null = null;
+  let incoming: StoredGhost | null = null;          // the stored Ghost once load() has it, raced from the next run's start
+  const isOurs = (g: StoredGhost) => g.time === scores[0]?.time && g.date === scores[0].date; // it belongs to the #1
+  // The times, plus an inline Ghost until the Ghost store has it.
+  const writeRecord = () => write(storage, key, JSON.stringify({ scores, sectors, ...(inline && { ghost: inline }) } satisfies Saved));
   let pilot: Recording | null = null;               // the Pilot Ghost: raced while there's no Ghost of your own
   const rival = () => ghost ?? pilot;
-  // ponytail: the recording grows until the run ends (~24 MB/hour of never finishing); cap it if that ever matters.
+  // Recording stops at 5 min a Lap (the Pilot's give-up too), so a run that never finishes stops growing (~24 MB/hour);
+  // a run that long still ranks but keeps no Ghost.
+  const CAP = (laps * 300 / DT) * STRIDE;
   let recording: number[] = [], splits = [0], cpSeen = 1, lapTimes: number[] = [], seenLaps = 0;
   let dist: number[] = [], far = 0, was = [0, 0]; // distance samples; the furthest yet; last step's [distance, time]
   let lastRun: number[] | null = null; // the last finished run's lap times
@@ -139,12 +155,14 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
     lastRank = rank < MAX_SCORES ? rank + 1 : null;
     if (rank >= MAX_SCORES && !faster) return;
     if (rank < MAX_SCORES) scores = [...scores.slice(0, rank), { time, date: now(), lapTimes }, ...scores.slice(rank)].slice(0, MAX_SCORES);
-    if (rank === 0) { ghost = { poses: Float32Array.from(recording), splits, dist: Float32Array.from([...dist, laps * track.L, time]) }; saved = storage && save(ghost); }
-    if (!storage) return; // no storage (blocked, or the Pilot's run): don't encode ~1 MB for nowhere
-    // ponytail: a 5-lap Ghost is ~1.2 MB of base64 and every Track × lap count keeps one, which can pass the ~5 MB quota.
-    // Then the times are saved without it and the Ghost lives in memory only. Record at 60 Hz if that bites.
-    const rec: Saved = { scores, ghost: saved, sectors };
-    if (!write(storage, key, JSON.stringify(rec)) && ghost) write(storage, key, JSON.stringify({ ...rec, ghost: null }));
+    if (rank === 0) {
+      ghost = recording.length < CAP ? { poses: Float32Array.from(recording), splits, dist: Float32Array.from([...dist, laps * track.L, time]) } : null;
+      inline = null;
+    }
+    // The times first, then the Ghost. A put that fails leaves the Ghost in memory for the session, and next load the
+    // older stored one no longer matches the #1.
+    writeRecord();
+    if (rank === 0 && ghost) void store?.put(key, { ...ghost, time, date: scores[0].date });
   }
 
   return {
@@ -164,10 +182,21 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
     get needsPilot() { return !ghost && !pilot; },
     setPilot(run: Recording) { pilot = run; },
 
+    // Fetch this Track and lap count's Ghost from the Ghost store, once (main.ts: when a run on the Track starts).
+    // A record from before the Ghost store has its Ghost inline (raced straight away): move it to the store, and take
+    // it out of localStorage once the store has it. Done again on the next load if that fails or the tab closes first.
+    load() {
+      return loading ??= (async () => {
+        if (!inline) { incoming = fromStore(await store?.get(key)); return; }
+        if (await store?.put(key, { ...ghost!, time: scores[0].time, date: scores[0].date }) && inline) { inline = null; writeRecord(); }
+      })();
+    },
+
     // Call once per physics step, after step(). Crossing the line closes a Lap; closing the last Lap ranks the run.
     // Returns the time against the Ghost when this step first passes a Checkpoint (- = ahead), else null.
     record(bike: BikePose) {
       let split: number | null = null;
+      if (incoming && !recording.length) { if (isOurs(incoming)) ghost ??= incoming; incoming = null; } // only from a run's first step
       if (bike.laps < seenLaps) newRun();
       if (bike.laps > seenLaps && bike.lastLap !== null) {
         lapTimes = [...lapTimes, bike.lastLap]; cpSeen = 0; // the start line is this Lap's first Checkpoint pass
@@ -183,6 +212,7 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
       }
       // The run distance every 12th step, plus the furthest point before it goes back (a respawn), which a 10 Hz
       // sample could miss: the live gap looks up where the Ghost first got.
+      if (recording.length >= CAP) return split;
       if (d < was[0] && was[0] >= far) dist.push(...was);
       if (!((recording.length / STRIDE) % DIST_EVERY)) dist.push(d, runTime);
       far = Math.max(far, d); was = [d, runTime];
@@ -207,7 +237,8 @@ export function createGhost(storage: Storage | null, track: GhostTrack, laps = 1
     restart() { newRun(); seenLaps = 0; },
 
     // Reset these High scores: times and Ghost, in memory and in storage.
-    clear() { scores = []; ghost = null; saved = null; sectors = []; remove(storage, key); },
+    // A failed delete is harmless: with no #1 a stored Ghost is never raced.
+    clear() { scores = []; ghost = null; inline = null; sectors = []; remove(storage, key); store?.delete(key); },
 
     // The Ghost's pose at the current run's step. False when there is no Ghost or it has finished.
     pose(pos: Vector3, quat: Quaternion) {
