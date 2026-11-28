@@ -1,8 +1,9 @@
-import { WebGLRenderer } from 'three';
+import { Vector3, WebGLRenderer } from 'three';
 import { launchAtGo, newState, respawn, step } from './bike/physics';
 import { TUNING } from './bike/tuning';
-import { bar, beat, setMusic, sfx, updateEngine } from './audio';
+import { bar, beat, setMusic, sfx, updateEngine, updateWind } from './audio';
 import { MENU_SONG } from './audio/songs';
+import { ghostPass } from './audio/wind';
 import { createChaseCamera } from './camera';
 import { createGhost, migrateOldGhost, pilotRun, type Recording } from './ghost';
 import { openGhostStore } from './ghostStore';
@@ -148,6 +149,8 @@ let wreckT = 0;
 // Last frame's state, to spot sound and rumble events.
 let was = { mode: st.mode, respawns: st.respawns, lastCP: st.lastCP, laps: st.laps, boostT: st.boostT, padHits: st.padHits };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const toGhost = new Vector3(), camFwd = new Vector3(), camRight = new Vector3();
+let ghostAhead: number | null = null; // the Ghost's distance ahead of the camera last frame, for the Ghost whoosh
 renderer.setAnimationLoop(now => {
   const frame = Math.min(0.1, (now - last) / 1000); last = now; acc += frame;
   const inp = readInput();
@@ -206,6 +209,16 @@ renderer.setAnimationLoop(now => {
   const inMenu = menu.screen !== null && menu.screen !== 'pause' && menu.screen !== 'finish';
   setMusic(inMenu ? MENU_SONG : w.track.song, menu.screen === 'pause');
   updateEngine(phase === 'racing' && !frozen && !wrecked ? (st.mode === 'track' ? st.speed : st.vel.length()) : 0, st.mode === 'air');
+  // Wind and Ghost whoosh (docs/game-spec.md → Wind and Ghost whoosh). The Ghost is placed against the camera
+  // (last frame's): how far ahead of it, and how far to its side for the pan. A respawn starts the pass check over.
+  const speed = st.mode === 'track' ? Math.abs(st.speed) : st.vel.length(), racing = phase === 'racing' && !frozen && !wrecked;
+  updateWind(speed, st.mode === 'air', st.mode === 'track' ? w.T.halfWidth - Math.abs(st.d) : null, frame, racing);
+  if (racing && w.ghostBike.visible && !snap) {
+    toGhost.copy(w.ghostBike.position).sub(st.pos); camera.getWorldDirection(camFwd); camRight.setFromMatrixColumn(camera.matrixWorld, 0);
+    const ahead = toGhost.dot(camFwd), dist = toGhost.length();
+    if (ghostPass(ghostAhead, ahead, dist)) sfx.whoosh(toGhost.dot(camRight) / Math.max(dist, 1));
+    ghostAhead = ahead;
+  } else ghostAhead = null;
   // Track edges pulse on the live Song's kick: up to 1.3× brightness, gone in 0.15 s.
   const sinceKick = reducedMotion.matches ? null : beat();
   w.pulse(sinceKick === null ? 1 : 1 + 0.3 * Math.max(0, 1 - sinceKick / 0.15));
