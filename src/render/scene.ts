@@ -1,4 +1,4 @@
-// Track ribbon and thick neon edges, Bike and Ghost Bike (from bike.ts), grid floor, Light trail, bloom.
+// Track ribbon and thick neon edges, Rung ripple and Trackside scenery (render/scenery.ts), Bike and Ghost Bike (from bike.ts), grid floor, Light trail, bloom.
 import {
   AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, DoubleSide, Float32BufferAttribute,
   GridHelper, Group, HalfFloatType, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Points,
@@ -17,19 +17,20 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { sampleAt, type Track } from '../track/bake';
 import { createBikeModels, TRAIL_ANCHOR } from './bike';
+import { buildScenery, rippleGlow } from './scenery';
 import { color, css, derive, type Palette } from './palette';
 
 // Tunnel arch: radius, centre height over the deck, strand count (a ring clears the deck edges by ~1.5 m)
 const TUNNEL_R = 6.5, TUNNEL_H = 1.5, TUNNEL_STRANDS = 8;
 
 // Every colour comes from the Track's palette (render/palette.ts); the Bike, Ghost and Light trail stay fixed.
-export function createScene(T: Track, palette: Palette) {
+export function createScene(T: Track, palette: Palette, name: string) {
   const c = derive(palette);
   const scene = new Scene();
   scene.background = color(c.sky);
   const lineMats: LineMaterial[] = [];
 
-  const verts: number[] = [], idx: number[] = [], edge: Vector3[] = [], rungs: Vector3[] = [], cps: Vector3[] = [];
+  const verts: number[] = [], idx: number[] = [], edge: Vector3[] = [], rungs: Vector3[] = [], rungS: number[] = [], cps: Vector3[] = [];
   const lift = (v: Vector3, i: number) => v.clone().addScaledVector(T.up[i], 0.03);
   const L = (i: number) => T.pos[i].clone().addScaledVector(T.rgt[i], -T.halfWidth);
   const R = (i: number) => T.pos[i].clone().addScaledVector(T.rgt[i], T.halfWidth);
@@ -39,13 +40,27 @@ export function createScene(T: Track, palette: Palette) {
     const j = (i + 1) % T.N;
     idx.push(2 * i, 2 * j, 2 * i + 1, 2 * i + 1, 2 * j, 2 * j + 1);
     edge.push(lift(L(i), i), lift(L(j), j), lift(R(i), i), lift(R(j), j));
-    if (i % 4 === 0) rungs.push(lift(L(i), i), lift(R(i), i));
+    if (i % 4 === 0) { rungs.push(lift(L(i), i), lift(R(i), i)); rungS.push(i * T.ds); }
   }
   for (const s of T.cpS) { const i = Math.round(s / T.ds) % T.N; cps.push(lift(L(i), i), lift(R(i), i)); }
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(verts, 3)); g.setIndex(idx);
   scene.add(new Mesh(g, new MeshBasicMaterial({ color: c.fill, side: DoubleSide })));
-  scene.add(new LineSegments(new BufferGeometry().setFromPoints(rungs), new LineBasicMaterial({ color: c.rungs })));
+  // Rungs carry a colour per vertex for the Rung ripple (docs/game-spec.md → Trackside scenery): dim, lit towards the
+  // secondary by rippleGlow.
+  const rungGeo = new BufferGeometry().setFromPoints(rungs), rungCol = new Float32Array(rungs.length * 3);
+  rungGeo.setAttribute('color', new BufferAttribute(rungCol, 3));
+  scene.add(new LineSegments(rungGeo, new LineBasicMaterial({ vertexColors: true })));
+  const rungBase = new Color(c.rungs), rungLit = new Color(c.accent), tint = new Color();
+  // bikeS: the Bike's distance along the Track; bar: 0..1 through the Song's bar, null for no ripple
+  const ripple = (bikeS: number, bar: number | null) => {
+    for (let k = 0; k < rungS.length; k++) {
+      tint.copy(rungBase).lerp(rungLit, bar === null ? 0 : rippleGlow((((rungS[k] - bikeS) % T.L) + T.L) % T.L, bar));
+      tint.toArray(rungCol, 6 * k); tint.toArray(rungCol, 6 * k + 3);
+    }
+    rungGeo.attributes.color.needsUpdate = true;
+  };
+  ripple(0, null);
   const thick = (pts: Vector3[], color: number, px: number) => {
     const mat = new LineMaterial({ color, linewidth: px }); // linewidth in pixels
     lineMats.push(mat);
@@ -79,6 +94,7 @@ export function createScene(T: Track, palette: Palette) {
   }
   if (strands.length) { thick(strands, c.tunnel, 2); thick(rings, c.accent, 3); }
   finishBanner(T, scene, thick, c.accent, c.fill);
+  buildScenery(T, scene, thick, name, c);
 
   const grid = new GridHelper(3000, 150, c.gridMajor, c.gridMinor);
   grid.position.y = T.minY - 2; scene.add(grid);
@@ -92,7 +108,7 @@ export function createScene(T: Track, palette: Palette) {
 
   // thick lines are sized in pixels, so they need the canvas size
   const resizeLines = (w: number, h: number) => { for (const m of lineMats) m.resolution.set(w, h); };
-  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, horizon };
+  return { scene, bike, ghostBike, updateBike: bikeModels.update, trail: createTrail(scene), resizeLines, pulse, ripple, horizon };
 }
 
 // Synthwave horizon (docs/game-spec.md → Palettes): a striped sun where the start straight looks (`heading`, about +y
