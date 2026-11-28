@@ -114,7 +114,7 @@ All three cut in wave 2.
 
 The turtle builder and the shared Track tests make a new Track mostly data (plus a palette, a Song and its own test file).
 
-- [ ] **H1. Helix piece** [#75] (S). A turn past 360° with a steady rise: a spiral climb or descent (e.g. 540° at R40, +30 m). Mostly `turn` with a large `deg` and `rise`; the 8 m self-clearance rule applies.
+- [x] **H1. Helix piece** [#75] (S). A turn past 360° with a steady rise: a spiral climb or descent (e.g. 540° at R40, +30 m). Mostly `turn` with a large `deg` and `rise`; the 8 m self-clearance rule applies.
 - [ ] **H2. Tunnel** [#78] (S). Glowing rings around a straight, render only: a big rush of speed for free.
 - [ ] **H3. Double Loop** [#78] (S). Two Loops back to back, offset sideways. Existing Loop piece and its `drift`.
 - [ ] ~~**H4. Jump pad** (M). A pad that throws the Bike up without a Kicker, onto a Landing deck ahead. 🔒 new physics rule.~~ 🔒 not unlocked in wave 2.
